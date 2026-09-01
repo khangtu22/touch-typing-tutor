@@ -629,6 +629,30 @@ class ZenModeManager {
   }
 
   /**
+   * Render the current typing tokens in the zen typing area.
+   * @param {string} html
+   */
+  renderText(html) {
+    if (!this._overlay) return;
+    const area = this._overlay.querySelector('.zen-typing-area');
+    if (area) {
+      area.innerHTML = html;
+    }
+  }
+
+  /**
+   * Trigger error shake on the current character inside zen mode.
+   */
+  triggerError() {
+    if (!this._overlay) return;
+    const currentCharEl = this._overlay.querySelector('.char-current');
+    if (currentCharEl) {
+      currentCharEl.classList.add('char-error-shake');
+      setTimeout(() => currentCharEl.classList.remove('char-error-shake'), 250);
+    }
+  }
+
+  /**
    * Animate floating particles on the provided canvas element.
    * 28 softly glowing particles drift upward with a sine wobble and wrap.
    * @param {HTMLCanvasElement} canvas

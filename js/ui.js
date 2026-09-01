@@ -1301,8 +1301,6 @@ export class UIManager {
   }
 
   renderTypingText(text, currentIndex) {
-    if (!this.typingTextDisplay) return;
-
     let html = '';
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
@@ -1317,7 +1315,13 @@ export class UIManager {
       }
     }
 
-    this.typingTextDisplay.innerHTML = html;
+    if (this.typingTextDisplay) {
+      this.typingTextDisplay.innerHTML = html;
+    }
+
+    if (zenMode.isActive) {
+      zenMode.renderText(html);
+    }
   }
 
   handleTypingError(data) {
@@ -1330,6 +1334,10 @@ export class UIManager {
       currentCharEl.classList.add('char-error-shake');
       setTimeout(() => currentCharEl.classList.remove('char-error-shake'), 250);
     }
+
+    if (zenMode.isActive) {
+      zenMode.triggerError();
+    }
   }
 
   handleRoundFinished(data) {
@@ -1340,6 +1348,10 @@ export class UIManager {
     this.currentSessionSummary = summary;
     ghostRacer.stopRace();
     document.body.classList.remove('blind-mode-active');
+
+    if (zenMode.isActive) {
+      zenMode.exit();
+    }
 
     if (this.isFocusModeActive) {
       summary.inFocusMode = true;
@@ -2530,19 +2542,32 @@ export class UIManager {
     const zenLesson = CustomPracticeManager.createLessonFromText(`Zen: ${qotd.author}`, qotd.text);
     zenLesson.isZen = true;
 
+    this.startLesson(zenLesson);
+
     zenMode.enter((e) => {
+      sound.resume();
       if (this.activeScreen === 'lesson' && typingEngine.isActive) {
+        if (this.keyboardRenderer) {
+          this.keyboardRenderer.triggerPhysicalPress(e.code);
+        }
         typingEngine.handleKeyDown(e);
       }
     });
 
-    this.startLesson(zenLesson);
+    if (zenLesson.rounds && zenLesson.rounds[0]) {
+      this.renderTypingText(zenLesson.rounds[0], 0);
+    }
+
+    // Auto-start ambient soundscape (e.g. rain)
+    if (store.getState().settings.soundEnabled !== false && zenMode.zenSoundEngine) {
+      zenMode.zenSoundEngine.play('rain');
+    }
 
     // Track zen session
     store.update(prev => ({
       ...prev,
       zenSessionsCompleted: (prev.zenSessionsCompleted || 0) + 1,
-      zenSoundscapesUsed: Array.from(new Set([...(prev.zenSoundscapesUsed || []), zenMode.zenSoundEngine?.currentSoundscape || 'rain']))
+      zenSoundscapesUsed: Array.from(new Set([...(prev.zenSoundscapesUsed || []), 'rain']))
     }));
 
     AchievementEngine.evaluate(store);
