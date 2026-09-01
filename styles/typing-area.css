@@ -1,0 +1,200 @@
+/**
+ * Active Typing Area & Lesson HUD
+ * Text rendering, caret pulse, character tokens, and live telemetry.
+ */
+
+.lesson-screen-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Lesson HUD Header */
+.lesson-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 960px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 24px;
+}
+
+.hud-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hud-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hud-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hud-round-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--accent-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.hud-live-metrics {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.metric-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.metric-pill-val {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.metric-pill-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+/* Combo Badge */
+.combo-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--transition-fast);
+}
+
+.combo-pill.combo-hot {
+  border-color: var(--reward-amber);
+  background: rgba(255, 184, 107, 0.12);
+  box-shadow: 0 0 12px var(--reward-glow);
+}
+
+.combo-pill.combo-superhot {
+  border-color: var(--error-coral);
+  background: rgba(255, 92, 122, 0.15);
+  box-shadow: 0 0 16px var(--error-glow);
+  animation: comboPulse 1s infinite alternate;
+}
+
+@keyframes comboPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
+}
+
+/* Overall Progress Bar */
+.hud-progress-track {
+  width: 100%;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.hud-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--success-teal));
+  border-radius: var(--radius-full);
+  transition: width 0.15s ease-out;
+}
+
+/* Typing Text Card */
+.typing-box-card {
+  width: 100%;
+  max-width: 960px;
+  min-height: 140px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 32px 40px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.typing-text-display {
+  font-family: var(--font-mono);
+  font-size: var(--typing-font-size, 28px);
+  line-height: 1.6;
+  letter-spacing: 0.05em;
+  text-align: left;
+  width: 100%;
+  word-break: break-word;
+  white-space: pre-wrap;
+  user-select: none;
+}
+
+/* Character Token States */
+.char-token {
+  position: relative;
+  transition: color 0.08s ease, background 0.08s ease;
+}
+
+.char-upcoming {
+  color: var(--text-muted);
+}
+
+.char-correct {
+  color: var(--success-teal);
+}
+
+.char-current {
+  color: var(--text-primary);
+  background: rgba(124, 92, 252, 0.22);
+  border-radius: 3px;
+  font-weight: 700;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Caret Cursor Indicator */
+.char-caret {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: caretBlink 1s infinite ease-in-out;
+}
+
+@keyframes caretBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.char-error-shake {
+  color: var(--error-coral) !important;
+  background: rgba(255, 92, 122, 0.35) !important;
+  animation: keyShake 0.25s ease-in-out;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "KeyFlow • Touch Typing Tutor",
+  "short_name": "KeyFlow",
+  "description": "Premium Gamified 10-Finger Touch Typing Tutor & Muscle Memory System",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0F1117",
+  "theme_color": "#7C5CFC",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237C5CFC'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>⌨️</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

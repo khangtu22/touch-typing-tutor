@@ -1,0 +1,296 @@
+/**
+ * Global Design System & Variables
+ * Premium dark interface with subtle glassmorphism and modern typography.
+ */
+
+:root {
+  /* Color Palette */
+  --bg-base: #0F1117;
+  --surface-1: #151923;
+  --surface-2: #1B2030;
+  --surface-3: #232A3E;
+  --surface-glass: rgba(21, 25, 35, 0.75);
+
+  --accent-primary: #7C5CFC;
+  --accent-primary-hover: #6848E8;
+  --accent-glow: rgba(124, 92, 252, 0.35);
+
+  --success-teal: #00D4AA;
+  --success-glow: rgba(0, 212, 170, 0.35);
+
+  --reward-amber: #FFB86B;
+  --reward-glow: rgba(255, 184, 107, 0.35);
+
+  --error-coral: #FF5C7A;
+  --error-glow: rgba(255, 92, 122, 0.4);
+
+  --text-primary: #F5F7FA;
+  --text-secondary: #9AA3B2;
+  --text-muted: #5C6578;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.14);
+  --border-active: rgba(124, 92, 252, 0.5);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 24px var(--accent-glow);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, Monaco, monospace;
+
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* High Contrast Mode */
+body.high-contrast {
+  --bg-base: #050608;
+  --surface-1: #10141D;
+  --surface-2: #161B26;
+  --border-subtle: rgba(255, 255, 255, 0.25);
+  --border-light: rgba(255, 255, 255, 0.4);
+  --text-secondary: #CBD5E1;
+}
+
+/* Reduced Motion Mode */
+body.reduced-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Text Size Variations */
+body[data-text-size="small"] {
+  --typing-font-size: 22px;
+}
+body[data-text-size="medium"] {
+  --typing-font-size: 28px;
+}
+body[data-text-size="large"] {
+  --typing-font-size: 36px;
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, select {
+  font-family: inherit;
+}
+
+/* App Container Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Header Navigation */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.brand-icon {
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #7C5CFC, #4EA8DE);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.brand-name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.nav-center-stats {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-level-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent-primary);
+}
+
+.header-xp-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.header-xp-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.header-xp-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.header-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--success-teal));
+  border-radius: var(--radius-full);
+  transition: width var(--transition-smooth);
+}
+
+.header-streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.flame-icon {
+  font-size: 15px;
+  filter: grayscale(1);
+  opacity: 0.5;
+  transition: filter var(--transition-normal), transform var(--transition-fast);
+}
+
+.flame-icon.flame-active {
+  filter: grayscale(0);
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.nav-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.nav-btn.nav-btn-active {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+/* Screen Wrapper */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 24px 64px 24px;
+}
+
+.screen-view {
+  display: none;
+  width: 100%;
+  animation: fadeIn var(--transition-normal);
+}
+
+.screen-view.screen-active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,246 @@
+/**
+ * Keyboard-integrated hand guide.
+ * The overlay uses soft silhouettes and articulated finger details so the
+ * guide reads as a pair of hands without hiding the key legends underneath.
+ */
+
+.keyboard-hands-system {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.keyboard-reach-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 6px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.keyboard-reach-banner.reach-active {
+  border-color: var(--accent-primary);
+  background: #181E2E;
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.reach-mode-pill {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--accent-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.reach-instruction {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.reach-instruction strong {
+  color: var(--text-primary);
+}
+
+.keyboard-and-hands-stage {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.keyboard-hand-overlay-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  overflow: visible;
+}
+
+/* A palm with a defined heel, thumb web, and subtle contour details. */
+.palm-body {
+  filter: url(#handShadow);
+  stroke: rgba(163, 181, 219, 0.32);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
+
+.palm-highlight,
+.palm-crease {
+  fill: none;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.palm-highlight {
+  stroke: rgba(156, 177, 220, 0.2);
+  stroke-width: 4;
+}
+
+.palm-crease {
+  stroke: rgba(7, 11, 20, 0.38);
+  stroke-width: 3;
+}
+
+.overlay-finger-group {
+  transition: opacity 0.18s ease;
+}
+
+.finger-shadow {
+  fill: rgba(4, 8, 16, 0.46);
+  stroke: rgba(4, 8, 16, 0.28);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  transform: translate(0, 5px);
+}
+
+/* The body is a tapered closed shape rather than a uniform line. */
+.finger-segment-path {
+  fill: url(#fingerGrad);
+  stroke: rgba(153, 174, 215, 0.38);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+}
+
+.finger-highlight {
+  fill: none;
+  stroke: rgba(202, 216, 244, 0.16);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.finger-joint {
+  fill: rgba(15, 22, 37, 0.35);
+  stroke: rgba(184, 202, 237, 0.22);
+  stroke-width: 1;
+}
+
+.joint-mid {
+  opacity: 0.6;
+}
+
+.fingertip-circle {
+  fill: rgba(18, 26, 43, 0.94);
+  stroke: rgba(219, 229, 250, 0.56);
+  stroke-width: 1.4;
+}
+
+.fingernail {
+  fill: rgba(194, 211, 242, 0.17);
+  stroke: rgba(225, 234, 255, 0.3);
+  stroke-width: 0.8;
+}
+
+.fingertip-key-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  fill: var(--text-secondary);
+  text-anchor: middle;
+  dominant-baseline: central;
+  user-select: none;
+}
+
+.homing-nub-indicator {
+  fill: var(--accent-primary);
+  opacity: 0.9;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+/* Active reaches carry the finger colour while retaining the hand shape. */
+.overlay-finger-group.finger-on-key-active .finger-segment-path {
+  fill: var(--finger-color, var(--accent-primary));
+  stroke: rgba(255, 255, 255, 0.78);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 11px var(--finger-glow, var(--accent-glow)));
+}
+
+.overlay-finger-group.finger-on-key-active .finger-shadow {
+  opacity: 0.75;
+}
+
+.overlay-finger-group.finger-on-key-active .finger-highlight {
+  stroke: rgba(255, 255, 255, 0.48);
+}
+
+.overlay-finger-group.finger-on-key-active .fingertip-circle {
+  fill: var(--finger-color, var(--accent-primary));
+  stroke: #FFFFFF;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 13px var(--finger-glow, var(--accent-glow)));
+  animation: fingertipPulse 900ms ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.overlay-finger-group.finger-on-key-active .fingernail {
+  fill: rgba(255, 255, 255, 0.62);
+  stroke: rgba(255, 255, 255, 0.9);
+}
+
+.overlay-finger-group.finger-on-key-active .fingertip-key-label {
+  fill: #FFFFFF;
+  font-weight: 900;
+}
+
+.overlay-finger-group.finger-shift-holding .finger-segment-path {
+  fill: var(--reward-amber);
+  stroke: rgba(255, 255, 255, 0.78);
+  filter: drop-shadow(0 0 10px var(--reward-glow));
+}
+
+.overlay-finger-group.finger-shift-holding .fingertip-circle {
+  fill: var(--reward-amber);
+  stroke: #FFFFFF;
+}
+
+.overlay-finger-group.finger-shift-holding .fingertip-key-label {
+  fill: #000000;
+  font-weight: 900;
+}
+
+@keyframes fingertipPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.mech-kb-slot {
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .keyboard-reach-banner {
+    max-width: calc(100% - 18px);
+    padding-inline: 12px;
+  }
+
+  .reach-instruction {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keyboard-reach-banner,
+  .overlay-finger-group,
+  .fingertip-circle {
+    transition: none;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,215 @@
+/**
+ * Custom Practice & Code Studio Styles
+ */
+
+.custom-arena-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.custom-arena-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.custom-arena-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.custom-arena-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Arena Tab Switcher */
+.arena-tab-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 10px;
+}
+
+.arena-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--transition-fast);
+}
+
+.arena-tab-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.arena-tab-btn.tab-active {
+  background: var(--accent-primary);
+  color: #FFFFFF;
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+/* Custom Sub-Screens */
+.custom-sub-view {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.custom-sub-view.sub-active {
+  display: flex;
+}
+
+/* Textarea & Code Editor */
+.custom-editor-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.custom-textarea {
+  width: 100%;
+  min-height: 180px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.custom-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editor-counter {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Code Presets Grid */
+.code-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.code-preset-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.code-preset-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-primary);
+  box-shadow: 0 6px 18px var(--accent-glow);
+}
+
+.preset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.preset-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preset-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.preset-code-snippet {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  border-radius: 6px;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 80px;
+}
+
+/* Sprints Section */
+.sprints-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.sprint-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.sprint-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--reward-amber);
+  box-shadow: 0 8px 24px var(--reward-glow);
+}
+
+.sprint-time {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.sprint-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--reward-amber);
+}
+
+.sprint-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

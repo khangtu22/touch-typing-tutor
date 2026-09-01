@@ -1,0 +1,319 @@
+/**
+ * Results Screen & Session Diagnostics Styles
+ * Star celebrations, metrics grids, SVG velocity graph, and weak key coaching cards.
+ */
+
+.results-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Results Hero Card */
+.results-hero-card {
+  width: 100%;
+  background: linear-gradient(135deg, #161B27 0%, #1E2538 100%);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+
+.results-stars-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.result-star {
+  font-size: 38px;
+  color: #2F374A;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.result-star.star-awarded {
+  color: var(--reward-amber);
+  text-shadow: 0 0 20px var(--reward-glow);
+  transform: scale(1.2);
+  animation: starPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes starPop {
+  0% { transform: scale(0.4) rotate(-30deg); opacity: 0; }
+  70% { transform: scale(1.35) rotate(10deg); }
+  100% { transform: scale(1.2) rotate(0deg); opacity: 1; }
+}
+
+.results-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.results-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.results-mastery-card {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.results-mastery-card.mastered-result {
+  border-color: rgba(48, 205, 180, 0.32);
+  background: linear-gradient(135deg, rgba(48, 205, 180, 0.1), var(--surface-1) 60%);
+}
+
+.results-mastery-card.review-result {
+  border-color: rgba(255, 177, 67, 0.3);
+  background: linear-gradient(135deg, rgba(255, 177, 67, 0.09), var(--surface-1) 60%);
+}
+
+.results-mastery-card.placement-result {
+  border-color: rgba(75, 166, 255, 0.3);
+  background: linear-gradient(135deg, rgba(75, 166, 255, 0.1), var(--surface-1) 60%);
+}
+
+.mastery-result-icon {
+  align-items: center;
+  background: var(--surface-3);
+  border-radius: 10px;
+  display: flex;
+  flex: 0 0 38px;
+  font-size: 20px;
+  height: 38px;
+  justify-content: center;
+}
+
+.mastery-result-kicker {
+  color: var(--text-muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.results-mastery-card h3 {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.results-mastery-card p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+.results-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+  margin-top: 28px;
+}
+
+.result-metric-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.result-metric-card .metric-val {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.result-metric-card .metric-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.result-metric-card .metric-target {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.result-metric-card .metric-target.target-met {
+  color: var(--success-teal);
+  font-weight: 600;
+}
+
+/* Velocity Sparkline Graph Card */
+.results-graph-card {
+  width: 100%;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sparkline-wrapper {
+  width: 100%;
+  height: 140px;
+  overflow: hidden;
+}
+
+.wpm-sparkline-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sparkline-axis-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+.sparkline-avg-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sparkline-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Recommendations & Feedback */
+.results-feedback-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.recommendation-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rec-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-icon {
+  font-size: 16px;
+}
+
+.rec-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rec-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.rec-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* XP Progress Card */
+.results-xp-card {
+  width: 100%;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.xp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.xp-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--success-teal));
+  border-radius: var(--radius-full);
+  transition: width var(--transition-smooth);
+}
+
+/* Result Actions */
+.results-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+}

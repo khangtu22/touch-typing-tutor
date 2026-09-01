@@ -1,0 +1,106 @@
+/**
+ * Ghost Racer & Bot Competitors Track Styles
+ */
+
+.race-track-container {
+  width: 100%;
+  max-width: 960px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.race-track-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.race-competitor-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.race-delta-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.race-delta-chip.leading {
+  background: rgba(0, 212, 170, 0.15);
+  color: var(--success-teal);
+  border: 1px solid rgba(0, 212, 170, 0.3);
+}
+
+.race-delta-chip.trailing {
+  background: rgba(255, 92, 122, 0.15);
+  color: var(--error-coral);
+  border: 1px solid rgba(255, 92, 122, 0.3);
+}
+
+.race-delta-chip.tied {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+/* Dual Race Lanes */
+.race-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.race-lane {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.race-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  transition: left 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.race-marker.marker-user {
+  background: var(--accent-primary);
+  border: 1.5px solid #FFFFFF;
+}
+
+.race-marker.marker-competitor {
+  background: #363F54;
+  border: 1.5px solid var(--border-light);
+}
+
+.race-finish-flag {
+  position: absolute;
+  right: 6px;
+  font-size: 12px;
+  opacity: 0.6;
+}

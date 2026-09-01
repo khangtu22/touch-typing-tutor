@@ -1,0 +1,113 @@
+/**
+ * Custom Keycap Themes & Palette Presets
+ * Instant live theme switching without page reload.
+ */
+
+/* 1. Theme: Dark Flow (Default) */
+body.theme-dark {
+  --bg-base: #0F1117;
+  --surface-1: #151923;
+  --surface-2: #1B2030;
+  --surface-3: #232A3E;
+  --accent-primary: #7C5CFC;
+  --accent-primary-hover: #6848E8;
+  --accent-glow: rgba(124, 92, 252, 0.35);
+  --success-teal: #00D4AA;
+  --reward-amber: #FFB86B;
+}
+
+/* 2. Theme: Retro 1984 (Classic IBM Model M) */
+body.theme-retro {
+  --bg-base: #1C1D21;
+  --surface-1: #282A30;
+  --surface-2: #343740;
+  --surface-3: #414552;
+  --accent-primary: #FF8C00; /* Amber LED */
+  --accent-primary-hover: #E07B00;
+  --accent-glow: rgba(255, 140, 0, 0.35);
+  --success-teal: #48BB78;
+  --reward-amber: #ECC94B;
+  --text-primary: #F0EDE5;
+  --text-secondary: #C8C2B4;
+}
+body.theme-retro .keycap {
+  background: #D8D2C2;
+  box-shadow: 0 4px 0 #9E9785, 0 5px 6px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+body.theme-retro .key-legend-primary,
+body.theme-retro .key-legend-special {
+  color: #1A1A1A;
+}
+body.theme-retro .key-legend-shift {
+  color: #615E57;
+}
+
+/* 3. Theme: Cyberpunk Neon */
+body.theme-cyberpunk {
+  --bg-base: #090114;
+  --surface-1: #140529;
+  --surface-2: #210A42;
+  --surface-3: #321063;
+  --accent-primary: #00F0FF; /* Electric Cyan */
+  --accent-primary-hover: #00C8D6;
+  --accent-glow: rgba(0, 240, 255, 0.45);
+  --success-teal: #00FF66;
+  --reward-amber: #FFE600;
+  --error-coral: #FF007F; /* Hot Pink */
+}
+body.theme-cyberpunk .keycap {
+  background: #180830;
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 4px 0 #080012, 0 0 10px rgba(255, 0, 127, 0.2);
+}
+
+/* 4. Theme: Botanical Forest */
+body.theme-botanical {
+  --bg-base: #0B170E;
+  --surface-1: #132418;
+  --surface-2: #1B3322;
+  --surface-3: #264530;
+  --accent-primary: #52B788; /* Sage Emerald */
+  --accent-primary-hover: #40916C;
+  --accent-glow: rgba(82, 183, 136, 0.35);
+  --success-teal: #74C69D;
+  --reward-amber: #D8F3DC;
+}
+body.theme-botanical .keycap {
+  background: #172D1E;
+  border-color: rgba(82, 183, 136, 0.25);
+  box-shadow: 0 4px 0 #09130C, 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* 5. Theme: Tokyo Night / Dracula */
+body.theme-tokyo {
+  --bg-base: #1A1B26;
+  --surface-1: #24283B;
+  --surface-2: #2E344F;
+  --surface-3: #3B4263;
+  --accent-primary: #BB9AF7; /* Pastel Violet */
+  --accent-primary-hover: #A476F5;
+  --accent-glow: rgba(187, 154, 247, 0.35);
+  --success-teal: #7DCFFF;
+  --reward-amber: #E0AF68;
+}
+body.theme-tokyo .keycap {
+  background: #202436;
+  border-color: rgba(187, 154, 247, 0.2);
+  box-shadow: 0 4px 0 #13151F, 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Blind Mode Keycaps */
+.keyboard-blind-mode .key-legend-primary,
+.keyboard-blind-mode .key-legend-shift,
+.keyboard-blind-mode .key-legend-special {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.blind-mode-active .char-upcoming,
+.blind-mode-active .char-current {
+  filter: blur(8px);
+  user-select: none;
+}
