@@ -798,20 +798,24 @@ class ZenModeManager {
     const controls = document.createElement('div');
     controls.className = 'zen-controls';
     controls.style.cssText = [
-      'position:relative',
-      'z-index:1',
-      'margin-top:28px',
+      'position:fixed',
+      'bottom:36px',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'z-index:10',
       'display:flex',
       'align-items:center',
       'gap:10px',
-      'padding:12px 20px',
-      'background:rgba(255,255,255,0.05)',
-      'backdrop-filter:blur(16px)',
-      '-webkit-backdrop-filter:blur(16px)',
-      'border:1px solid rgba(255,255,255,0.09)',
+      'padding:10px 20px',
+      'background:rgba(20, 16, 38, 0.85)',
+      'backdrop-filter:blur(20px)',
+      '-webkit-backdrop-filter:blur(20px)',
+      'border:1px solid rgba(255,255,255,0.12)',
       'border-radius:50px',
-      'flex-wrap:wrap',
+      'flex-wrap:nowrap',
       'justify-content:center',
+      'box-shadow:0 8px 32px rgba(0,0,0,0.55)',
+      'margin:0',
     ].join(';');
 
     // Soundscape buttons
@@ -946,15 +950,19 @@ class ZenModeManager {
     hint.className = 'zen-hint';
     hint.textContent = 'Press Esc to exit Zen Mode';
     hint.style.cssText = [
-      'position:relative',
-      'z-index:1',
-      'margin-top:20px',
-      'color:rgba(255,255,255,0.2)',
+      'position:fixed',
+      'bottom:12px',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'z-index:10',
+      'margin:0',
+      'color:rgba(255,255,255,0.3)',
       'font-size:11px',
       'letter-spacing:0.08em',
       'text-transform:uppercase',
       'pointer-events:none',
       'user-select:none',
+      'white-space:nowrap',
     ].join(';');
     overlay.appendChild(hint);
 

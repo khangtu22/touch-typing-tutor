@@ -187,19 +187,38 @@ body.focus-mode-active .hud-live-metrics {
 
 .zen-controls {
   position: fixed;
-  bottom: 32px;
+  bottom: 36px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 3;
+  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  background: rgba(15, 10, 30, 0.85);
-  border: 1px solid rgba(124, 92, 252, 0.2);
+  gap: 10px;
+  padding: 10px 20px;
+  background: rgba(20, 16, 38, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   backdrop-filter: blur(20px);
-  animation: zenFadeIn 1s ease;
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  animation: zenFadeIn 0.8s ease;
+}
+
+.zen-hint {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .zen-controls .zen-sound-btn {
