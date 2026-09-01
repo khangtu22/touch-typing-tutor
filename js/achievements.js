@@ -207,6 +207,96 @@ export const ACHIEVEMENTS = [
       }
       return true;
     }
+  },
+  // --- Premium Achievements ---
+  {
+    id: 'quote_collector',
+    title: 'Quote Collector',
+    description: 'Practice with 10 different quotes from the Quote Vault.',
+    icon: '📖',
+    category: 'premium',
+    xpBonus: 100,
+    check: (state) => (state.quotesPracticed || []).length >= 10
+  },
+  {
+    id: 'zen_master',
+    title: 'Zen Master',
+    description: 'Complete 5 Zen Mode typing sessions.',
+    icon: '🧘',
+    category: 'premium',
+    xpBonus: 150,
+    check: (state) => (state.zenSessionsCompleted || 0) >= 5
+  },
+  {
+    id: 'multilingual',
+    title: 'Multilingual',
+    description: 'Practice typing in 3 different languages.',
+    icon: '🌍',
+    category: 'premium',
+    xpBonus: 200,
+    check: (state) => (state.languagesPracticed || []).length >= 3
+  },
+  {
+    id: 'focus_master',
+    title: 'Deep Focus',
+    description: 'Complete a lesson in Focus Mode.',
+    icon: '🎯',
+    category: 'premium',
+    xpBonus: 75,
+    check: (state) => (state.sessions || []).some(s => s.inFocusMode === true)
+  },
+  {
+    id: 'theme_creator',
+    title: 'Theme Creator',
+    description: 'Create your first custom keyboard theme.',
+    icon: '🎨',
+    category: 'premium',
+    xpBonus: 50,
+    check: () => {
+      try {
+        const themes = JSON.parse(localStorage.getItem('typing_tutor_custom_themes') || '[]');
+        return themes.length >= 1;
+      } catch { return false; }
+    }
+  },
+  {
+    id: 'goal_achiever',
+    title: 'Goal Achiever',
+    description: 'Meet your daily practice goal 3 days in a row.',
+    icon: '🏅',
+    category: 'premium',
+    xpBonus: 125,
+    check: (state) => (state.goalStreakDays || 0) >= 3
+  },
+  {
+    id: 'literary_typist',
+    title: 'Literary Typist',
+    description: 'Practice 5 literature quotes from the Quote Vault.',
+    icon: '📚',
+    category: 'premium',
+    xpBonus: 75,
+    check: (state) => (state.quotesPracticed || []).filter(id => {
+      // literature quotes have id starting with 'lit_' (set by Quote Vault data)
+      return typeof id === 'string' && id.startsWith('lit_');
+    }).length >= 5
+  },
+  {
+    id: 'sonic_explorer',
+    title: 'Sonic Explorer',
+    description: 'Try all 5 Zen Mode ambient soundscapes.',
+    icon: '🎵',
+    category: 'premium',
+    xpBonus: 75,
+    check: (state) => (state.zenSoundscapesUsed || []).length >= 5
+  },
+  {
+    id: 'wellness_champion',
+    title: 'Wellness Champion',
+    description: 'Take 10 ergonomic break reminders.',
+    icon: '🧘‍♂️',
+    category: 'premium',
+    xpBonus: 100,
+    check: (state) => (state.breaksTaken || 0) >= 10
   }
 ];
 
@@ -233,10 +323,11 @@ export class AchievementEngine {
     });
 
     if (newlyUnlocked.length > 0) {
+      const totalXpBonus = newlyUnlocked.reduce((sum, ach) => sum + (ach.xpBonus || 50), 0);
       stateStore.update(prev => ({
         ...prev,
         achievementsUnlocked: currentUnlocked,
-        xp: prev.xp + newlyUnlocked.length * 50 // Bonus XP for unlocking achievements
+        xp: prev.xp + totalXpBonus
       }));
 
       sound.playAchievement();

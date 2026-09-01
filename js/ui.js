@@ -1,7 +1,8 @@
 /**
- * UI & Screen Coordinator (Expanded Suite)
+ * UI & Screen Coordinator (Expanded Suite v3.0 — Premium Edition)
  * Manages view routing, Custom Arena, Ghost Racing HUD, Theme live switcher,
- * Multi-layout key remapping, and JSON Backup & Restore.
+ * Multi-layout key remapping, JSON Backup & Restore, and all Premium Features:
+ * Focus Mode, Zen Mode, Quote Vault, Goal Rings, Theme Studio, Advanced Analytics.
  */
 
 import { store, getLevelProgress } from './state.js';
@@ -18,6 +19,11 @@ import { ghostRacer } from './ghost-racer.js';
 import { CODE_PRESETS, createPlacementLesson, CustomPracticeManager } from './custom-practice.js';
 import { LAYOUTS } from './layouts.js';
 import { getLessonMastery, getPlacementRecommendation, getReviewQueue } from './mastery.js';
+import { focusMode, zenMode } from './focus-zen.js';
+import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js';
+import { themeStudio, renderThemeStudioUI } from './theme-studio.js';
+import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js';
+import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, generateLanguagePractice } from './premium-features.js';
 
 const escapeHtml = value => String(value)
   .replace(/&/g, '&amp;')
@@ -33,7 +39,10 @@ export class UIManager {
     this.handRenderer = null;
     this.currentLessonData = null;
     this.currentSessionSummary = null;
-    this.activeArenaTab = 'code'; // 'paste' | 'code' | 'sprint'
+    this.activeArenaTab = 'code'; // 'paste' | 'code' | 'sprint' | 'quotes' | 'language'
+    this.activeQuoteCategory = null;
+    this.activeQuoteDifficulty = null;
+    this.isFocusModeActive = false;
 
     this.initElements();
     this.initEventListeners();
@@ -48,7 +57,8 @@ export class UIManager {
       lesson: document.getElementById('screen-lesson'),
       results: document.getElementById('screen-results'),
       profile: document.getElementById('screen-profile'),
-      settings: document.getElementById('screen-settings')
+      settings: document.getElementById('screen-settings'),
+      quotes: document.getElementById('screen-quotes')
     };
 
     this.toastContainer = document.getElementById('toast-container');
@@ -60,6 +70,9 @@ export class UIManager {
     this.navCustomBtn = document.getElementById('nav-custom-btn');
     this.navProfileBtn = document.getElementById('nav-profile-btn');
     this.navSettingsBtn = document.getElementById('nav-settings-btn');
+    this.navQuotesBtn = document.getElementById('nav-quotes-btn');
+    this.navPremiumBtn = document.getElementById('nav-premium-btn');
+    this.navShortcutsBtn = document.getElementById('nav-shortcuts-btn');
 
     // Lesson Screen HUD elements
     this.lessonTitleEl = document.getElementById('hud-lesson-title');
@@ -88,6 +101,9 @@ export class UIManager {
     if (this.navCustomBtn) this.navCustomBtn.addEventListener('click', () => this.navigateTo('custom'));
     if (this.navProfileBtn) this.navProfileBtn.addEventListener('click', () => this.navigateTo('profile'));
     if (this.navSettingsBtn) this.navSettingsBtn.addEventListener('click', () => this.navigateTo('settings'));
+    if (this.navQuotesBtn) this.navQuotesBtn.addEventListener('click', () => this.navigateTo('quotes'));
+    if (this.navPremiumBtn) this.navPremiumBtn.addEventListener('click', () => this.navigateTo('settings'));
+    if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
 
     // Global Keydown Handler
     window.addEventListener('keydown', (e) => {
@@ -95,6 +111,9 @@ export class UIManager {
 
       if (e.key === 'Escape' && this.activeScreen === 'lesson') {
         e.preventDefault();
+        // Exit Zen or Focus mode first before pausing
+        if (zenMode.isActive) { zenMode.exit(); return; }
+        if (this.isFocusModeActive) { this.exitFocusMode(); return; }
         this.toggleLessonPause();
         return;
       }
@@ -120,6 +139,52 @@ export class UIManager {
         }
         typingEngine.handleKeyDown(e);
       }
+
+      // --- Global Premium Shortcuts (only when not typing in a lesson) ---
+      if (this.activeScreen !== 'lesson' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = e.target?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+        switch (e.key.toLowerCase()) {
+          case 'z':
+            if (this.activeScreen === 'dashboard') {
+              e.preventDefault();
+              this.launchZenMode();
+            }
+            break;
+          case 'f':
+            if (this.activeScreen === 'lesson' || this.activeScreen === 'dashboard') {
+              const state = store.getState();
+              if (state.settings?.wellness?.focusModeShortcut !== false) {
+                e.preventDefault();
+                if (this.activeScreen === 'lesson') this.toggleFocusMode();
+              }
+            }
+            break;
+          case 'a':
+            if (this.activeScreen !== 'profile') {
+              e.preventDefault();
+              this.navigateTo('profile');
+            }
+            break;
+          case 'g':
+            if (this.activeScreen !== 'settings') {
+              e.preventDefault();
+              this.navigateTo('settings');
+            }
+            break;
+          case 'q':
+            if (this.activeScreen !== 'quotes') {
+              e.preventDefault();
+              this.navigateTo('quotes');
+            }
+            break;
+          case '?':
+            e.preventDefault();
+            this.showShortcutsPopup();
+            break;
+        }
+      }
     });
 
     // Handle typing engine callbacks
@@ -140,7 +205,23 @@ export class UIManager {
       sound.setVolume(state.settings.soundVolume);
       sound.setSwitchProfile(state.settings.switchProfile);
 
-      // Themes
+      // Themes: check if a custom theme is selected
+      if (state.settings.customThemeId) {
+        try {
+          const customThemes = JSON.parse(localStorage.getItem('typing_tutor_custom_themes') || '[]');
+          const customTheme = customThemes.find(t => t.id === state.settings.customThemeId);
+          if (customTheme) {
+            themeStudio.applyTheme(customTheme);
+          } else {
+            themeStudio.resetToBuiltIn();
+          }
+        } catch {
+          themeStudio.resetToBuiltIn();
+        }
+      } else {
+        themeStudio.resetToBuiltIn();
+      }
+
       document.body.className = '';
       document.body.classList.add(`theme-${state.settings.theme || 'dark'}`);
       document.body.classList.toggle('high-contrast', !!state.settings.highContrast);
@@ -193,11 +274,13 @@ export class UIManager {
 
     if (this.navDashboardBtn) this.navDashboardBtn.classList.toggle('nav-btn-active', screenName === 'dashboard');
     if (this.navCustomBtn) this.navCustomBtn.classList.toggle('nav-btn-active', screenName === 'custom');
+    if (this.navQuotesBtn) this.navQuotesBtn.classList.toggle('nav-btn-active', screenName === 'quotes');
     if (this.navProfileBtn) this.navProfileBtn.classList.toggle('nav-btn-active', screenName === 'profile');
     if (this.navSettingsBtn) this.navSettingsBtn.classList.toggle('nav-btn-active', screenName === 'settings');
 
     if (screenName === 'dashboard') this.renderDashboard();
     if (screenName === 'custom') this.renderCustomArena();
+    if (screenName === 'quotes') this.renderQuoteVault();
     if (screenName === 'profile') this.renderProfile();
     if (screenName === 'settings') this.renderSettings();
   }
@@ -209,12 +292,19 @@ export class UIManager {
     const xpFill = document.getElementById('nav-xp-fill');
     const streakCount = document.getElementById('nav-streak-count');
     const streakFlame = document.getElementById('nav-streak-flame');
+    const premiumLabel = document.getElementById('nav-premium-label');
+    const premiumBtn = document.getElementById('nav-premium-btn');
 
     if (levelBadge) levelBadge.textContent = `Lvl ${lvlInfo.currentLvl}`;
     if (xpText) xpText.textContent = `${state.xp.toLocaleString()} XP`;
     if (xpFill) xpFill.style.width = `${lvlInfo.pct}%`;
     if (streakCount) streakCount.textContent = `${state.dailyStreak}`;
     if (streakFlame) streakFlame.classList.toggle('flame-active', state.dailyStreak > 0);
+    if (premiumLabel) premiumLabel.textContent = state.settings.isPremium ? 'PRO' : 'Free';
+    if (premiumBtn) {
+      premiumBtn.classList.toggle('premium-active', !!state.settings.isPremium);
+      premiumBtn.title = state.settings.isPremium ? 'Premium Active (Click to configure)' : 'Upgrade to Premium (Click to unlock)';
+    }
   }
 
   // ==========================================
@@ -354,6 +444,61 @@ export class UIManager {
   // ==========================================
   // DASHBOARD SCREEN
   // ==========================================
+  getAdaptiveFocusCoach2(state) {
+    const keyStats = state.keyStats || {};
+    
+    // Check per-finger accuracy
+    const fingerMastery = AnalyticsEngine.getFingerMastery(keyStats);
+    const practicedFingers = fingerMastery.filter(f => f.totalAttempts >= 6);
+    const weakFinger = practicedFingers.sort((a, b) => a.accuracy - b.accuracy)[0];
+    
+    if (weakFinger && weakFinger.accuracy < 85) {
+      const targetKeys = Object.entries(KEY_TO_FINGER)
+        .filter(([k, fId]) => fId === weakFinger.finger.id)
+        .map(([k]) => k.toUpperCase())
+        .slice(0, 6);
+      
+      const explanation = `Your ${weakFinger.finger.name.toLowerCase()} accuracy dropped to ${weakFinger.accuracy}%. This drill targets ${targetKeys.join(' ')}.`;
+      const drillLesson = generateWeakFingerLesson(weakFinger.finger);
+      drillLesson.title = `Focus Coach 2.0: ${weakFinger.finger.name} Drill`;
+      drillLesson.subtitle = explanation;
+      
+      return {
+        hasDrill: true,
+        type: 'finger',
+        title: `Strengthen ${weakFinger.finger.name}`,
+        explanation,
+        accuracy: weakFinger.accuracy,
+        keys: targetKeys,
+        lesson: drillLesson
+      };
+    }
+    
+    // Check weak keys
+    const weakKeys = AnalyticsEngine.getWeakKeys(keyStats, 4).filter(k => k.accuracy < 85);
+    if (weakKeys.length > 0) {
+      const keys = weakKeys.map(k => k.char);
+      const keysDisplay = keys.map(k => k === ' ' ? 'Space' : k.toUpperCase()).join(' ');
+      const lowestAcc = Math.min(...weakKeys.map(k => k.accuracy));
+      const explanation = `Your accuracy on ${keysDisplay} dropped to ${lowestAcc}%. This drill targets ${keysDisplay}.`;
+      const drillLesson = generateWeakKeysLesson(keys);
+      drillLesson.title = `Focus Coach 2.0: Weak Keys Drill (${keysDisplay})`;
+      drillLesson.subtitle = explanation;
+      
+      return {
+        hasDrill: true,
+        type: 'keys',
+        title: `Tune Up ${keysDisplay}`,
+        explanation,
+        accuracy: lowestAcc,
+        keys: keys.map(k => k.toUpperCase()),
+        lesson: drillLesson
+      };
+    }
+    
+    return null;
+  }
+
   renderDashboard() {
     const container = this.screens.dashboard;
     if (!container) return;
@@ -375,12 +520,21 @@ export class UIManager {
     const reviewQueue = getReviewQueue(CURRICULUM, state.lessonCompletion, state.starsByLesson);
     const nextReview = reviewQueue[0] || null;
     const placementTest = state.placementTest;
+
+    // Adaptive Focus Coach 2.0 & fallback
+    const coach2 = this.getAdaptiveFocusCoach2(state);
     const adaptiveFocus = AnalyticsEngine.getAdaptiveFocus({
       keyStats: state.keyStats,
       currentLesson: currentLessonObj,
       lessonCompletion: state.lessonCompletion
     });
-    const adaptiveFocusKeys = adaptiveFocus.keys?.map(key => key === ' ' ? 'Space' : key.toUpperCase()) || [];
+    const adaptiveFocusKeys = coach2?.keys || adaptiveFocus.keys?.map(key => key === ' ' ? 'Space' : key.toUpperCase()) || [];
+
+    // Quote of the Day
+    const qotd = getQuoteOfTheDay();
+
+    // Goal Progress
+    const goalProgress = goalsManager.getGoalProgress(state);
 
     container.innerHTML = `
       <div class="dashboard-layout">
@@ -401,16 +555,73 @@ export class UIManager {
               <span class="target-pill">~${currentLessonObj.estimatedMinutes} min</span>
             </div>
           </div>
-          <div class="hero-action">
+          <div class="hero-action" style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
             <button id="hero-start-btn" class="btn btn-primary btn-hero">
               <span>${currentLessonMastery.isMastered ? 'Keep Sharp' : currentLessonMastery.isPassed ? 'Master This Lesson' : currentLessonMastery.isAttempted ? 'Practice Again' : 'Continue Lesson'}</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </button>
+            <button id="dashboard-zen-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 6px; border-color: rgba(124, 92, 252, 0.4); color: var(--text-primary);">
+              <span>🧘 Zen Mode</span>
+              <span style="font-size: 10px; opacity: 0.6; font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px;">Z</span>
+            </button>
           </div>
+        </div>
+
+        <!-- Goals Progress Rings Section (if enabled or default) -->
+        <div class="goals-rings-section" style="background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">🎯</span>
+              <h3 style="font-size: 15px; font-weight: 700; color: var(--text-primary);">Daily Goals &amp; Activity</h3>
+            </div>
+            <button id="configure-goals-btn" class="btn btn-sm" style="font-size: 11px; color: var(--text-secondary); cursor: pointer; text-decoration: underline;">Configure Goals →</button>
+          </div>
+          <div id="dashboard-goal-rings-container"></div>
         </div>
 
         <!-- Dashboard Widgets Grid -->
         <div class="dashboard-widgets-grid">
+          <!-- Adaptive Focus Coach 2.0 / Recommended Drill Widget -->
+          <div class="widget-card recommended-drill-widget">
+            <div class="widget-header">
+              <div class="widget-title-group">
+                <span class="widget-icon">🎯</span>
+                <h3 class="widget-title">${coach2 ? 'Recommended Drill' : 'Adaptive Focus'}</h3>
+              </div>
+              <span class="badge ${coach2 ? 'badge-amber' : 'badge-accent'}">${coach2 ? 'Coach 2.0' : 'Focus'}</span>
+            </div>
+            <div class="adaptive-focus-body">
+              <span class="adaptive-focus-eyebrow">${coach2 ? 'Targeted Precision Drill' : escapeHtml(adaptiveFocus.eyebrow)}</span>
+              <h4 class="adaptive-focus-title">${coach2 ? escapeHtml(coach2.title) : escapeHtml(adaptiveFocus.title)}</h4>
+              <p class="drill-explanation">${coach2 ? escapeHtml(coach2.explanation) : escapeHtml(adaptiveFocus.message)}</p>
+              ${adaptiveFocusKeys.length > 0 ? `
+                <div class="adaptive-focus-keys" aria-label="Keys to practice">
+                  ${adaptiveFocusKeys.map(key => `<span>${escapeHtml(key)}</span>`).join('')}
+                </div>
+              ` : ''}
+              <span class="adaptive-focus-detail">${coach2 ? `Custom 5-Minute Targeted Conditioning` : escapeHtml(adaptiveFocus.detail)}</span>
+            </div>
+            <div class="widget-footer">
+              <button id="adaptive-focus-btn" class="btn btn-primary btn-sm">${coach2 ? 'Launch 5-Min Drill →' : escapeHtml(adaptiveFocus.actionLabel) + ' →'}</button>
+            </div>
+          </div>
+
+          <!-- Quote of the Day Widget -->
+          <div class="widget-card quote-of-day-widget">
+            <div class="widget-header">
+              <div class="widget-title-group">
+                <span class="widget-icon">📜</span>
+                <h3 class="widget-title">Quote of the Day</h3>
+              </div>
+              <span class="quote-category-badge quote-cat-${qotd.category}">${qotd.category}</span>
+            </div>
+            <blockquote class="quote-of-day-text">“${escapeHtml(qotd.text)}”</blockquote>
+            <span class="quote-of-day-author">— ${escapeHtml(qotd.author)}</span>
+            <div class="widget-footer">
+              <button id="qotd-practice-btn" class="btn btn-secondary btn-sm">Practice Quote →</button>
+            </div>
+          </div>
+
           <!-- Daily Challenge Widget -->
           <div class="widget-card daily-challenge-widget ${dailyChallenge.isCompleted ? 'challenge-completed' : ''}">
             <div class="widget-header">
@@ -492,31 +703,6 @@ export class UIManager {
               : 'Already type comfortably? Take a short diagnostic to unlock a better starting point without granting mastery credit.'}</p>
             <div class="widget-footer">
               <button id="placement-test-btn" class="btn btn-outline btn-sm">${placementTest ? 'Retake Skill Check' : 'Take Skill Check'}</button>
-            </div>
-          </div>
-
-          <!-- Adaptive Focus Widget -->
-          <div class="widget-card adaptive-focus-widget">
-            <div class="widget-header">
-              <div class="widget-title-group">
-                <span class="widget-icon">${escapeHtml(adaptiveFocus.icon)}</span>
-                <h3 class="widget-title">Adaptive Focus</h3>
-              </div>
-              <span class="badge badge-accent">Recommended</span>
-            </div>
-            <div class="adaptive-focus-body">
-              <span class="adaptive-focus-eyebrow">${escapeHtml(adaptiveFocus.eyebrow)}</span>
-              <h4 class="adaptive-focus-title">${escapeHtml(adaptiveFocus.title)}</h4>
-              <p class="widget-desc">${escapeHtml(adaptiveFocus.message)}</p>
-              ${adaptiveFocusKeys.length > 0 ? `
-                <div class="adaptive-focus-keys" aria-label="Keys to practice">
-                  ${adaptiveFocusKeys.map(key => `<span>${escapeHtml(key)}</span>`).join('')}
-                </div>
-              ` : ''}
-              <span class="adaptive-focus-detail">${escapeHtml(adaptiveFocus.detail)}</span>
-            </div>
-            <div class="widget-footer">
-              <button id="adaptive-focus-btn" class="btn btn-secondary btn-sm">${escapeHtml(adaptiveFocus.actionLabel)} →</button>
             </div>
           </div>
         </div>
@@ -625,6 +811,14 @@ export class UIManager {
       </div>
     `;
 
+    // Render Goal Progress Rings
+    const goalRingsSlot = document.getElementById('dashboard-goal-rings-container');
+    if (goalRingsSlot) {
+      renderGoalRings(goalRingsSlot, goalProgress);
+    }
+
+    document.getElementById('configure-goals-btn')?.addEventListener('click', () => this.navigateTo('settings'));
+    document.getElementById('dashboard-zen-btn')?.addEventListener('click', () => this.launchZenMode());
     document.getElementById('hero-start-btn')?.addEventListener('click', () => this.startLesson(currentLessonObj));
     document.getElementById('daily-challenge-btn')?.addEventListener('click', () => this.startLesson(dailyChallenge.lesson));
     document.getElementById('mastery-review-btn')?.addEventListener('click', () => {
@@ -633,8 +827,16 @@ export class UIManager {
     document.getElementById('placement-test-btn')?.addEventListener('click', () => {
       this.startLesson(createPlacementLesson());
     });
+    document.getElementById('qotd-practice-btn')?.addEventListener('click', () => {
+      const qLesson = CustomPracticeManager.createLessonFromText(`Quote: ${qotd.author}`, qotd.text);
+      qLesson.quoteId = qotd.id;
+      qLesson.category = qotd.category;
+      this.startLesson(qLesson);
+    });
     document.getElementById('adaptive-focus-btn')?.addEventListener('click', () => {
-      if (adaptiveFocus.type === 'weak-keys') {
+      if (coach2?.lesson) {
+        this.startLesson(coach2.lesson);
+      } else if (adaptiveFocus.type === 'weak-keys') {
         this.startLesson(generateWeakKeysLesson(adaptiveFocus.keys));
       } else if (adaptiveFocus.type === 'weak-finger') {
         this.startLesson(generateWeakFingerLesson(adaptiveFocus.finger));
@@ -685,6 +887,9 @@ export class UIManager {
           </button>
           <button class="arena-tab-btn ${this.activeArenaTab === 'sprint' ? 'tab-active' : ''}" data-tab="sprint">
             <span>⏱️ Timed Speed Sprints</span>
+          </button>
+          <button class="arena-tab-btn ${this.activeArenaTab === 'language' ? 'tab-active' : ''}" data-tab="language">
+            <span>🌍 Multi-Language</span>
           </button>
         </div>
 
@@ -747,6 +952,57 @@ export class UIManager {
             </div>
           </div>
         </div>
+
+        <!-- 4. Multi-Language Tab -->
+        <div class="custom-sub-view ${this.activeArenaTab === 'language' ? 'sub-active' : ''}" id="arena-sub-language">
+          <div style="background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+              <div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Multi-Language Vocabulary Conditioning</h3>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Train muscle memory with 200 common words and 20 sentences in 6 major languages.</p>
+              </div>
+              <span class="badge ${store.getState().settings.isPremium ? 'badge-teal' : 'badge-amber'}">${store.getState().settings.isPremium ? '👑 Premium Active' : '👑 Premium Feature'}</span>
+            </div>
+
+            <div class="lang-selector-grid">
+              ${[
+                { code: 'en', flag: '🇬🇧', name: 'English', native: 'English' },
+                { code: 'es', flag: '🇪🇸', name: 'Spanish', native: 'Español' },
+                { code: 'fr', flag: '🇫🇷', name: 'French', native: 'Français' },
+                { code: 'de', flag: '🇩🇪', name: 'German', native: 'Deutsch' },
+                { code: 'it', flag: '🇮🇹', name: 'Italian', native: 'Italiano' },
+                { code: 'pt', flag: '🇵🇹', name: 'Portuguese', native: 'Português' }
+              ].map(lang => {
+                const isSelected = (store.getState().settings.practiceLanguage || 'en') === lang.code;
+                const isLocked = !store.getState().settings.isPremium && lang.code !== 'en';
+                return `
+                  <div class="lang-option-card ${isSelected ? 'lang-active' : ''} ${isLocked ? 'lang-premium-locked' : ''}" data-lang="${lang.code}">
+                    <span class="lang-flag">${lang.flag}</span>
+                    <span class="lang-name">${lang.name}</span>
+                    <span class="lang-native">${lang.native}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            ${!store.getState().settings.isPremium ? `
+              <div class="premium-gate-notice" style="margin-top: 20px;">
+                <span class="gate-icon">👑</span>
+                <div style="flex: 1;">
+                  <strong style="color: var(--reward-amber); font-size: 14px;">Multi-Language Practice is a Premium Feature</strong>
+                  <p>Unlock Spanish, French, German, Italian, and Portuguese vocabulary drills with one click.</p>
+                </div>
+                <button id="unlock-premium-lang-btn" class="btn btn-primary btn-sm">Unlock Premium Free →</button>
+              </div>
+            ` : ''}
+
+            <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+              <button id="start-lang-practice-btn" class="btn btn-primary btn-large">
+                Start ${(MULTI_LANG_WORDS[store.getState().settings.practiceLanguage || 'en'] || MULTI_LANG_WORDS.en).name} Practice →
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -795,6 +1051,141 @@ export class UIManager {
         const seconds = parseInt(card.dataset.sprint, 10) || 60;
         const sprintLesson = CustomPracticeManager.createSprintLesson(seconds);
         this.startLesson(sprintLesson);
+      });
+    });
+
+    // Language option clicks
+    container.querySelectorAll('.lang-option-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const lang = card.dataset.lang;
+        const isPrem = store.getState().settings.isPremium;
+        if (!isPrem && lang !== 'en') {
+          this.showToast('👑 Unlock Premium to access all 6 language vocabularies!', 'amber');
+        }
+        store.update(prev => ({
+          ...prev,
+          settings: { ...prev.settings, practiceLanguage: lang }
+        }));
+        this.renderCustomArena();
+      });
+    });
+
+    document.getElementById('unlock-premium-lang-btn')?.addEventListener('click', () => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, isPremium: true }
+      }));
+      this.showToast('👑 Premium unlocked! All languages and features are now active.', 'teal');
+      this.renderCustomArena();
+    });
+
+    document.getElementById('start-lang-practice-btn')?.addEventListener('click', () => {
+      const state = store.getState();
+      const lang = state.settings.practiceLanguage || 'en';
+      if (!state.settings.isPremium && lang !== 'en') {
+        this.showToast('Please unlock Premium first to practice non-English languages.', 'amber');
+        return;
+      }
+      const langLesson = generateLanguagePractice(lang);
+      this.startLesson(langLesson);
+    });
+  }
+
+  // ==========================================
+  // QUOTE VAULT SCREEN
+  // ==========================================
+  renderQuoteVault() {
+    const container = this.screens.quotes;
+    if (!container) return;
+
+    const quotes = getQuotesByFilter(this.activeQuoteCategory, this.activeQuoteDifficulty);
+    const state = store.getState();
+    const practicedList = state.quotesPracticed || [];
+
+    container.innerHTML = `
+      <div class="quote-vault-layout">
+        <div class="quote-vault-header">
+          <div>
+            <h2 class="section-title">Quote Vault &amp; Classic Passages</h2>
+            <p class="section-subtitle">Practice touch typing with 60+ curated public-domain literature, philosophy, code, and science excerpts</p>
+          </div>
+          <span class="badge badge-accent">${practicedList.length} Quotes Practiced</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
+          <!-- Category Filter -->
+          <div class="quote-filters">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 6px; align-self: center;">Category:</span>
+            <button class="quote-filter-btn ${!this.activeQuoteCategory ? 'filter-active' : ''}" data-cat="all">All (${QUOTE_VAULT.length})</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'motivation' ? 'filter-active' : ''}" data-cat="motivation">⚡ Motivation</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'literature' ? 'filter-active' : ''}" data-cat="literature">📚 Literature</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'programming' ? 'filter-active' : ''}" data-cat="programming">💻 Programming</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'science' ? 'filter-active' : ''}" data-cat="science">🔬 Science</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'philosophy' ? 'filter-active' : ''}" data-cat="philosophy">🏛️ Philosophy</button>
+          </div>
+
+          <!-- Difficulty Filter -->
+          <div class="quote-filters">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 6px; align-self: center;">Length:</span>
+            <button class="quote-filter-btn ${!this.activeQuoteDifficulty ? 'filter-active' : ''}" data-diff="all">All Lengths</button>
+            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'short' ? 'filter-active' : ''}" data-diff="short">⚡ Short (&lt;80)</button>
+            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'medium' ? 'filter-active' : ''}" data-diff="medium">📖 Medium (80-200)</button>
+            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'long' ? 'filter-active' : ''}" data-diff="long">📜 Long (200+)</button>
+          </div>
+        </div>
+
+        <div class="quotes-grid">
+          ${quotes.map(q => {
+            const isPracticed = practicedList.includes(q.id);
+            return `
+              <div class="quote-card ${isPracticed ? 'quote-practiced' : ''}" data-quote-id="${q.id}">
+                <div class="quote-card-top">
+                  <span class="quote-category-badge quote-cat-${q.category}">${q.category}</span>
+                  <span class="quote-difficulty-dot">${q.difficulty} · ${q.text.length} chars</span>
+                </div>
+                <blockquote class="quote-text">${escapeHtml(q.text)}</blockquote>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8px;">
+                  <span class="quote-author">${escapeHtml(q.author)}</span>
+                  <button class="btn btn-secondary btn-sm start-quote-btn" data-quote-id="${q.id}">
+                    ${isPracticed ? '✓ Practice Again' : 'Practice Quote →'}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // Filter clicks
+    container.querySelectorAll('[data-cat]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cat = btn.dataset.cat;
+        this.activeQuoteCategory = cat === 'all' ? null : cat;
+        this.renderQuoteVault();
+      });
+    });
+
+    container.querySelectorAll('[data-diff]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const diff = btn.dataset.diff;
+        this.activeQuoteDifficulty = diff === 'all' ? null : diff;
+        this.renderQuoteVault();
+      });
+    });
+
+    // Start Quote Practice
+    container.querySelectorAll('.start-quote-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.quoteId, 10);
+        const quote = QUOTE_VAULT.find(q => q.id === id);
+        if (quote) {
+          const lesson = CustomPracticeManager.createLessonFromText(`Quote: ${quote.author}`, quote.text);
+          lesson.quoteId = quote.id;
+          lesson.category = quote.category;
+          this.startLesson(lesson);
+        }
       });
     });
   }
@@ -950,8 +1341,34 @@ export class UIManager {
     ghostRacer.stopRace();
     document.body.classList.remove('blind-mode-active');
 
+    if (this.isFocusModeActive) {
+      summary.inFocusMode = true;
+    }
+
     if (summary.isPlacementTest) {
       summary.placementRecommendation = getPlacementRecommendation(summary);
+    }
+
+    // Record premium data tracking
+    if (this.currentLessonData?.quoteId) {
+      store.update(prev => ({
+        ...prev,
+        quotesPracticed: Array.from(new Set([...(prev.quotesPracticed || []), this.currentLessonData.quoteId]))
+      }));
+    }
+
+    if (this.currentLessonData?.isZen) {
+      store.update(prev => ({
+        ...prev,
+        zenSessionsCompleted: (prev.zenSessionsCompleted || 0) + 1
+      }));
+    }
+
+    if (this.currentLessonData?.languageCode) {
+      store.update(prev => ({
+        ...prev,
+        languagesPracticed: Array.from(new Set([...(prev.languagesPracticed || []), this.currentLessonData.languageCode]))
+      }));
     }
 
     store.recordSession({
@@ -966,7 +1383,8 @@ export class UIManager {
       wpmHistory: summary.wpmHistory,
       mastery: summary.mastery,
       isPlacementTest: summary.isPlacementTest,
-      placementRecommendation: summary.placementRecommendation
+      placementRecommendation: summary.placementRecommendation,
+      inFocusMode: !!this.isFocusModeActive
     });
 
     if (!summary.isPlacementTest && summary.lessonId === 'daily-challenge') {
@@ -1236,7 +1654,10 @@ export class UIManager {
         <div class="profile-hero-card">
           <div class="avatar-circle">⌨️</div>
           <div class="profile-info">
-            <h2 class="profile-name">Touch Typist</h2>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2 class="profile-name">Touch Typist</h2>
+              <span class="premium-crown" style="font-size: 11px;">👑 ${state.settings.isPremium ? 'PRO Master' : 'Free Tier'}</span>
+            </div>
             <p class="profile-level-badge">Level ${lvlInfo.currentLvl} • ${lvlInfo.title}</p>
             <div class="profile-xp-bar-track">
               <div class="profile-xp-bar-fill" style="width: ${lvlInfo.pct}%"></div>
@@ -1244,6 +1665,9 @@ export class UIManager {
             <span class="profile-xp-sub">${state.xp.toLocaleString()} Total XP (${lvlInfo.progressXp} / ${lvlInfo.neededXp} to Level ${lvlInfo.currentLvl + 1})</span>
           </div>
         </div>
+
+        <!-- Advanced Analytics Dashboard Slot (Canvas Trend Charts, Finger Trends, Session History, CSV Export) -->
+        <div id="advanced-analytics-slot"></div>
 
         <div class="lifetime-stats-grid">
           <div class="stat-card">
@@ -1322,7 +1746,7 @@ export class UIManager {
           <div class="card-header">
             <div>
               <h3 class="card-title">Milestone Achievements (${Object.keys(state.achievementsUnlocked || {}).length}/${ACHIEVEMENTS.length})</h3>
-              <p class="card-subtitle">Unlock badges through dedication, accuracy, and speed</p>
+              <p class="card-subtitle">Unlock badges through dedication, accuracy, speed, quotes, and zen practice</p>
             </div>
           </div>
           <div class="achievements-grid">
@@ -1334,7 +1758,10 @@ export class UIManager {
                   <div class="ach-info">
                     <h4 class="ach-title">${ach.title}</h4>
                     <p class="ach-desc">${ach.description}</p>
-                    <span class="ach-status">${isUnlocked ? '✓ Unlocked' : '🔒 Locked'}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                      <span class="ach-status">${isUnlocked ? '✓ Unlocked' : '🔒 Locked'}</span>
+                      <span style="font-size: 11px; color: var(--reward-amber); font-weight: 700;">+${ach.xpBonus || 50} XP</span>
+                    </div>
                   </div>
                 </div>
               `;
@@ -1343,6 +1770,12 @@ export class UIManager {
         </div>
       </div>
     `;
+
+    // Render Advanced Analytics
+    const analyticsSlot = document.getElementById('advanced-analytics-slot');
+    if (analyticsSlot) {
+      renderAdvancedAnalyticsDashboard(analyticsSlot, state);
+    }
 
     const heatmapContainer = document.getElementById('profile-heatmap-container');
     if (heatmapContainer) {
@@ -1372,7 +1805,7 @@ export class UIManager {
         <div class="settings-group-card">
           <h3 class="group-title">Keycap Aesthetic Themes</h3>
           <div class="theme-selector-grid">
-            <div class="theme-card-option ${settings.theme === 'dark' ? 'theme-active' : ''}" data-theme="dark">
+            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'dark' ? 'theme-active' : ''}" data-theme="dark">
               <div class="theme-preview-palette">
                 <span class="palette-dot" style="background: #0F1117"></span>
                 <span class="palette-dot" style="background: #191E2C"></span>
@@ -1381,7 +1814,7 @@ export class UIManager {
               <span class="theme-name">Dark Flow</span>
             </div>
 
-            <div class="theme-card-option ${settings.theme === 'retro' ? 'theme-active' : ''}" data-theme="retro">
+            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'retro' ? 'theme-active' : ''}" data-theme="retro">
               <div class="theme-preview-palette">
                 <span class="palette-dot" style="background: #282A30"></span>
                 <span class="palette-dot" style="background: #D8D2C2"></span>
@@ -1390,7 +1823,7 @@ export class UIManager {
               <span class="theme-name">Retro 1984</span>
             </div>
 
-            <div class="theme-card-option ${settings.theme === 'cyberpunk' ? 'theme-active' : ''}" data-theme="cyberpunk">
+            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'cyberpunk' ? 'theme-active' : ''}" data-theme="cyberpunk">
               <div class="theme-preview-palette">
                 <span class="palette-dot" style="background: #090114"></span>
                 <span class="palette-dot" style="background: #00F0FF"></span>
@@ -1399,7 +1832,7 @@ export class UIManager {
               <span class="theme-name">Cyberpunk</span>
             </div>
 
-            <div class="theme-card-option ${settings.theme === 'botanical' ? 'theme-active' : ''}" data-theme="botanical">
+            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'botanical' ? 'theme-active' : ''}" data-theme="botanical">
               <div class="theme-preview-palette">
                 <span class="palette-dot" style="background: #0B170E"></span>
                 <span class="palette-dot" style="background: #172D1E"></span>
@@ -1408,7 +1841,7 @@ export class UIManager {
               <span class="theme-name">Botanical</span>
             </div>
 
-            <div class="theme-card-option ${settings.theme === 'tokyo' ? 'theme-active' : ''}" data-theme="tokyo">
+            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'tokyo' ? 'theme-active' : ''}" data-theme="tokyo">
               <div class="theme-preview-palette">
                 <span class="palette-dot" style="background: #1A1B26"></span>
                 <span class="palette-dot" style="background: #202436"></span>
@@ -1416,10 +1849,155 @@ export class UIManager {
               </div>
               <span class="theme-name">Tokyo Night</span>
             </div>
+
+            ${(() => {
+              try {
+                const customThemes = JSON.parse(localStorage.getItem('typing_tutor_custom_themes') || '[]');
+                return customThemes.map(t => `
+                  <div class="theme-card-option ${settings.customThemeId === t.id ? 'theme-active' : ''}" data-custom-theme-id="${t.id}">
+                    <div class="theme-preview-palette">
+                      <span class="palette-dot" style="background: ${t.bgBase || '#0F1117'}"></span>
+                      <span class="palette-dot" style="background: ${t.surface2 || '#1B2030'}"></span>
+                      <span class="palette-dot" style="background: ${t.accentPrimary || '#7C5CFC'}"></span>
+                    </div>
+                    <span class="theme-name">${escapeHtml(t.name || 'Custom Theme')}</span>
+                  </div>
+                `).join('');
+              } catch { return ''; }
+            })()}
           </div>
         </div>
 
-        <!-- 2. Audio & Switch Sound Profiles -->
+        <!-- 2. Custom Theme Studio -->
+        <div id="theme-studio-slot"></div>
+
+        <!-- 3. Goal Setting & Smart Reminders -->
+        <div class="settings-group-card">
+          <div class="group-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <h3 class="group-title">🎯 Goal Setting &amp; Smart Reminders</h3>
+              <p class="setting-desc">Set daily velocity, duration, and weekly milestones with optional desktop alerts</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-goals-toggle" ${settings.goals?.enabled !== false ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="goals-settings-grid">
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Daily Practice Time Goal</label>
+                <p class="setting-desc">Minutes of practice targeted each day</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="number" id="setting-goal-minutes" min="1" max="180" value="${settings.goals?.dailyMinutes || 15}" class="goal-number-input">
+                <span style="font-size: 13px; color: var(--text-secondary);">min</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Daily WPM Target</label>
+                <p class="setting-desc">Speed goal for today's best run</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="number" id="setting-goal-wpm" min="15" max="150" value="${settings.goals?.dailyWpm || 50}" class="goal-number-input">
+                <span style="font-size: 13px; color: var(--text-secondary);">WPM</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Weekly Lesson Milestone</label>
+                <p class="setting-desc">Number of lessons to complete each week</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="number" id="setting-goal-lessons" min="1" max="30" value="${settings.goals?.weeklyLessons || 5}" class="goal-number-input">
+                <span style="font-size: 13px; color: var(--text-secondary);">lessons</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Desktop Notifications</label>
+                <p class="setting-desc">Gentle reminder if your daily practice goal hasn't been met</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-goal-notif-toggle" ${settings.goals?.notificationsEnabled ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Reminder Time</label>
+                <p class="setting-desc">Hour to deliver daily notification</p>
+              </div>
+              <select id="setting-goal-notif-hour" class="select-input" style="width: 130px;">
+                <option value="18" ${(settings.goals?.notificationHour || 20) === 18 ? 'selected' : ''}>6:00 PM</option>
+                <option value="19" ${(settings.goals?.notificationHour || 20) === 19 ? 'selected' : ''}>7:00 PM</option>
+                <option value="20" ${(settings.goals?.notificationHour || 20) === 20 ? 'selected' : ''}>8:00 PM</option>
+                <option value="21" ${(settings.goals?.notificationHour || 20) === 21 ? 'selected' : ''}>9:00 PM</option>
+                <option value="22" ${(settings.goals?.notificationHour || 20) === 22 ? 'selected' : ''}>10:00 PM</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Ergonomic Wellness & Break Timer -->
+        <div class="settings-group-card">
+          <h3 class="group-title">🧘 Ergonomic Wellness &amp; Focus</h3>
+          <div class="wellness-settings">
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Break Reminder Interval</label>
+                <p class="setting-desc">Gentle full-screen stretch prompt after continuous typing</p>
+              </div>
+              <select id="setting-break-interval" class="select-input" style="width: 140px;">
+                <option value="15" ${(settings.wellness?.breakInterval || 30) === 15 ? 'selected' : ''}>Every 15 mins</option>
+                <option value="30" ${(settings.wellness?.breakInterval || 30) === 30 ? 'selected' : ''}>Every 30 mins</option>
+                <option value="45" ${(settings.wellness?.breakInterval || 30) === 45 ? 'selected' : ''}>Every 45 mins</option>
+                <option value="60" ${(settings.wellness?.breakInterval || 30) === 60 ? 'selected' : ''}>Every 60 mins</option>
+              </select>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Ergonomic Break Reminders</label>
+                <p class="setting-desc">Enable periodic 20-second posture and wrist stretch reminders</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-break-toggle" ${settings.wellness?.breakEnabled ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Eye Care (20-20-20 Rule)</label>
+                <p class="setting-desc">Remind to look at an object 20 feet away for 20 seconds</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-eyecare-toggle" ${settings.wellness?.eyeCareEnabled ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">Focus Mode Shortcut (F)</label>
+                <p class="setting-desc">Pressing 'F' during a lesson toggles minimalist zero-distraction layout</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-focus-shortcut-toggle" ${settings.wellness?.focusModeShortcut !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Audio & Switch Sound Profiles -->
         <div class="settings-group-card">
           <h3 class="group-title">Mechanical Switch Sound Profiles</h3>
           <div class="setting-row">
@@ -1454,7 +2032,7 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 3. Metronome & Cadence Rhythm -->
+        <!-- 6. Metronome & Cadence Rhythm -->
         <div class="settings-group-card">
           <h3 class="group-title">Cadence Metronome</h3>
           <div class="setting-row">
@@ -1476,9 +2054,9 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 4. Keyboard Layouts & Hardcore Modes -->
+        <!-- 7. Keyboard Layouts & Hardcore Modes -->
         <div class="settings-group-card">
-          <h3 class="group-title">Keyboard Layout & Training Modes</h3>
+          <h3 class="group-title">Keyboard Layout &amp; Training Modes</h3>
           <div class="setting-row">
             <div>
               <label class="setting-label">Keyboard Layout</label>
@@ -1512,9 +2090,9 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 5. Ghost Racer Competitors -->
+        <!-- 8. Ghost Racer Competitors -->
         <div class="settings-group-card">
-          <h3 class="group-title">Ghost Racer & Bot Competitors</h3>
+          <h3 class="group-title">Ghost Racer &amp; Bot Competitors</h3>
           <div class="setting-row">
             <div>
               <label class="setting-label">Race Track Competitor</label>
@@ -1540,9 +2118,27 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 6. Data Portability (Backup & Restore) -->
+        <!-- 9. Premium Membership Management -->
+        <div class="settings-group-card" style="border: 1px solid rgba(255, 184, 107, 0.3); background: linear-gradient(135deg, rgba(255,184,107,0.04), rgba(124,92,252,0.04));">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">👑</span>
+                <h3 class="group-title" style="margin: 0; color: var(--reward-amber);">KeyFlow Premium Status</h3>
+              </div>
+              <p class="setting-desc" style="margin-top: 4px;">
+                ${settings.isPremium ? 'All premium features unlocked (Quote Vault, Zen Mode, Multi-Language, Theme Studio, Advanced Analytics).' : 'Unlock multi-language vocabularies, ambient soundscapes, and advanced customization.'}
+              </p>
+            </div>
+            <button id="toggle-premium-mode-btn" class="btn ${settings.isPremium ? 'btn-secondary' : 'btn-primary'} btn-sm">
+              ${settings.isPremium ? 'Active (PRO)' : 'Unlock Premium Free →'}
+            </button>
+          </div>
+        </div>
+
+        <!-- 10. Data Portability (Backup & Restore) -->
         <div class="settings-group-card">
-          <h3 class="group-title">Data Backup & Restore</h3>
+          <h3 class="group-title">Data Backup &amp; Restore</h3>
           <div class="setting-row">
             <div>
               <label class="setting-label">Export / Import Progress</label>
@@ -1558,7 +2154,7 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 7. Danger Zone -->
+        <!-- 11. Danger Zone -->
         <div class="settings-group-card danger-zone">
           <h3 class="group-title text-error">Danger Zone</h3>
           <div class="setting-row">
@@ -1572,16 +2168,176 @@ export class UIManager {
       </div>
     `;
 
-    // Theme selector
-    container.querySelectorAll('.theme-card-option').forEach(card => {
+    // Render Theme Studio in its designated slot
+    const studioSlot = document.getElementById('theme-studio-slot');
+    if (studioSlot) {
+      renderThemeStudioUI(studioSlot, () => this.renderSettings());
+    }
+
+    // Built-in Theme selector
+    container.querySelectorAll('.theme-card-option[data-theme]').forEach(card => {
       card.addEventListener('click', () => {
         const theme = card.dataset.theme;
         store.update(prev => ({
           ...prev,
-          settings: { ...prev.settings, theme }
+          settings: { ...prev.settings, theme, customThemeId: null }
         }));
         this.renderSettings();
       });
+    });
+
+    // Custom Theme selector
+    container.querySelectorAll('.theme-card-option[data-custom-theme-id]').forEach(card => {
+      card.addEventListener('click', () => {
+        const customThemeId = card.dataset.customThemeId;
+        store.update(prev => ({
+          ...prev,
+          settings: { ...prev.settings, customThemeId }
+        }));
+        this.renderSettings();
+      });
+    });
+
+    // Goals Settings
+    document.getElementById('setting-goals-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          goals: { ...(prev.settings.goals || {}), enabled: e.target.checked }
+        }
+      }));
+    });
+
+    document.getElementById('setting-goal-minutes')?.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10) || 15;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          goals: { ...(prev.settings.goals || {}), dailyMinutes: val }
+        }
+      }));
+    });
+
+    document.getElementById('setting-goal-wpm')?.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10) || 50;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          goals: { ...(prev.settings.goals || {}), dailyWpm: val }
+        }
+      }));
+    });
+
+    document.getElementById('setting-goal-lessons')?.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10) || 5;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          goals: { ...(prev.settings.goals || {}), weeklyLessons: val }
+        }
+      }));
+    });
+
+    document.getElementById('setting-goal-notif-toggle')?.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      if (enabled) {
+        const granted = await goalsManager.requestNotificationPermission();
+        if (!granted) {
+          e.target.checked = false;
+          this.showToast('Notification permission was not granted by your browser.', 'amber');
+          return;
+        }
+      }
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          goals: { ...(prev.settings.goals || {}), notificationsEnabled: enabled }
+        }
+      }));
+      if (enabled) {
+        const hour = store.getState().settings?.goals?.notificationHour || 20;
+        goalsManager.scheduleNotification(hour);
+        this.showToast('🔔 Daily reminder notifications activated!', 'teal');
+      }
+    });
+
+    document.getElementById('setting-goal-notif-hour')?.addEventListener('change', (e) => {
+      const hour = parseInt(e.target.value, 10) || 20;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          goals: { ...(prev.settings.goals || {}), notificationHour: hour }
+        }
+      }));
+      if (store.getState().settings?.goals?.notificationsEnabled) {
+        goalsManager.scheduleNotification(hour);
+      }
+    });
+
+    // Wellness Settings
+    document.getElementById('setting-break-interval')?.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10) || 30;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          wellness: { ...(prev.settings.wellness || {}), breakInterval: val }
+        }
+      }));
+    });
+
+    document.getElementById('setting-break-toggle')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          wellness: { ...(prev.settings.wellness || {}), breakEnabled: enabled }
+        }
+      }));
+      if (enabled) {
+        goalsManager.startBreakTimer();
+        this.showToast('🧘 Ergonomic break reminders enabled.', 'teal');
+      } else {
+        goalsManager.stopBreakTimer();
+      }
+    });
+
+    document.getElementById('setting-eyecare-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          wellness: { ...(prev.settings.wellness || {}), eyeCareEnabled: e.target.checked }
+        }
+      }));
+    });
+
+    document.getElementById('setting-focus-shortcut-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          wellness: { ...(prev.settings.wellness || {}), focusModeShortcut: e.target.checked }
+        }
+      }));
+    });
+
+    // Premium Mode Toggle
+    document.getElementById('toggle-premium-mode-btn')?.addEventListener('click', () => {
+      const current = !!store.getState().settings.isPremium;
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, isPremium: !current }
+      }));
+      this.showToast(!current ? '👑 Premium features unlocked!' : 'Switched to Free Tier.', 'teal');
+      this.renderSettings();
     });
 
     // Sound profile
@@ -1765,4 +2521,127 @@ export class UIManager {
       if (warning) warning.remove();
     }
   }
+
+  // ==========================================
+  // PREMIUM SUITE HELPERS
+  // ==========================================
+  launchZenMode() {
+    const qotd = getQuoteOfTheDay();
+    const zenLesson = CustomPracticeManager.createLessonFromText(`Zen: ${qotd.author}`, qotd.text);
+    zenLesson.isZen = true;
+
+    zenMode.enter((e) => {
+      if (this.activeScreen === 'lesson' && typingEngine.isActive) {
+        typingEngine.handleKeyDown(e);
+      }
+    });
+
+    this.startLesson(zenLesson);
+
+    // Track zen session
+    store.update(prev => ({
+      ...prev,
+      zenSessionsCompleted: (prev.zenSessionsCompleted || 0) + 1,
+      zenSoundscapesUsed: Array.from(new Set([...(prev.zenSoundscapesUsed || []), zenMode.zenSoundEngine?.currentSoundscape || 'rain']))
+    }));
+
+    AchievementEngine.evaluate(store);
+    this.showToast('🧘 Entering Zen Mode. Press Esc anytime to exit.', 'teal');
+  }
+
+  toggleFocusMode() {
+    if (this.isFocusModeActive) {
+      this.exitFocusMode();
+    } else {
+      this.enterFocusMode();
+    }
+  }
+
+  enterFocusMode() {
+    this.isFocusModeActive = true;
+    document.body.classList.add('focus-mode-active');
+
+    let exitBadge = document.getElementById('focus-exit-badge');
+    if (!exitBadge) {
+      exitBadge = document.createElement('div');
+      exitBadge.id = 'focus-exit-badge';
+      exitBadge.className = 'focus-mode-exit-badge';
+      exitBadge.innerHTML = `<span>Focus Mode Active</span> <span class="kbd">Esc</span>`;
+      exitBadge.addEventListener('click', () => this.exitFocusMode());
+      document.body.appendChild(exitBadge);
+    }
+
+    this.showToast('🎯 Focus Mode enabled. Minimalist layout active.', 'teal');
+  }
+
+  exitFocusMode() {
+    this.isFocusModeActive = false;
+    document.body.classList.remove('focus-mode-active');
+    const exitBadge = document.getElementById('focus-exit-badge');
+    if (exitBadge) exitBadge.remove();
+  }
+
+  showShortcutsPopup() {
+    let popup = document.getElementById('shortcuts-popup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'shortcuts-popup';
+      popup.innerHTML = `
+        <div class="shortcuts-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary);">⌨️ Keyboard Shortcuts</h3>
+            <button id="shortcuts-close-btn" class="btn btn-sm" style="font-size: 16px; padding: 4px 8px; cursor: pointer; color: var(--text-secondary);">✕</button>
+          </div>
+          <table class="shortcuts-table">
+            <tbody>
+              <tr>
+                <td><span class="shortcut-kbd">Esc</span></td>
+                <td>Pause lesson / Exit Focus Mode / Exit Zen Mode</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">Enter</span></td>
+                <td>Next round / Advance from results screen</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">F</span></td>
+                <td>Toggle Focus Mode (zero-distraction layout)</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">Z</span></td>
+                <td>Launch Zen Mode with procedural ambient soundscapes</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">A</span></td>
+                <td>Navigate to Advanced Analytics &amp; Heatmaps</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">Q</span></td>
+                <td>Navigate to Quote Vault</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">G</span></td>
+                <td>Navigate to Settings &amp; Goal Management</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">?</span></td>
+                <td>Open this Shortcuts Help popup</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top: 20px; text-align: right;">
+            <button id="shortcuts-done-btn" class="btn btn-primary btn-sm">Got it</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(popup);
+
+      const close = () => popup.remove();
+      popup.addEventListener('click', (e) => {
+        if (e.target === popup) close();
+      });
+      document.getElementById('shortcuts-close-btn')?.addEventListener('click', close);
+      document.getElementById('shortcuts-done-btn')?.addEventListener('click', close);
+    }
+  }
 }
+

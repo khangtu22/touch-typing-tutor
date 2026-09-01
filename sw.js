@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v2.3.2)
+ * KeyFlow Service Worker (v3.0.0 - Premium Edition)
  */
 
-const CACHE_NAME = 'keyflow-v2.3.2';
+const CACHE_NAME = 'keyflow-v3.0.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const ASSETS_TO_CACHE = [
   './styles/themes.css',
   './styles/custom-practice.css',
   './styles/racing.css',
+  './styles/premium.css',
   './js/app.js',
   './js/state.js',
   './js/sound-engine.js',
@@ -32,6 +33,11 @@ const ASSETS_TO_CACHE = [
   './js/streak-challenge.js',
   './js/ghost-racer.js',
   './js/custom-practice.js',
+  './js/focus-zen.js',
+  './js/goals-wellness.js',
+  './js/theme-studio.js',
+  './js/advanced-analytics.js',
+  './js/premium-features.js',
   './js/ui.js'
 ];
 

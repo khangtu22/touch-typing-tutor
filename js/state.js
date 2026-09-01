@@ -103,6 +103,7 @@ const DEFAULT_STATE = {
     soundVolume: 0.6,
     switchProfile: 'cherry_blue', // 'cherry_blue' | 'gateron_brown' | 'holy_panda' | 'typewriter' | 'bubble_pop'
     theme: 'dark', // 'dark' | 'retro' | 'cyberpunk' | 'botanical' | 'tokyo'
+    customThemeId: null, // id of applied custom theme, or null for built-in
     layout: 'qwerty', // 'qwerty' | 'colemak' | 'dvorak' | 'workman'
     keyboardVisible: true,
     handGuideVisible: true,
@@ -115,14 +116,35 @@ const DEFAULT_STATE = {
     blindMode: false,
     suddenDeath: false,
     metronomeEnabled: false,
-    metronomeBpm: 100
+    metronomeBpm: 100,
+    // --- Premium Feature Settings ---
+    isPremium: false,         // Premium mode unlock (no payment, just a toggle)
+    practiceLanguage: 'en',  // For multi-language practice
+    goals: {
+      enabled: false,
+      dailyMinutes: 15,
+      dailyWpm: 50,
+      weeklyLessons: 5,
+      notificationsEnabled: false,
+      notificationHour: 20
+    },
+    wellness: {
+      breakEnabled: false,
+      breakInterval: 30,        // minutes
+      eyeCareEnabled: false,
+      focusModeShortcut: true
+    }
   },
   dailyChallengeState: {
     date: null,
     completed: false,
     bestWpm: 0,
     bestAccuracy: 0
-  }
+  },
+  // --- Premium Feature Tracking ---
+  quotesPracticed: [],         // Array of quote ids practiced
+  zenSessionsCompleted: 0,     // Count of completed Zen mode sessions
+  languagesPracticed: [],      // Array of language codes practiced
 };
 
 class StateStore {
@@ -146,12 +168,22 @@ class StateStore {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return JSON.parse(JSON.stringify(DEFAULT_STATE));
       const parsed = JSON.parse(raw);
+      const parsedSettings = parsed.settings || {};
       const state = {
         ...DEFAULT_STATE,
         ...parsed,
         settings: {
           ...DEFAULT_STATE.settings,
-          ...(parsed.settings || {})
+          ...parsedSettings,
+          // Deep merge nested settings objects
+          goals: {
+            ...DEFAULT_STATE.settings.goals,
+            ...(parsedSettings.goals || {})
+          },
+          wellness: {
+            ...DEFAULT_STATE.settings.wellness,
+            ...(parsedSettings.wellness || {})
+          }
         },
         dailyChallengeState: {
           ...DEFAULT_STATE.dailyChallengeState,
