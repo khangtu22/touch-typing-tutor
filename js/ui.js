@@ -14,7 +14,7 @@ import { AnalyticsEngine } from './analytics.js';
 import { ACHIEVEMENTS, AchievementEngine } from './achievements.js';
 import { StreakEngine } from './streak-challenge.js';
 import { sound } from './sound-engine.js';
-import { FINGERS } from './finger-mapping.js';
+import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js';
 import { ghostRacer } from './ghost-racer.js';
 import { CODE_PRESETS, createPlacementLesson, CustomPracticeManager } from './custom-practice.js';
 import { LAYOUTS } from './layouts.js';
