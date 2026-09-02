@@ -9,17 +9,65 @@ import { getFingerForKey, getOppositeShift, isShiftRequired } from './finger-map
 import { store } from './state.js';
 import { calculateMastery } from './mastery.js';
 
+export function buildWordIndexMap(text) {
+  if (!text) return { charToWord: [], words: [] };
+
+  const charToWord = new Array(text.length).fill(-1);
+  const words = [];
+  let inWord = false;
+  let wordStart = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const isWhitespace = text[i] === ' ' || text[i] === '\n' || text[i] === '\t';
+    if (!isWhitespace) {
+      if (!inWord) {
+        inWord = true;
+        wordStart = i;
+      }
+      charToWord[i] = words.length;
+    } else {
+      if (inWord) {
+        words.push({
+          wordIndex: words.length,
+          startIndex: wordStart,
+          endIndex: i - 1,
+          text: text.slice(wordStart, i)
+        });
+        inWord = false;
+      }
+      charToWord[i] = -1;
+    }
+  }
+
+  if (inWord) {
+    words.push({
+      wordIndex: words.length,
+      startIndex: wordStart,
+      endIndex: text.length - 1,
+      text: text.slice(wordStart, text.length)
+    });
+  }
+
+  return { charToWord, words };
+}
+
 export class TypingEngine {
   constructor() {
     this.lesson = null;
     this.currentRoundIdx = 0;
     this.currentText = '';
     this.charIndex = 0;
+    this.charStates = [];
+    this.mistypedCharIndices = new Set();
+    this.mistypedWordIndices = new Set();
+    this.wordMap = null;
 
     this.isActive = false;
     this.isPaused = false;
     this.startTime = null;
     this.lastCharTime = null;
+    this.totalPausedMs = 0;
+    this.pausedAt = null;
 
     // Session aggregates
     this.totalCorrect = 0;
@@ -62,6 +110,8 @@ export class TypingEngine {
     this.isPaused = false;
     this.startTime = null;
     this.lastCharTime = null;
+    this.totalPausedMs = 0;
+    this.pausedAt = null;
 
     const state = store.getState();
     if (state.settings.metronomeEnabled) {
@@ -72,7 +122,8 @@ export class TypingEngine {
 
     if (lesson.timeLimitSec) {
       this.timeRemainingSec = lesson.timeLimitSec;
-      this.startSprintCountdown();
+      // Countdown will start when first letter is typed
+      this.stopSprintCountdown();
     } else {
       this.timeRemainingSec = null;
       this.stopSprintCountdown();
@@ -90,8 +141,13 @@ export class TypingEngine {
     }
 
     this.currentRoundIdx = roundIdx;
-    this.currentText = this.lesson.rounds[roundIdx];
+    const rawText = this.lesson.rounds[roundIdx] || '';
+    this.currentText = this.lesson.isCodePreset ? rawText : rawText.replace(/[ \t]{2,}/g, ' ').trim();
     this.charIndex = 0;
+    this.charStates = new Array(this.currentText.length).fill(null);
+    this.mistypedCharIndices = new Set();
+    this.mistypedWordIndices = new Set();
+    this.wordMap = buildWordIndexMap(this.currentText);
     this.emitState();
   }
 
@@ -110,6 +166,62 @@ export class TypingEngine {
     return isShiftRequired(char) ? getOppositeShift(char) : null;
   }
 
+  getWordIndexForChar(charIdx) {
+    if (!this.wordMap || !this.currentText) return -1;
+    if (charIdx < 0) return -1;
+    if (charIdx >= this.currentText.length) {
+      return this.wordMap.words.length - 1;
+    }
+    if (this.wordMap.charToWord[charIdx] >= 0) {
+      return this.wordMap.charToWord[charIdx];
+    }
+    // If charIdx is on whitespace, find the preceding word index
+    for (let i = charIdx - 1; i >= 0; i--) {
+      if (this.wordMap.charToWord[i] >= 0) {
+        return this.wordMap.charToWord[i];
+      }
+    }
+    // If leading whitespace before first word:
+    for (let i = charIdx + 1; i < this.currentText.length; i++) {
+      if (this.wordMap.charToWord[i] >= 0) {
+        return this.wordMap.charToWord[i];
+      }
+    }
+    return -1;
+  }
+
+  isWordFullyCorrect(wordIdx) {
+    if (!this.wordMap || !this.wordMap.words[wordIdx]) return true;
+    const { startIndex, endIndex } = this.wordMap.words[wordIdx];
+    for (let i = startIndex; i <= endIndex; i++) {
+      if (!this.charStates[i] || this.charStates[i].status !== 'correct') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  hasUncorrectedErrorsInWord(wordIdx) {
+    if (!this.wordMap || !this.wordMap.words[wordIdx]) return false;
+    const { startIndex, endIndex } = this.wordMap.words[wordIdx];
+    for (let i = startIndex; i <= endIndex; i++) {
+      if (this.charStates[i] && this.charStates[i].status === 'incorrect') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  isAllTextCorrect() {
+    if (!this.currentText) return true;
+    for (let i = 0; i < this.currentText.length; i++) {
+      if (!this.charStates[i] || this.charStates[i].status !== 'correct') {
+        return false;
+      }
+    }
+    return true;
+  }
+
   clearRoundTransition() {
     if (this.roundTransitionTimer !== null) {
       clearTimeout(this.roundTransitionTimer);
@@ -125,6 +237,13 @@ export class TypingEngine {
     this.clearRoundTransition();
     this.loadRound(nextRoundIdx);
     return true;
+  }
+
+  retryLesson() {
+    this.clearRoundTransition();
+    if (this.lesson) {
+      this.startLesson(this.lesson);
+    }
   }
 
   handleKeyDown(e) {
@@ -147,21 +266,57 @@ export class TypingEngine {
       e.preventDefault();
     }
 
-    const expectedChar = this.getCurrentExpectedChar();
-    if (!expectedChar) return;
+    const state = store.getState();
+    const isWordCorrectionMode = !!state.settings.wordCorrectionMode;
 
-    const typedKey = e.key;
+    // --- Backspace Handling ---
+    if (e.key === 'Backspace' || e.code === 'Backspace') {
+      if (!isWordCorrectionMode) return;
 
-    const now = Date.now();
-    if (!this.startTime) {
-      this.startTime = now;
-      this.lastCharTime = now;
+      if (this.charIndex > 0) {
+        // Determine the allowable backspace boundary (the start of the active word)
+        const currentWordIdx = this.getWordIndexForChar(this.charIndex);
+        let minAllowedIndex = 0;
+        if (currentWordIdx >= 0 && this.wordMap?.words[currentWordIdx]) {
+          minAllowedIndex = this.wordMap.words[currentWordIdx].startIndex;
+        }
+
+        if (this.charIndex > minAllowedIndex) {
+          this.charIndex -= 1;
+          this.charStates[this.charIndex] = null;
+          sound.playKeyClick(this.getCurrentExpectedChar() || ' ');
+          this.emitState();
+        }
+      }
+      return;
     }
 
-    const latency = this.lastCharTime ? Math.min(1500, now - this.lastCharTime) : 200;
+    const expectedChar = this.getCurrentExpectedChar();
+    if (!expectedChar && this.charIndex >= this.currentText.length) {
+      return;
+    }
+
+    const typedKey = e.key;
+    if (typedKey.length !== 1) {
+      return;
+    }
+
+    const now = Date.now();
+    const isFirstKeystroke = !this.startTime;
+    if (isFirstKeystroke) {
+      this.startTime = now;
+      this.lastCharTime = now;
+      this.totalPausedMs = 0;
+      this.pausedAt = null;
+      if (this.timeRemainingSec !== null) {
+        this.startSprintCountdown();
+      }
+    }
+
+    const latency = this.lastCharTime && !isFirstKeystroke ? Math.min(1500, now - this.lastCharTime) : 200;
     this.lastCharTime = now;
 
-    const charKey = expectedChar.toLowerCase();
+    const charKey = (expectedChar || ' ').toLowerCase();
     if (!this.keyStatsDelta[charKey]) {
       this.keyStatsDelta[charKey] = { attempts: 0, errors: 0, totalLatencyMs: 0 };
     }
@@ -171,57 +326,194 @@ export class TypingEngine {
 
     const isMatch = typedKey === expectedChar;
 
-    if (isMatch) {
-      this.totalCorrect += 1;
-      this.currentCombo += 1;
-      this.maxCombo = Math.max(this.maxCombo, this.currentCombo);
+    if (!isWordCorrectionMode) {
+      // ═════════════════════════════════════════════════════════════
+      // STANDARD / STRICT TOUCH TYPING MODE
+      // ═════════════════════════════════════════════════════════════
+      if (isMatch) {
+        this.totalCorrect += 1;
+        this.currentCombo += 1;
+        this.maxCombo = Math.max(this.maxCombo, this.currentCombo);
+        this.charStates[this.charIndex] = { status: 'correct', char: typedKey };
 
-      if (expectedChar === ' ') {
-        sound.playSpace();
+        if (expectedChar === ' ') {
+          sound.playSpace();
+        } else {
+          sound.playKeyClick(expectedChar);
+        }
+
+        if ([10, 25, 50, 100, 150, 200].includes(this.currentCombo)) {
+          sound.playCombo(this.currentCombo);
+        }
+
+        this.charIndex += 1;
+
+        if (this.charIndex < this.currentText.length && this.currentText[this.charIndex - 1] === ' ') {
+          sound.playWordComplete();
+        }
+
+        this.emitState();
+
+        if (this.charIndex >= this.currentText.length) {
+          this.finishRound();
+        }
       } else {
-        sound.playKeyClick(expectedChar);
-      }
+        this.totalErrors += 1;
+        this.currentCombo = 0;
+        this.keyStatsDelta[charKey].errors += 1;
 
-      if ([10, 25, 50, 100, 150, 200].includes(this.currentCombo)) {
-        sound.playCombo(this.currentCombo);
-      }
+        sound.playError();
 
-      this.charIndex += 1;
+        if (state.settings.suddenDeath) {
+          // Sudden death triggered! Reset round
+          this.charIndex = 0;
+          this.charStates = new Array(this.currentText.length).fill(null);
+          this.mistypedWordIndices = new Set();
+          if (this.onSuddenDeathFail) {
+            this.onSuddenDeathFail();
+          }
+        }
 
-      if (this.charIndex < this.currentText.length && this.currentText[this.charIndex - 1] === ' ') {
-        sound.playWordComplete();
-      }
+        if (this.onErrorFeedback) {
+          this.onErrorFeedback({
+            expectedChar,
+            typedKey,
+            targetFinger: getFingerForKey(expectedChar)
+          });
+        }
 
-      this.emitState();
-
-      if (this.charIndex >= this.currentText.length) {
-        this.finishRound();
+        this.emitState();
       }
     } else {
-      this.totalErrors += 1;
-      this.currentCombo = 0;
-      this.keyStatsDelta[charKey].errors += 1;
+      // ═════════════════════════════════════════════════════════════
+      // WORD CORRECTION MODE (Keep typing on error, Backspace to fix)
+      // ═════════════════════════════════════════════════════════════
+      const currentWordIdx = this.getWordIndexForChar(this.charIndex);
 
-      sound.playError();
+      if (expectedChar === ' ') {
+        // Caret is at a space (word boundary)
+        if (typedKey === ' ') {
+          // Check if preceding word is clean and complete
+          const isClean = currentWordIdx < 0 || this.isWordFullyCorrect(currentWordIdx);
+          const hasErrors = currentWordIdx >= 0 && this.hasUncorrectedErrorsInWord(currentWordIdx);
 
-      const state = store.getState();
-      if (state.settings.suddenDeath) {
-        // Sudden death triggered! Reset round
-        this.charIndex = 0;
-        if (this.onSuddenDeathFail) {
-          this.onSuddenDeathFail();
+          if (isClean && !hasErrors) {
+            // Space accepted! Advance past space
+            this.totalCorrect += 1;
+            this.currentCombo += 1;
+            this.maxCombo = Math.max(this.maxCombo, this.currentCombo);
+            this.charStates[this.charIndex] = { status: 'correct', char: ' ' };
+            sound.playSpace();
+            sound.playWordComplete();
+
+            if ([10, 25, 50, 100, 150, 200].includes(this.currentCombo)) {
+              sound.playCombo(this.currentCombo);
+            }
+
+            this.charIndex += 1;
+            this.emitState();
+
+            if (this.charIndex >= this.currentText.length) {
+              if (this.isAllTextCorrect()) {
+                this.finishRound();
+              }
+            }
+          } else {
+            // Word has uncorrected errors or incomplete keys! Cannot advance with space.
+            this.totalErrors += 1;
+            this.currentCombo = 0;
+            if (currentWordIdx >= 0) this.mistypedWordIndices.add(currentWordIdx);
+            sound.playError();
+
+            if (this.onErrorFeedback) {
+              this.onErrorFeedback({
+                expectedChar,
+                typedKey,
+                targetFinger: getFingerForKey(expectedChar),
+                requiresCorrection: true,
+                message: 'Delete mistyped keys with Backspace to fix word!'
+              });
+            }
+            this.emitState();
+          }
+        } else {
+          // Expected space, but user typed a non-space key
+          this.totalErrors += 1;
+          this.currentCombo = 0;
+          if (currentWordIdx >= 0) this.mistypedWordIndices.add(currentWordIdx);
+          sound.playError();
+
+          if (this.onErrorFeedback) {
+            this.onErrorFeedback({
+              expectedChar,
+              typedKey,
+              targetFinger: getFingerForKey(expectedChar)
+            });
+          }
+          this.emitState();
+        }
+      } else {
+        // Expected a non-space character (inside a word)
+        if (isMatch) {
+          this.totalCorrect += 1;
+          this.currentCombo += 1;
+          this.maxCombo = Math.max(this.maxCombo, this.currentCombo);
+          this.charStates[this.charIndex] = { status: 'correct', char: typedKey };
+          sound.playKeyClick(expectedChar);
+
+          if ([10, 25, 50, 100, 150, 200].includes(this.currentCombo)) {
+            sound.playCombo(this.currentCombo);
+          }
+
+          this.charIndex += 1;
+          this.emitState();
+
+          if (this.charIndex >= this.currentText.length) {
+            if (this.isAllTextCorrect()) {
+              this.finishRound();
+            }
+          }
+        } else {
+          // Mistyped key inside a word!
+          // "when type wrong it keep typing" -> record incorrect & advance charIndex!
+          this.totalErrors += 1;
+          this.currentCombo = 0;
+          this.keyStatsDelta[charKey].errors += 1;
+          this.mistypedCharIndices.add(this.charIndex);
+          if (currentWordIdx >= 0) this.mistypedWordIndices.add(currentWordIdx);
+
+          this.charStates[this.charIndex] = {
+            status: 'incorrect',
+            typed: typedKey,
+            expected: expectedChar
+          };
+
+          sound.playError();
+
+          if (state.settings.suddenDeath) {
+            this.charIndex = 0;
+            this.charStates = new Array(this.currentText.length).fill(null);
+            this.mistypedCharIndices = new Set();
+            this.mistypedWordIndices = new Set();
+            if (this.onSuddenDeathFail) {
+              this.onSuddenDeathFail();
+            }
+            this.emitState();
+            return;
+          }
+
+          if (this.onErrorFeedback) {
+            this.onErrorFeedback({
+              expectedChar,
+              typedKey,
+              targetFinger: getFingerForKey(expectedChar)
+            });
+          }
+
+          this.charIndex += 1; // Keep typing!
+          this.emitState();
         }
       }
-
-      if (this.onErrorFeedback) {
-        this.onErrorFeedback({
-          expectedChar,
-          typedKey,
-          targetFinger: getFingerForKey(expectedChar)
-        });
-      }
-
-      this.emitState();
     }
   }
 
@@ -255,7 +547,8 @@ export class TypingEngine {
     this.stopSprintCountdown();
     sound.stopMetronome();
 
-    const durationSec = this.startTime ? (Date.now() - this.startTime) / 1000 : 1;
+    const activeElapsedMs = this.startTime ? Math.max(1000, (Date.now() - this.startTime) - (this.totalPausedMs || 0)) : 1000;
+    const durationSec = activeElapsedMs / 1000;
     const wpm = this.calculateLiveWpm();
     const accuracy = this.calculateLiveAccuracy();
 
@@ -309,7 +602,8 @@ export class TypingEngine {
 
   calculateLiveWpm() {
     if (!this.startTime) return 0;
-    const elapsedMinutes = (Date.now() - this.startTime) / 60000;
+    const activeElapsedMs = (Date.now() - this.startTime) - (this.totalPausedMs || 0);
+    const elapsedMinutes = activeElapsedMs / 60000;
     if (elapsedMinutes < 0.02) return 0;
     const wpm = (this.totalCorrect / 5) / elapsedMinutes;
     return Math.max(0, Math.min(220, Math.round(wpm)));
@@ -325,10 +619,14 @@ export class TypingEngine {
     this.stopWpmSampling();
     this.wpmSampleTimer = setInterval(() => {
       if (this.isActive && this.startTime && !this.isPaused) {
-        const timeSec = Math.round((Date.now() - this.startTime) / 1000);
+        const activeElapsedMs = (Date.now() - this.startTime) - (this.totalPausedMs || 0);
+        const timeSec = Math.round(activeElapsedMs / 1000);
         const wpm = this.calculateLiveWpm();
         this.wpmHistory.push({ timeSec, wpm });
         if (this.wpmHistory.length > 80) this.wpmHistory.shift();
+        if (this.timeRemainingSec === null) {
+          this.emitState();
+        }
       }
     }, 1000);
   }
@@ -343,7 +641,7 @@ export class TypingEngine {
   startSprintCountdown() {
     this.stopSprintCountdown();
     this.sprintTimer = setInterval(() => {
-      if (this.isActive && !this.isPaused && this.timeRemainingSec !== null) {
+      if (this.isActive && !this.isPaused && this.startTime && this.timeRemainingSec !== null) {
         this.timeRemainingSec -= 1;
         if (this.timeRemainingSec <= 0) {
           this.finishLesson();
@@ -363,12 +661,19 @@ export class TypingEngine {
 
   pause() {
     this.isPaused = true;
+    if (this.startTime && !this.pausedAt) {
+      this.pausedAt = Date.now();
+    }
     sound.stopMetronome();
     this.emitState();
   }
 
   resume() {
     this.isPaused = false;
+    if (this.pausedAt) {
+      this.totalPausedMs = (this.totalPausedMs || 0) + (Date.now() - this.pausedAt);
+      this.pausedAt = null;
+    }
     const state = store.getState();
     if (state.settings.metronomeEnabled) {
       sound.startMetronome(state.settings.metronomeBpm || 100);
@@ -389,6 +694,8 @@ export class TypingEngine {
     const completedCharsInPriorRounds = this.lesson ? this.lesson.rounds.slice(0, this.currentRoundIdx).reduce((s, r) => s + r.length, 0) : 0;
     const overallProgressPct = Math.min(100, Math.round(((completedCharsInPriorRounds + this.charIndex) / totalLessonChars) * 100));
 
+    const state = store.getState();
+
     this.onStateChange({
       lesson: this.lesson,
       roundIdx: this.currentRoundIdx,
@@ -404,7 +711,15 @@ export class TypingEngine {
       maxCombo: this.maxCombo,
       progressPct: overallProgressPct,
       timeRemainingSec: this.timeRemainingSec,
-      isPaused: this.isPaused
+      startTime: this.startTime,
+      isStarted: !!this.startTime,
+      isPaused: this.isPaused,
+      roundTransitioning: this.roundTransitioning,
+      charStates: this.charStates || [],
+      mistypedCharIndices: this.mistypedCharIndices || new Set(),
+      mistypedWordIndices: this.mistypedWordIndices || new Set(),
+      charToWord: this.wordMap ? this.wordMap.charToWord : [],
+      wordCorrectionMode: !!state.settings.wordCorrectionMode
     });
   }
 

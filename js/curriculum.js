@@ -4,6 +4,7 @@
  * The lesson IDs and persisted-state contract are intentionally stable. The
  * richer metadata powers the roadmap while the four-round arc gives every
  * lesson the same dependable rhythm: warmup, patterns, words, assessment.
+ * All text is strictly single-spaced to prevent ambiguity for learners.
  */
 
 export const CURRICULUM_LEVELS = [
@@ -73,6 +74,9 @@ export const ROUND_LABELS = ['Warmup', 'Pattern control', 'Word flow', 'Assessme
 
 const levelById = id => CURRICULUM_LEVELS.find(level => level.id === id);
 
+/** Normalizes multiple spaces into a single space and trims edges */
+export const cleanRoundText = str => (typeof str === 'string' ? str.replace(/[ \t]{2,}/g, ' ').trim() : str);
+
 const createLesson = ({
   id,
   level,
@@ -98,7 +102,7 @@ const createLesson = ({
   skillFocus,
   keys,
   targetFingerIds,
-  rounds,
+  rounds: (rounds || []).map(cleanRoundText),
   roundLabels,
   estimatedMinutes,
   accuracyTarget,
@@ -122,7 +126,7 @@ export const CURRICULUM = [
     rounds: [
       'f j f j f j fj jf',
       'ff jj fj jf f j j f',
-      'f j f j  fj jf  ff jj',
+      'f j f j fj jf ff jj',
       'f j f j f j ff jj fj jf'
     ],
     accuracyTarget: 90,
@@ -142,8 +146,8 @@ export const CURRICULUM = [
     rounds: [
       'd k d k dd kk dk kd',
       'd f k j dk fj df kj',
-      'did kid did kid  find',
-      'kid dad did  fj  dk  find'
+      'did kid did kid find',
+      'kid dad did fj dk find'
     ],
     accuracyTarget: 90,
     wpmTarget: 14,
@@ -162,8 +166,8 @@ export const CURRICULUM = [
     rounds: [
       's l s l ss ll sl ls',
       's d f l k j sdl lkj',
-      'sad lad ask all  silk',
-      'salad  skill  falls  ask dad'
+      'sad lad ask all silk',
+      'salad skill falls ask dad'
     ],
     accuracyTarget: 91,
     wpmTarget: 16,
@@ -182,8 +186,8 @@ export const CURRICULUM = [
     rounds: [
       'a ; a ; aa ;; a; ;a',
       'as df ;l kj asdf ;lkj',
-      'ask  fall  lad  flask  ;',
-      'a sad lad;  a flask;  ask all'
+      'ask fall lad flask ;',
+      'a sad lad; a flask; ask all'
     ],
     accuracyTarget: 91,
     wpmTarget: 18,
@@ -201,9 +205,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
     rounds: [
       'a s d f g h j k l ;',
-      'asdf ghjk l;  ;lkj hgfd',
-      'gash  glad  half  flash  hall',
-      'all flags fall;  glad hands ask;  flash'
+      'asdf ghjk l; ;lkj hgfd',
+      'gash glad half flash hall',
+      'all flags fall; glad hands ask; flash'
     ],
     accuracyTarget: 92,
     wpmTarget: 20,
@@ -222,8 +226,8 @@ export const CURRICULUM = [
     rounds: [
       'ask dad lad fall salad glad',
       'flag half flask dash glass',
-      'has hall sash falls  glad asks',
-      'dad has a glad salad;  a flash flag'
+      'has hall sash falls glad asks',
+      'dad has a glad salad; a flash flag'
     ],
     accuracyTarget: 92,
     wpmTarget: 22,
@@ -245,9 +249,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-index', 'right-index'],
     rounds: [
       'r u r u rr uu ru ur',
-      'fr ju rf uj  fr ju',
-      'fur  run  rug  jar  far',
-      'run far;  your jar is full;  jug'
+      'fr ju rf uj fr ju',
+      'fur run rug jar far',
+      'run far; your jar is full; jug'
     ],
     accuracyTarget: 92,
     wpmTarget: 22,
@@ -265,9 +269,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-middle', 'right-middle'],
     rounds: [
       'e i e i ee ii ei ie',
-      'de ki ed ik  die kid',
-      'red ride  die  kid  fire',
-      'I ride;  the kid is free;  die'
+      'de ki ed ik die kid',
+      'red ride die kid fire',
+      'I ride; the kid is free; die'
     ],
     accuracyTarget: 92,
     wpmTarget: 24,
@@ -285,9 +289,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-ring', 'right-ring'],
     rounds: [
       'w o w o ww oo wo ow',
-      'sw lo ws ol  wo lo',
-      'wood  flow  work  look  word',
-      'slow words  flow well;  look out'
+      'sw lo ws ol wo lo',
+      'wood flow work look word',
+      'slow words flow well; look out'
     ],
     accuracyTarget: 93,
     wpmTarget: 26,
@@ -305,9 +309,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'right-pinky'],
     rounds: [
       'q p q p qq pp qp pq',
-      'aq ;p qa p;  qp pq',
-      'quit  pour  quiet  pale  pure',
-      'quiet people  pack a small bag;  stop'
+      'aq ;p qa p; qp pq',
+      'quit pour quiet pale pure',
+      'quiet people pack a small bag; stop'
     ],
     accuracyTarget: 93,
     wpmTarget: 28,
@@ -325,9 +329,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
     rounds: [
       'q w e r t y u i o p',
-      'great  write  water  right  quiet',
-      'people  their  house  after  yellow',
-      'write the right words;  keep your hands ready'
+      'great write water right quiet',
+      'people their house after yellow',
+      'write the right words; keep your hands ready'
     ],
     accuracyTarget: 94,
     wpmTarget: 30,
@@ -369,9 +373,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-index', 'right-index'],
     rounds: [
       'v b n m vv bb nn mm',
-      'fv gb jn jm  vb nm',
-      'vibe  brave  never  move  burn',
-      'never move back;  brave minds learn;  begin'
+      'fv gb jn jm vb nm',
+      'vibe brave never move burn',
+      'never move back; brave minds learn; begin'
     ],
     accuracyTarget: 93,
     wpmTarget: 30,
@@ -389,7 +393,7 @@ export const CURRICULUM = [
     targetFingerIds: ['left-middle', 'right-middle'],
     rounds: [
       'c , c , cc ,, c, ,c',
-      'dc k, cd ,k  c, k,',
+      'dc k, cd ,k c, k,',
       'clean, calm, clear, cold',
       'come quickly, check the code, create momentum'
     ],
@@ -409,9 +413,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-ring', 'right-ring'],
     rounds: [
       'x . x . xx .. x. .x',
-      'sx l. xs .l  x. .x',
+      'sx l. xs .l x. .x',
       'fix. box. six. mix. axis.',
-      'fix the next box.  six small steps.  move on.'
+      'fix the next box. six small steps. move on.'
     ],
     accuracyTarget: 94,
     wpmTarget: 34,
@@ -429,9 +433,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'right-pinky'],
     rounds: [
       'z / z / zz // z/ /z',
-      'az ;/ za /;  z/ /;',
-      'zero  zoom  zone  size  jazz',
-      'blaze across the zone/area;  zero delay'
+      'az ;/ za /; z/ /;',
+      'zero zoom zone size jazz',
+      'blaze across the zone/area; zero delay'
     ],
     accuracyTarget: 94,
     wpmTarget: 36,
@@ -449,9 +453,9 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
     rounds: [
       'z x c v b n m , . /',
-      'complex  system  matrix  vibrant  zone',
+      'complex system matrix vibrant zone',
       'black velvet cushion makes calm vibes',
-      'music, rhythm, balance, and focus.  keep moving.'
+      'music, rhythm, balance, and focus. keep moving.'
     ],
     accuracyTarget: 94,
     wpmTarget: 38,
@@ -493,7 +497,7 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
     rounds: [
       'Y U I O P H J K L N M',
-      'You  In  On  My  He  Just  Look  Now',
+      'You In On My He Just Look Now',
       'John and Mary walked past London bridge',
       'July, June, May, October, November'
     ],
@@ -513,7 +517,7 @@ export const CURRICULUM = [
     targetFingerIds: ['right-pinky', 'left-pinky', 'left-ring', 'left-middle', 'left-index'],
     rounds: [
       'Q W E R T A S D F G Z X C V B',
-      'We  Are  The  Best  Fast  Great  Quick',
+      'We Are The Best Fast Great Quick',
       'Alice and Bob visited California and Texas',
       'Rome Was Not Built In A Single Day'
     ],
@@ -723,7 +727,7 @@ export const CURRICULUM = [
     targetFingerIds: ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky', 'thumbs'],
     rounds: [
       'A clear mind, steady posture, and accurate fingers create dependable speed every day.',
-      'const result = { accuracy: 0.98, wpm: 62, ready: true };  Keep the process calm and repeatable.',
+      'const result = { accuracy: 0.98, wpm: 62, ready: true }; Keep the process calm and repeatable.',
       'From simple anchors to complex sentences, your hands now move with deliberate, quiet confidence.',
       'Congratulations. You can type real work with speed, accuracy, and control. Keep practicing.'
     ],
@@ -743,7 +747,7 @@ export function generateWeakKeysLesson(weakKeys = ['r', 't', ';']) {
     keys.map(k => `${k}a ${k}o ${k}e`).join(' ') + ' ' + keys.join(''),
     `practice ${keys.join(' ')} with clean precision and steady rhythm`,
     `master your weak keys: ${keys.join(', ')} until they feel natural`
-  ];
+  ].map(cleanRoundText);
 
   return {
     id: 'weak-keys-drill',
@@ -771,7 +775,7 @@ export function generateWeakFingerLesson(finger) {
     `smooth motion with ${finger.name} builds lasting muscle memory`,
     `master your ${finger.name} with consistent daily practice and steady cadence`,
     `use your ${finger.name} with calm precision until the motion feels natural`
-  ];
+  ].map(cleanRoundText);
 
   return {
     id: `weak-finger-${finger.id}`,
@@ -841,7 +845,7 @@ export function getDailyChallengeLesson(dateStr) {
     skillFocus: 'Daily fluency maintenance',
     keys: ['all'],
     targetFingerIds: [],
-    rounds: challenge.rounds,
+    rounds: (challenge.rounds || []).map(cleanRoundText),
     roundLabels: ROUND_LABELS,
     estimatedMinutes: 5,
     accuracyTarget: 93,

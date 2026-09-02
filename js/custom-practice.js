@@ -110,7 +110,7 @@ export function createPlacementLesson() {
     targetFingerIds: [],
     roundLabels: ['Home row control', 'Everyday prose', 'Numbers & symbols', 'Mixed fluency'],
     rounds: [
-      'a s d f j k l ;  sad fall ask skill glad',
+      'a s d f j k l ; sad fall ask skill glad',
       'The quick brown fox jumps over the lazy dog with smooth, accurate rhythm.',
       'Typing 1234567890 costs $45.67, scores 98%, and uses symbols like #, /, and @.',
       'Practice calmly: write clean sentences, use Shift correctly, and keep your eyes forward.'
@@ -127,12 +127,12 @@ export class CustomPracticeManager {
    * Chunks arbitrary raw text into cleanly formatted 1-5 round mini lessons
    */
   static createLessonFromText(title, rawText) {
-    const cleanText = rawText.trim().replace(/\r\n/g, '\n').replace(/\t/g, '  ');
+    const cleanText = rawText.trim().replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/[ \t]{2,}/g, ' ');
     if (!cleanText) return null;
 
     // Split by double newline or line blocks of ~120 chars
     let rounds = [];
-    const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const lines = cleanText.split('\n').map(l => l.trim().replace(/[ \t]{2,}/g, ' ')).filter(l => l.length > 0);
 
     let currentChunk = '';
     lines.forEach(line => {
@@ -146,7 +146,7 @@ export class CustomPracticeManager {
     if (currentChunk) rounds.push(currentChunk);
 
     if (rounds.length === 0) rounds = [cleanText.slice(0, 200)];
-    rounds = rounds.slice(0, 6); // Max 6 rounds
+    rounds = rounds.map(r => r.replace(/[ \t]{2,}/g, ' ').trim()).slice(0, 6); // Max 6 rounds
 
     return {
       id: `custom-${Date.now()}`,

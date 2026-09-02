@@ -156,6 +156,20 @@ body.focus-mode-active .hud-live-metrics {
   text-shadow: 0 0 8px rgba(0, 212, 170, 0.4);
 }
 
+.zen-typing-area .char-word-error {
+  color: #FFD026 !important;
+  text-shadow: 0 0 12px rgba(255, 208, 38, 0.6), 0 0 24px rgba(255, 208, 38, 0.3) !important;
+}
+
+.zen-typing-area .char-incorrect {
+  color: var(--error-coral) !important;
+  background: rgba(255, 92, 122, 0.25) !important;
+  border-bottom: 2px solid var(--error-coral);
+  border-radius: 4px;
+  font-weight: 700;
+  text-shadow: 0 0 12px var(--error-coral) !important;
+}
+
 .zen-typing-area .char-upcoming {
   color: rgba(245, 247, 250, 0.3) !important;
 }

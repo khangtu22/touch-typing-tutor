@@ -83,6 +83,7 @@ export class UIManager {
     this.hudComboEl = document.getElementById('hud-combo');
     this.hudComboWrapper = document.getElementById('hud-combo-wrapper');
     this.typingTextDisplay = document.getElementById('typing-text-display');
+    this.hudCorrectionBadge = document.getElementById('hud-correction-badge');
     this.keyboardContainer = document.getElementById('keyboard-container');
     this.handGuideContainer = document.getElementById('hand-guide-container');
 
@@ -118,71 +119,81 @@ export class UIManager {
         return;
       }
 
-      // On the results screen, Enter advances to the next lesson unless the
-      // user is already interacting with a specific control.
-      if (this.activeScreen === 'results' && (e.key === 'Enter' || e.code === 'NumpadEnter')) {
+      // On the results / complete screen:
+      // Enter advances to the next lesson; R retries the current lesson.
+      if (this.activeScreen === 'results') {
         const target = e.target;
         const isInteractiveTarget = target?.closest?.(
-          'button, a, input, textarea, select, [contenteditable="true"]'
+          'input, textarea, select, [contenteditable="true"]'
         );
 
-        if (!isInteractiveTarget) {
-          e.preventDefault();
-          document.getElementById('results-next-btn')?.click();
+        if (!isInteractiveTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          if (e.key === 'Enter' || e.code === 'NumpadEnter') {
+            e.preventDefault();
+            document.getElementById('results-next-btn')?.click();
+            return;
+          }
+          if (e.key.toLowerCase() === 'r') {
+            e.preventDefault();
+            document.getElementById('results-retry-btn')?.click();
+            return;
+          }
+        }
+      }
+
+      if (this.activeScreen === 'lesson') {
+        if (typingEngine.isActive) {
+          if (zenMode.isActive) return;
+          if (this.keyboardRenderer) {
+            this.keyboardRenderer.triggerPhysicalPress(e.code);
+          }
+          if (this.handRenderer) {
+            this.handRenderer.triggerPhysicalPress(e.code, e.key);
+          }
+          typingEngine.handleKeyDown(e);
         }
         return;
       }
 
-      if (this.activeScreen === 'lesson' && typingEngine.isActive) {
-        if (this.keyboardRenderer) {
-          this.keyboardRenderer.triggerPhysicalPress(e.code);
-        }
-        typingEngine.handleKeyDown(e);
-      }
-
-      // --- Global Premium Shortcuts (only when not typing in a lesson) ---
-      if (this.activeScreen !== 'lesson' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // --- Global Shortcuts (only on dashboard, never inside inputs or during lessons/results) ---
+      if (this.activeScreen === 'dashboard' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const tag = e.target?.tagName?.toLowerCase();
         if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
         switch (e.key.toLowerCase()) {
           case 'z':
-            if (this.activeScreen === 'dashboard') {
+            e.preventDefault();
+            this.launchZenMode();
+            break;
+          case 'f': {
+            const state = store.getState();
+            if (state.settings?.wellness?.focusModeShortcut !== false) {
               e.preventDefault();
-              this.launchZenMode();
             }
             break;
-          case 'f':
-            if (this.activeScreen === 'lesson' || this.activeScreen === 'dashboard') {
-              const state = store.getState();
-              if (state.settings?.wellness?.focusModeShortcut !== false) {
-                e.preventDefault();
-                if (this.activeScreen === 'lesson') this.toggleFocusMode();
-              }
-            }
-            break;
+          }
           case 'a':
-            if (this.activeScreen !== 'profile') {
-              e.preventDefault();
-              this.navigateTo('profile');
-            }
+            e.preventDefault();
+            this.navigateTo('profile');
             break;
           case 'g':
-            if (this.activeScreen !== 'settings') {
-              e.preventDefault();
-              this.navigateTo('settings');
-            }
+            e.preventDefault();
+            this.navigateTo('settings');
             break;
           case 'q':
-            if (this.activeScreen !== 'quotes') {
-              e.preventDefault();
-              this.navigateTo('quotes');
-            }
+            e.preventDefault();
+            this.navigateTo('quotes');
             break;
           case '?':
             e.preventDefault();
             this.showShortcutsPopup();
             break;
+        }
+      } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = e.target?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+          e.preventDefault();
+          this.showShortcutsPopup();
         }
       }
     });
@@ -373,8 +384,19 @@ export class UIManager {
         const handPreviewEl = document.getElementById('onboarding-hand-preview');
         if (handPreviewEl) {
           const previewHand = new HandRenderer(handPreviewEl);
-          previewHand.highlightFinger('left-index');
-          setTimeout(() => previewHand.highlightFinger('right-index'), 1200);
+          const kbSlot = handPreviewEl.querySelector('#mech-kb-slot') || handPreviewEl;
+          const previewKb = new KeyboardRenderer(kbSlot, {
+            interactive: false,
+            layoutId: store.getState().settings.layout || 'qwerty'
+          });
+          previewHand.setKeyboardRenderer(previewKb);
+          previewHand.highlightFinger('left-index', 'f');
+
+          const timer = setTimeout(() => {
+            if (document.body.contains(handPreviewEl)) {
+              previewHand.highlightFinger('right-index', 'j');
+            }
+          }, 1500);
         }
       } else if (currentStep === 3) {
         container.innerHTML = `
@@ -1267,7 +1289,7 @@ export class UIManager {
     }
 
     // Ghost Racer Telemetry
-    const raceStatus = ghostRacer.update(data.progressPct);
+    const raceStatus = ghostRacer.update(data.progressPct, !!data.startTime);
     if (raceStatus.isEnabled) {
       if (this.raceUserMarker) this.raceUserMarker.style.left = `${raceStatus.userPct}%`;
       if (this.raceCompetitorMarker) this.raceCompetitorMarker.style.left = `${raceStatus.competitorPct}%`;
@@ -1286,7 +1308,18 @@ export class UIManager {
       }
     }
 
-    this.renderTypingText(data.currentText, data.charIndex);
+    if (this.hudCorrectionBadge) {
+      this.hudCorrectionBadge.style.display = data.wordCorrectionMode ? 'inline-flex' : 'none';
+    }
+
+    this.renderTypingText(
+      data.currentText,
+      data.charIndex,
+      data.charStates,
+      data.mistypedCharIndices,
+      data.charToWord,
+      data.wordCorrectionMode
+    );
 
     if (this.keyboardRenderer) {
       this.keyboardRenderer.highlightTarget(data.expectedChar, data.shiftNeeded);
@@ -1300,14 +1333,22 @@ export class UIManager {
     }
   }
 
-  renderTypingText(text, currentIndex) {
+  renderTypingText(text, currentIndex, charStates = [], mistypedCharIndices = new Set(), charToWord = [], wordCorrectionMode = false) {
     let html = '';
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
-      const displayChar = char === ' ' ? '&nbsp;' : char;
+      const displayChar = char === ' ' ? '&nbsp;' : escapeHtml(char);
+      const isCharMistyped = mistypedCharIndices && mistypedCharIndices.has(i);
+      const stateObj = charStates ? charStates[i] : null;
 
       if (i < currentIndex) {
-        html += `<span class="char-token char-correct">${displayChar}</span>`;
+        if (stateObj && stateObj.status === 'incorrect') {
+          html += `<span class="char-token char-incorrect" data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}</span>`;
+        } else if (isCharMistyped) {
+          html += `<span class="char-token char-word-error" title="Corrected character">${displayChar}</span>`;
+        } else {
+          html += `<span class="char-token char-correct">${displayChar}</span>`;
+        }
       } else if (i === currentIndex) {
         html += `<span class="char-token char-current"><span class="char-caret"></span>${displayChar}</span>`;
       } else {
@@ -1329,10 +1370,14 @@ export class UIManager {
       this.keyboardRenderer.triggerError(data.typedKey);
     }
 
-    const currentCharEl = this.typingTextDisplay?.querySelector('.char-current');
+    const currentCharEl = this.typingTextDisplay?.querySelector('.char-current, .char-incorrect');
     if (currentCharEl) {
       currentCharEl.classList.add('char-error-shake');
       setTimeout(() => currentCharEl.classList.remove('char-error-shake'), 250);
+    }
+
+    if (data.requiresCorrection) {
+      this.showToast('⚠️ Delete wrong keys with Backspace to fix word before typing space!', 'amber');
     }
 
     if (zenMode.isActive) {
@@ -1341,7 +1386,7 @@ export class UIManager {
   }
 
   handleRoundFinished(data) {
-    this.showToast(`Round ${data.roundIdx + 1} Complete! Press Enter for the next round.`, 'teal');
+    this.showToast(`Round ${data.roundIdx + 1} Complete!`, 'teal');
   }
 
   handleLessonFinished(summary) {
@@ -1593,8 +1638,8 @@ export class UIManager {
         </div>
 
         <div class="results-actions">
-          <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel}</button>
-          <button id="results-retry-btn" class="btn btn-secondary">Retry Lesson</button>
+          <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} (Enter ↵)</button>
+          <button id="results-retry-btn" class="btn btn-secondary">Retry Lesson (R)</button>
           <button id="results-dashboard-btn" class="btn btn-outline">Back to Dashboard</button>
         </div>
       </div>
@@ -2092,6 +2137,16 @@ export class UIManager {
           </div>
           <div class="setting-row">
             <div>
+              <label class="setting-label">Word Correction Mode (Backspace to Fix)</label>
+              <p class="setting-desc">Keep typing on mistakes. Requires deleting errors with Backspace before completing the word. Mistyped words are marked in yellow.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-wordcorrection-toggle" ${settings.wordCorrectionMode ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div>
               <label class="setting-label">Sudden Death Mode</label>
               <p class="setting-desc">A single mistake immediately restarts the current round</p>
             </div>
@@ -2401,12 +2456,23 @@ export class UIManager {
       }));
     });
 
-    // Blind & Sudden Death
+    // Blind, Word Correction & Sudden Death
     document.getElementById('setting-blind-toggle')?.addEventListener('change', (e) => {
       store.update(prev => ({
         ...prev,
         settings: { ...prev.settings, blindMode: e.target.checked }
       }));
+    });
+
+    document.getElementById('setting-wordcorrection-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, wordCorrectionMode: e.target.checked }
+      }));
+      this.showToast(
+        e.target.checked ? 'Word Correction Mode Enabled' : 'Word Correction Mode Disabled',
+        'teal'
+      );
     });
 
     document.getElementById('setting-suddendeath-toggle')?.addEventListener('change', (e) => {
@@ -2625,7 +2691,11 @@ export class UIManager {
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">Enter</span></td>
-                <td>Next round / Advance from results screen</td>
+                <td>Next lesson / Advance on completion page</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">R</span></td>
+                <td>Retry current lesson on completion page</td>
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">F</span></td>

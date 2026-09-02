@@ -115,6 +115,7 @@ const DEFAULT_STATE = {
     botWpm: 50,
     blindMode: false,
     suddenDeath: false,
+    wordCorrectionMode: false,
     metronomeEnabled: false,
     metronomeBpm: 100,
     // --- Premium Feature Settings ---
@@ -544,6 +545,7 @@ class StateStore {
         botWpm: 50,
         blindMode: false,
         suddenDeath: false,
+        wordCorrectionMode: false,
         metronomeEnabled: false,
         metronomeBpm: 100
       },

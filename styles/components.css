@@ -123,6 +123,21 @@
   box-shadow: var(--shadow-lg);
 }
 
+.onboarding-card.onboarding-step-2 {
+  max-width: 980px;
+  width: 100%;
+  padding: 36px 28px;
+}
+
+.onboarding-hand-preview {
+  width: 100%;
+  max-width: 960px;
+  position: relative;
+  margin: 10px auto;
+  display: flex;
+  justify-content: center;
+}
+
 .onboarding-badge {
   font-size: 12px;
   font-weight: 700;

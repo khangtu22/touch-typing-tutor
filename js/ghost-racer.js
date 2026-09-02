@@ -29,9 +29,39 @@ export class GhostRacer {
     this.startTime = null;
   }
 
-  update(userProgressPct = 0) {
+  getCompetitorInfo() {
+    if (this.mode === 'personal_best' && this.bestRun && this.bestRun.durationSec) {
+      return {
+        name: `Personal Best (${this.bestRun.wpm} WPM)`,
+        avatar: '👻'
+      };
+    }
+    const botObj = BOTS.find(b => b.wpm === this.botWpm) || { name: `${this.botWpm} WPM Bot`, avatar: '🤖' };
+    return {
+      name: botObj.name,
+      avatar: botObj.avatar
+    };
+  }
+
+  update(userProgressPct = 0, isTypingStarted = false) {
     if (!this.isActive) {
       return { isEnabled: false };
+    }
+
+    const competitor = this.getCompetitorInfo();
+
+    // If typing hasn't started yet, keep both racers at the starting line (0%)
+    if (!isTypingStarted) {
+      this.startTime = null;
+      return {
+        isEnabled: true,
+        userPct: 0,
+        competitorPct: 0,
+        competitorName: competitor.name,
+        competitorAvatar: competitor.avatar,
+        deltaPct: 0,
+        leadStatus: 'tied'
+      };
     }
 
     if (!this.startTime) {
@@ -40,19 +70,11 @@ export class GhostRacer {
 
     const elapsedSeconds = (Date.now() - this.startTime) / 1000;
     let competitorPct = 0;
-    let competitorName = 'AI Bot';
-    let competitorAvatar = '🤖';
 
     if (this.mode === 'personal_best' && this.bestRun && this.bestRun.durationSec) {
-      competitorName = `Personal Best (${this.bestRun.wpm} WPM)`;
-      competitorAvatar = '👻';
       competitorPct = Math.min(100, (elapsedSeconds / this.bestRun.durationSec) * 100);
     } else {
       // AI Bot calculation: target WPM -> chars per second = (wpm * 5) / 60
-      const botObj = BOTS.find(b => b.wpm === this.botWpm) || { name: `${this.botWpm} WPM Bot`, avatar: '🤖' };
-      competitorName = botObj.name;
-      competitorAvatar = botObj.avatar;
-
       const charsPerSec = (this.botWpm * 5) / 60;
       const competitorCharsTyped = charsPerSec * elapsedSeconds;
       competitorPct = Math.min(100, (competitorCharsTyped / this.totalChars) * 100);
@@ -65,8 +87,8 @@ export class GhostRacer {
       isEnabled: true,
       userPct: Math.min(100, Math.max(0, userProgressPct)),
       competitorPct: Math.min(100, Math.max(0, Math.round(competitorPct))),
-      competitorName,
-      competitorAvatar,
+      competitorName: competitor.name,
+      competitorAvatar: competitor.avatar,
       deltaPct,
       leadStatus
     };

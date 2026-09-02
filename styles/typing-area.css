@@ -167,12 +167,41 @@
   color: var(--success-teal);
 }
 
+/* Word Correction Mode: Mistyped word highlighted in yellow */
+.char-word-error {
+  color: #FFD026 !important;
+  text-shadow: 0 0 10px rgba(255, 208, 38, 0.45);
+}
+
+/* Incorrect character that requires Backspace */
+.char-incorrect {
+  color: var(--error-coral) !important;
+  background: rgba(255, 92, 122, 0.22) !important;
+  border-bottom: 2px solid var(--error-coral);
+  border-radius: 3px;
+  font-weight: 700;
+  text-shadow: 0 0 8px var(--error-glow);
+}
+
 .char-current {
   color: var(--text-primary);
   background: rgba(124, 92, 252, 0.22);
   border-radius: 3px;
   font-weight: 700;
   box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Mode indicator in HUD */
+.hud-mode-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 208, 38, 0.15);
+  color: #FFD026;
+  border: 1px solid rgba(255, 208, 38, 0.35);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 /* Caret Cursor Indicator */
@@ -198,3 +227,4 @@
   background: rgba(255, 92, 122, 0.35) !important;
   animation: keyShake 0.25s ease-in-out;
 }
+
