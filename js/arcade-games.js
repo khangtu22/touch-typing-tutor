@@ -1,6 +1,6 @@
 /**
- * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.2.0)
- * Featuring 4 Distinct Arcade Game Modes:
+ * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.3.0)
+ * Featuring 4 Distinct Arcade Game Modes with Easy / Med / Hard Speed Controls:
  * 1. Type Invaders: Orbit Defense (Laser turret, wave spawner, power-ups, boss battle)
  * 2. Nitro Sprint: 60s Speed Drag Race (Analog speedometer physics, turbo bursts, ghost racer)
  * 3. Matrix Rain: Code Breaker (Netrunner terminal hacking, digital rain canvas, syntax tokens)
@@ -13,14 +13,14 @@ import { store } from './state.js';
 // ==========================================
 // ADAPTIVE WORD BANKS FOR ARCADE GAMEPLAY
 // ==========================================
-const CADET_WORDS = [
+const EASY_WORDS = [
   'star', 'glow', 'beam', 'fire', 'dark', 'nova', 'ship', 'fast', 'flow',
   'path', 'dash', 'code', 'data', 'byte', 'core', 'warp', 'grid', 'bolt',
   'time', 'flux', 'jump', 'moon', 'mars', 'orbit', 'solar', 'laser', 'space',
   'speed', 'drive', 'pulse', 'spark', 'flare', 'blast', 'light', 'zenith'
 ];
 
-const ACE_WORDS = [
+const MEDIUM_WORDS = [
   'velocity', 'gravity', 'quantum', 'nebula', 'asteroid', 'protocol',
   'keyboard', 'terminal', 'teleport', 'hyperion', 'spectrum', 'radiance',
   'momentum', 'tactical', 'reaction', 'accuracy', 'frequency', 'satellite',
@@ -28,11 +28,12 @@ const ACE_WORDS = [
   'vanguard', 'supernova', 'starlight', 'interlink', 'matrix', 'parallax'
 ];
 
-const HYPERDRIVE_WORDS = [
+const HARD_WORDS = [
   'const_speed', 'async_pulse', 'import_flux', 'export_core', 'render_laser',
   'packet_loss', 'buffer_size', 'system_boot', 'override_7', 'matrix_init',
   'crypto_hash', 'shield_lock', 'telemetry_99', 'vector_angle', 'cyber_drone',
-  'quantum_leap', 'zero_gravity', 'plasma_shield', 'warp_velocity', 'engine_boost'
+  'quantum_leap', 'zero_gravity', 'plasma_shield', 'warp_velocity', 'engine_boost',
+  'function_init', 'array_filter', 'state_machine', 'buffer_stream', 'protocol_v2'
 ];
 
 const BOSS_PHRASES = [
@@ -44,20 +45,33 @@ const BOSS_PHRASES = [
   'MAXIMUM_VELOCITY_ENGAGED'
 ];
 
-const CODE_TOKENS = [
-  'function', 'return', 'async', 'await', 'import', 'export', 'const', 'let',
-  'typeof', 'instanceof', 'Promise', 'resolve', 'reject', 'try', 'catch',
-  'throw', 'finally', 'switch', 'case', 'break', 'default', 'continue',
-  'console.log', 'document.get', 'window.fetch', 'JSON.stringify', 'Math.floor',
-  'Array.from', 'Object.keys', 'setTimeout', 'setInterval', 'addEventListener',
-  '0x7F4A', '0xFF00', '0x1A2B', '0x99C1', '0xDE44', '0x00FF',
-  'item => item.id', 'sum += val;', 'res.json();', 'el.classList', 'key === code'
+const MATRIX_EASY_TOKENS = [
+  'let', 'var', 'const', 'for', 'if', 'try', 'catch', 'num', 'key', 'id',
+  '0x01', '0xFF', '0x2A', '0x99', 'true', 'null', 'void', 'path', 'loop'
 ];
 
-const RHYTHM_BEAT_WORDS = [
-  'flow', 'beat', 'drop', 'bass', 'step', 'wave', 'tune', 'kick',
-  'snare', 'vibe', 'drum', 'groove', 'rhythm', 'pulse', 'tempo', 'track',
-  'synth', 'audio', 'sonic', 'dance', 'hyper', 'fever', 'stride', 'glide'
+const MATRIX_MED_TOKENS = [
+  'function', 'return', 'async', 'await', 'import', 'export', 'typeof',
+  'Promise', 'resolve', 'reject', 'switch', 'default', 'console.log',
+  'Math.floor', 'Array.from', 'Object.keys', '0x7F4A', '0x1A2B', '0xDE44'
+];
+
+const MATRIX_HARD_TOKENS = [
+  '() => res.json()', 'Array.from(map)', 'JSON.stringify()', 'el.classList.add',
+  'window.fetch(url)', 'setTimeout(fn, 100)', '0x99C1DE44', 'res.status(200)',
+  'item => item.id', 'state.update(fn)', 'document.querySelector', 'export default'
+];
+
+const RHYTHM_EASY_WORDS = [
+  'beat', 'flow', 'drop', 'bass', 'step', 'wave', 'tune', 'kick', 'snare', 'vibe'
+];
+
+const RHYTHM_MED_WORDS = [
+  'groove', 'rhythm', 'pulse', 'tempo', 'track', 'synth', 'audio', 'sonic', 'dance', 'hyper'
+];
+
+const RHYTHM_HARD_WORDS = [
+  'overdrive', 'cadence', 'frequency', 'metronome', 'vibration', 'resonance', 'velocity', 'synthesizer'
 ];
 
 const POWERUP_TYPES = [
@@ -72,7 +86,7 @@ const POWERUP_TYPES = [
 export class TypeInvadersGame {
   constructor(container, options = {}) {
     this.container = container;
-    this.difficulty = options.difficulty || 'cadet'; // 'cadet' | 'ace' | 'hyperdrive'
+    this.difficulty = options.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
     this.onExit = options.onExit || (() => {});
 
     this.state = {
@@ -111,6 +125,10 @@ export class TypeInvadersGame {
   }
 
   mount() {
+    const diffLabel = this.difficulty === 'easy' ? 'EASY (CHILL)'
+                    : this.difficulty === 'hard' ? 'HARD (TURBO)'
+                    : 'MED (NORMAL)';
+
     this.container.innerHTML = `
       <div class="arcade-cabinet">
         <!-- Arcade Header HUD -->
@@ -123,6 +141,10 @@ export class TypeInvadersGame {
             <div class="arcade-hud-pill">
               <span class="hud-label">WAVE</span>
               <span id="arcade-hud-wave" class="hud-value hud-glow-purple">1 / 7</span>
+            </div>
+            <div class="arcade-hud-pill">
+              <span class="hud-label">SPEED MODE</span>
+              <span class="hud-value hud-glow-gold" style="font-size: 11px;">${diffLabel}</span>
             </div>
             <div class="arcade-hud-pill">
               <span class="hud-label">MULTIPLIER</span>
@@ -286,8 +308,13 @@ export class TypeInvadersGame {
     // Normal Enemy Spawning
     if (!this.state.bossActive) {
       this.spawnTimer += dt;
-      const spawnInterval = Math.max(1.2, 3.2 - (this.state.wave * 0.3));
-      const maxEnemiesOnScreen = Math.min(6, 2 + this.state.wave);
+      const baseInterval = (this.difficulty === 'hard' || this.difficulty === 'hyperdrive') ? 1.6
+                         : (this.difficulty === 'easy' || this.difficulty === 'cadet') ? 3.4
+                         : 2.3;
+      const spawnInterval = Math.max(0.9, baseInterval - (this.state.wave * 0.2));
+      const maxEnemiesOnScreen = (this.difficulty === 'hard' || this.difficulty === 'hyperdrive') ? 6
+                               : (this.difficulty === 'easy' || this.difficulty === 'cadet') ? 3
+                               : 4;
 
       if (this.spawnTimer >= spawnInterval && this.state.enemies.length < maxEnemiesOnScreen) {
         this.spawnTimer = 0;
@@ -297,7 +324,10 @@ export class TypeInvadersGame {
 
     // Update Enemies Position
     const speedMultiplier = this.state.isFrozen ? 0.2 : 1.0;
-    const baseSpeed = (20 + (this.state.wave * 8)) * (this.difficulty === 'hyperdrive' ? 1.4 : this.difficulty === 'ace' ? 1.2 : 1.0);
+    const diffMult = (this.difficulty === 'hard' || this.difficulty === 'hyperdrive') ? 1.45
+                   : (this.difficulty === 'easy' || this.difficulty === 'cadet') ? 0.65
+                   : 1.0;
+    const baseSpeed = (16 + (this.state.wave * 7)) * diffMult;
 
     for (let i = this.state.enemies.length - 1; i >= 0; i--) {
       const enemy = this.state.enemies[i];
@@ -312,7 +342,7 @@ export class TypeInvadersGame {
     // Update Boss Minions if Boss is active
     if (this.state.bossActive) {
       this.spawnTimer += dt;
-      if (this.spawnTimer >= 4.0 && this.state.enemies.length < 2) {
+      if (this.spawnTimer >= 3.8 && this.state.enemies.length < 2) {
         this.spawnTimer = 0;
         this.spawnEnemy(true); // minion
       }
@@ -322,24 +352,23 @@ export class TypeInvadersGame {
   }
 
   getWordForCurrentWave() {
-    if (this.difficulty === 'hyperdrive' || this.state.wave >= 5) {
-      const pool = [...ACE_WORDS, ...HYPERDRIVE_WORDS];
+    if (this.difficulty === 'hard' || this.difficulty === 'hyperdrive' || this.state.wave >= 5) {
+      const pool = [...MEDIUM_WORDS, ...HARD_WORDS];
       return pool[Math.floor(Math.random() * pool.length)];
     }
-    if (this.difficulty === 'ace' || this.state.wave >= 3) {
-      return ACE_WORDS[Math.floor(Math.random() * ACE_WORDS.length)];
+    if (this.difficulty === 'medium' || this.difficulty === 'ace' || this.state.wave >= 3) {
+      return MEDIUM_WORDS[Math.floor(Math.random() * MEDIUM_WORDS.length)];
     }
-    return CADET_WORDS[Math.floor(Math.random() * CADET_WORDS.length)];
+    return EASY_WORDS[Math.floor(Math.random() * EASY_WORDS.length)];
   }
 
   spawnEnemy(isMinion = false) {
     const word = this.getWordForCurrentWave();
     const existingWords = new Set(this.state.enemies.map(e => e.word));
-    if (existingWords.has(word) && this.state.enemies.length > 0) return; // avoid duplicate active words
+    if (existingWords.has(word) && this.state.enemies.length > 0) return;
 
-    // Distribute randomly across 5 lanes (15% to 85% width)
     const laneX = 12 + Math.random() * 76;
-    const hasPowerup = Math.random() < 0.18;
+    const hasPowerup = Math.random() < 0.2;
     const powerup = hasPowerup ? POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)] : null;
 
     const enemy = {
@@ -359,11 +388,11 @@ export class TypeInvadersGame {
 
   spawnBoss() {
     this.state.bossActive = true;
-    this.state.bossMaxHp = 6;
-    this.state.bossHp = 6;
+    this.state.bossMaxHp = this.difficulty === 'hard' ? 8 : this.difficulty === 'easy' ? 4 : 6;
+    this.state.bossHp = this.state.bossMaxHp;
     this.state.bossPhraseIndex = 0;
     this.state.bossCurrentText = BOSS_PHRASES[0];
-    this.state.enemies = []; // clear small enemies for boss entrance
+    this.state.enemies = [];
 
     sound.playBossAlarm();
 
@@ -381,7 +410,7 @@ export class TypeInvadersGame {
       typedIndex: 0,
       x: 50,
       y: 18,
-      speedFactor: 0, // static mothership at top
+      speedFactor: 0,
       isBoss: true,
       icon: '🛸'
     };
@@ -418,7 +447,7 @@ export class TypeInvadersGame {
     const char = e.key;
     this.state.totalKeystrokes++;
 
-    // 1. If currently locked onto a target enemy
+    // 1. If locked onto a target
     if (this.state.targetEnemyId) {
       const enemy = this.state.enemies.find(e => e.id === this.state.targetEnemyId);
       if (enemy) {
@@ -433,10 +462,10 @@ export class TypeInvadersGame {
       }
     }
 
-    // 2. Not locked onto an enemy yet: find lowest enemy matching this starting character
+    // 2. Unlocked target
     const candidate = this.state.enemies
       .filter(e => e.word.startsWith(char) && e.typedIndex === 0)
-      .sort((a, b) => b.y - a.y)[0]; // target closest to shield first
+      .sort((a, b) => b.y - a.y)[0];
 
     if (candidate) {
       this.state.targetEnemyId = candidate.id;
@@ -455,7 +484,6 @@ export class TypeInvadersGame {
     this.aimTurretAt(enemy.x, enemy.y);
     this.spawnLaserBeam(enemy.x, enemy.y);
 
-    // Check if word completed
     if (enemy.typedIndex >= enemy.word.length) {
       this.destroyEnemy(enemy);
     }
@@ -510,7 +538,6 @@ export class TypeInvadersGame {
         this.handleBossDefeated();
         return;
       } else {
-        // Advance to next boss phrase
         this.state.bossPhraseIndex = (this.state.bossPhraseIndex + 1) % BOSS_PHRASES.length;
         this.state.bossCurrentText = BOSS_PHRASES[this.state.bossPhraseIndex];
         enemy.word = this.state.bossCurrentText;
@@ -519,13 +546,11 @@ export class TypeInvadersGame {
       }
     }
 
-    // Remove normal enemy
     this.state.enemies = this.state.enemies.filter(e => e.id !== enemy.id);
     if (this.state.targetEnemyId === enemy.id) {
       this.state.targetEnemyId = null;
     }
 
-    // Check Wave Advancement (every 8 enemies vaporized per wave)
     if (this.state.totalEnemiesVaporized % 8 === 0 && this.state.wave < this.state.maxWave) {
       this.advanceWave();
     }
@@ -543,11 +568,9 @@ export class TypeInvadersGame {
     sound.playShieldAlarm();
     this.createExplosion(enemy.x, 88, '#FF5C7A');
 
-    // Remove breached enemy
     this.state.enemies.splice(index, 1);
     if (this.state.targetEnemyId === enemy.id) this.state.targetEnemyId = null;
 
-    // Flash shield dome red
     const dome = this.container.querySelector('#arcade-shield-dome');
     if (dome) {
       dome.classList.add('dome-impact');
@@ -566,18 +589,14 @@ export class TypeInvadersGame {
     this.state.powerups.emp--;
     sound.playExplosion();
 
-    // Flash screen with plasma EMP
     const arena = this.container.querySelector('#arcade-arena');
     if (arena) {
       arena.classList.add('emp-flash');
       setTimeout(() => arena.classList.remove('emp-flash'), 500);
     }
 
-    // Vaporize all non-boss enemies
     const toDestroy = [...this.state.enemies.filter(e => !e.isBoss)];
-    toDestroy.forEach(e => {
-      this.destroyEnemy(e);
-    });
+    toDestroy.forEach(e => this.destroyEnemy(e));
 
     this.state.targetEnemyId = null;
     this.updateHud();
@@ -905,6 +924,7 @@ export class NitroSprintGame {
   constructor(container, options = {}) {
     this.container = container;
     this.durationSec = options.durationSec || 60;
+    this.difficulty = options.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
     this.onExit = options.onExit || (() => {});
 
     this.state = {
@@ -916,7 +936,7 @@ export class NitroSprintGame {
       peakWpm: 0,
       combo: 0,
       nitroActive: false,
-      nitroMeter: 0, // 0 - 100%
+      nitroMeter: 0,
       textToType: '',
       charIndex: 0,
       totalKeystrokes: 0,
@@ -928,12 +948,27 @@ export class NitroSprintGame {
   }
 
   mount() {
-    const passages = [
-      'Velocity and precision create effortless typing mastery. Keep your eyes forward, trust your muscle memory, and let your fingers fly across the mechanical keyboard with rhythm and confidence.',
-      'Touch typing eliminates the friction between thought and digital creation. Feel the tactile click of every switch, maintain continuous momentum, and unlock your true maximum typing speed.',
-      'Smooth is fast, and fast is smooth. Do not rush difficult letters; maintain a steady metronome cadence, hold your posture upright, and watch your speed accelerate into high gear.'
+    const easyPassages = [
+      'the and for are but not you all any can had her was one our out day get has him his how about after again below could every first great little other right there their these think touch typing lets your fingers move easily across the board with calm speed and zero stress.',
+      'start your practice with steady hands and clear mind. small daily habits lead to great speed. each finger knows where to go. keep typing smooth and steady.'
     ];
-    this.state.textToType = passages[Math.floor(Math.random() * passages.length)];
+    const medPassages = [
+      'Velocity and precision create effortless typing mastery. Keep your eyes forward, trust your muscle memory, and let your fingers fly across the mechanical keyboard with rhythm and confidence.',
+      'Touch typing eliminates the friction between thought and digital creation. Feel the tactile click of every switch, maintain continuous momentum, and unlock your true maximum typing speed.'
+    ];
+    const hardPassages = [
+      'function calculateWpm(chars, timeSec) { return Math.round((chars / 5) / (timeSec / 60)); } const telemetry = { accuracy: 0.99, combo: 150, boostRate: "Turbo 4X" }; export async function fetchTelemetry(url) { const res = await fetch(url); return res.json(); }',
+      'const matrix = [0xFA, 0x99, 0xC1, 0x00]; let total = matrix.reduce((acc, hex) => acc + (hex & 0xFF), 0); if (total >= 256) { return { status: 200, verified: true }; }'
+    ];
+
+    const pool = this.difficulty === 'hard' ? hardPassages
+               : this.difficulty === 'easy' ? easyPassages
+               : medPassages;
+    this.state.textToType = pool[Math.floor(Math.random() * pool.length)];
+
+    const diffLabel = this.difficulty === 'easy' ? 'EASY (CASUAL)'
+                    : this.difficulty === 'hard' ? 'HARD (CODE & SYMBOLS)'
+                    : 'MED (STANDARD)';
 
     this.container.innerHTML = `
       <div class="arcade-cabinet nitro-theme">
@@ -953,6 +988,10 @@ export class NitroSprintGame {
             <div class="arcade-hud-pill">
               <span class="hud-label">TIME REMAINING</span>
               <span id="nitro-time-left" class="hud-value hud-glow-gold">${this.durationSec}s</span>
+            </div>
+            <div class="arcade-hud-pill">
+              <span class="hud-label">SPEED MODE</span>
+              <span class="hud-value hud-glow-cyan" style="font-size: 11px;">${diffLabel}</span>
             </div>
             <div class="arcade-hud-pill">
               <span class="hud-label">PEAK WPM</span>
@@ -1020,26 +1059,27 @@ export class NitroSprintGame {
 
     this.state.totalKeystrokes++;
 
+    const nitroGain = this.difficulty === 'easy' ? 5 : this.difficulty === 'hard' ? 2 : 3;
+    const nitroLoss = this.difficulty === 'easy' ? 5 : this.difficulty === 'hard' ? 16 : 10;
+
     if (char === expectedChar) {
       this.state.charIndex++;
       this.state.combo++;
-      this.state.nitroMeter = Math.min(100, this.state.nitroMeter + 3);
+      this.state.nitroMeter = Math.min(100, this.state.nitroMeter + nitroGain);
 
       sound.playKeyClick(char);
 
-      // Trigger Nitro on high combo
       if (this.state.combo % 20 === 0 && !this.state.nitroActive) {
         this.triggerNitroBoost();
       }
 
-      // Loop text if completed
       if (this.state.charIndex >= this.state.textToType.length) {
         this.state.charIndex = 0;
       }
     } else {
       this.state.totalErrors++;
       this.state.combo = 0;
-      this.state.nitroMeter = Math.max(0, this.state.nitroMeter - 10);
+      this.state.nitroMeter = Math.max(0, this.state.nitroMeter - nitroLoss);
       sound.playShieldAlarm();
     }
 
@@ -1059,12 +1099,10 @@ export class NitroSprintGame {
       const peakEl = this.container.querySelector('#nitro-peak-wpm');
       if (peakEl) peakEl.textContent = `${this.state.peakWpm}`;
 
-      // Analog Needle Gauge: 0 to 140 WPM maps from -90deg to +90deg
       const angle = Math.min(90, Math.max(-90, -90 + (this.state.wpm / 140) * 180));
       const needleEl = this.container.querySelector('#speedo-needle');
       if (needleEl) needleEl.style.transform = `rotate(${angle}deg)`;
 
-      // Nitro bar
       const nitroFill = this.container.querySelector('#nitro-boost-fill');
       if (nitroFill) nitroFill.style.width = `${this.state.nitroMeter}%`;
     }
@@ -1183,13 +1221,14 @@ export class NitroSprintGame {
 export class MatrixRainGame {
   constructor(container, options = {}) {
     this.container = container;
+    this.difficulty = options.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
     this.onExit = options.onExit || (() => {});
 
     this.state = {
       running: false,
       paused: false,
       score: 0,
-      securityBreachPct: 0, // 0 to 100%
+      securityBreachPct: 0,
       dataExfiltratedKb: 0,
       combo: 0,
       multiplier: 1,
@@ -1214,6 +1253,10 @@ export class MatrixRainGame {
   }
 
   mount() {
+    const diffLabel = this.difficulty === 'easy' ? 'EASY (SLOW RAIN)'
+                    : this.difficulty === 'hard' ? 'HARD (TURBO FLOW)'
+                    : 'MED (STANDARD)';
+
     this.container.innerHTML = `
       <div class="arcade-cabinet matrix-theme">
         <!-- Matrix Terminal HUD -->
@@ -1228,8 +1271,8 @@ export class MatrixRainGame {
               <span id="matrix-hud-breach" class="hud-value hud-glow-gold">0%</span>
             </div>
             <div class="arcade-hud-pill">
-              <span class="hud-label">OVERCLOCK MULTIPLIER</span>
-              <span id="matrix-hud-multiplier" class="hud-value hud-glow-purple">1x</span>
+              <span class="hud-label">SPEED MODE</span>
+              <span class="hud-value hud-glow-purple" style="font-size: 11px;">${diffLabel}</span>
             </div>
           </div>
 
@@ -1350,20 +1393,24 @@ export class MatrixRainGame {
       if (wpmEl) wpmEl.textContent = `${this.state.wpm} WPM`;
     }
 
-    // Token Spawning
+    // Token Spawning based on difficulty
     this.spawnTimer += dt;
-    if (this.spawnTimer >= 1.4 && this.state.columns.length < 5) {
+    const spawnInterval = this.difficulty === 'hard' ? 0.9 : this.difficulty === 'easy' ? 2.0 : 1.3;
+    const maxColumns = this.difficulty === 'hard' ? 6 : this.difficulty === 'easy' ? 3 : 5;
+
+    if (this.spawnTimer >= spawnInterval && this.state.columns.length < maxColumns) {
       this.spawnTimer = 0;
       this.spawnToken();
     }
 
     // Token descent
-    const fallSpeed = 22 + (this.state.securityBreachPct * 0.2);
+    const baseSpeed = this.difficulty === 'hard' ? 36 : this.difficulty === 'easy' ? 14 : 22;
+    const fallSpeed = baseSpeed + (this.state.securityBreachPct * 0.15);
+
     for (let i = this.state.columns.length - 1; i >= 0; i--) {
       const token = this.state.columns[i];
       token.y += (fallSpeed * token.speedFactor) * dt;
 
-      // Firewall breach (token reached bottom buffer)
       if (token.y >= 86) {
         this.handleFirewallOverheat(token, i);
       }
@@ -1373,7 +1420,10 @@ export class MatrixRainGame {
   }
 
   spawnToken() {
-    const text = CODE_TOKENS[Math.floor(Math.random() * CODE_TOKENS.length)];
+    const pool = this.difficulty === 'hard' ? MATRIX_HARD_TOKENS
+               : this.difficulty === 'easy' ? MATRIX_EASY_TOKENS
+               : MATRIX_MED_TOKENS;
+    const text = pool[Math.floor(Math.random() * pool.length)];
     const existing = new Set(this.state.columns.map(t => t.text));
     if (existing.has(text) && this.state.columns.length > 0) return;
 
@@ -1416,7 +1466,6 @@ export class MatrixRainGame {
     const char = e.key;
     this.state.totalKeystrokes++;
 
-    // 1. Locked target
     if (this.state.targetTokenId) {
       const token = this.state.columns.find(t => t.id === this.state.targetTokenId);
       if (token) {
@@ -1431,7 +1480,6 @@ export class MatrixRainGame {
       }
     }
 
-    // 2. Unlocked target: find closest matching token
     const candidate = this.state.columns
       .filter(t => t.text.startsWith(char) && t.typedIndex === 0)
       .sort((a, b) => b.y - a.y)[0];
@@ -1664,6 +1712,7 @@ export class MatrixRainGame {
 export class KeyBeatsGame {
   constructor(container, options = {}) {
     this.container = container;
+    this.difficulty = options.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
     this.onExit = options.onExit || (() => {});
 
     this.state = {
@@ -1692,6 +1741,10 @@ export class KeyBeatsGame {
   }
 
   mount() {
+    const diffLabel = this.difficulty === 'easy' ? 'EASY (CHILL 75 BPM)'
+                    : this.difficulty === 'hard' ? 'HARD (FEVER 140 BPM)'
+                    : 'MED (GROOVE 105 BPM)';
+
     this.container.innerHTML = `
       <div class="arcade-cabinet rhythm-theme">
         <!-- Rhythm HUD -->
@@ -1706,8 +1759,8 @@ export class KeyBeatsGame {
               <span id="rhythm-hud-combo" class="hud-value hud-glow-gold">0</span>
             </div>
             <div class="arcade-hud-pill">
-              <span class="hud-label">FEVER MULTIPLIER</span>
-              <span id="rhythm-hud-multiplier" class="hud-value hud-glow-purple">1x</span>
+              <span class="hud-label">TEMPO MODE</span>
+              <span class="hud-value hud-glow-purple" style="font-size: 11px;">${diffLabel}</span>
             </div>
           </div>
 
@@ -1817,20 +1870,21 @@ export class KeyBeatsGame {
       if (wpmEl) wpmEl.textContent = `${this.state.wpm} WPM`;
     }
 
-    // Spawn notes down lanes
+    // Spawn notes down lanes based on difficulty
     this.spawnTimer += dt;
-    if (this.spawnTimer >= 1.2) {
+    const spawnInterval = this.difficulty === 'hard' ? 0.75 : this.difficulty === 'easy' ? 1.6 : 1.1;
+
+    if (this.spawnTimer >= spawnInterval) {
       this.spawnTimer = 0;
       this.spawnRhythmNote();
     }
 
     // Move notes down
-    const speed = 28;
+    const speed = this.difficulty === 'hard' ? 44 : this.difficulty === 'easy' ? 18 : 28;
     for (let i = this.state.notes.length - 1; i >= 0; i--) {
       const note = this.state.notes[i];
       note.y += speed * dt;
 
-      // Note missed past hit line (y > 88)
       if (note.y > 90) {
         this.handleMiss(note, i);
       }
@@ -1840,8 +1894,11 @@ export class KeyBeatsGame {
   }
 
   spawnRhythmNote() {
-    const word = RHYTHM_BEAT_WORDS[Math.floor(Math.random() * RHYTHM_BEAT_WORDS.length)];
-    const lane = Math.floor(Math.random() * 4); // 0, 1, 2, 3
+    const pool = this.difficulty === 'hard' ? RHYTHM_HARD_WORDS
+               : this.difficulty === 'easy' ? RHYTHM_EASY_WORDS
+               : RHYTHM_MED_WORDS;
+    const word = pool[Math.floor(Math.random() * pool.length)];
+    const lane = Math.floor(Math.random() * 4);
     const laneX = [16, 38, 62, 84][lane];
 
     const note = {
@@ -1873,10 +1930,9 @@ export class KeyBeatsGame {
     const char = e.key;
     this.state.totalKeystrokes++;
 
-    // Find notes near hit line (y between 40 and 88)
     const candidates = this.state.notes
       .filter(n => n.y >= 35 && n.y <= 88)
-      .sort((a, b) => b.y - a.y); // closest to hit line first
+      .sort((a, b) => b.y - a.y);
 
     let matchedNote = null;
     for (const note of candidates) {
@@ -1910,18 +1966,20 @@ export class KeyBeatsGame {
     this.state.combo++;
     this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
 
-    // Accuracy rating based on y distance to hit line (target y = 78)
     const dist = Math.abs(note.y - 78);
+    const perfectThreshold = this.difficulty === 'hard' ? 5 : this.difficulty === 'easy' ? 14 : 8;
+    const greatThreshold = this.difficulty === 'hard' ? 11 : this.difficulty === 'easy' ? 22 : 16;
+
     let rating = 'PERFECT';
     let pts = 500;
     let color = '#00D4AA';
 
-    if (dist <= 8) {
+    if (dist <= perfectThreshold) {
       rating = 'PERFECT';
       pts = 500;
       color = '#00D4AA';
       this.state.feverPct = Math.min(100, this.state.feverPct + 12);
-    } else if (dist <= 16) {
+    } else if (dist <= greatThreshold) {
       rating = 'GREAT';
       pts = 300;
       color = '#FFD166';
@@ -1939,7 +1997,6 @@ export class KeyBeatsGame {
     const mult = this.state.feverActive ? 4 : (1 + Math.floor(this.state.combo / 10));
     this.state.score += pts * mult;
 
-    // Check Fever activation
     if (this.state.feverPct >= 100 && !this.state.feverActive) {
       this.activateFeverMode();
     }
@@ -1982,7 +2039,7 @@ export class KeyBeatsGame {
     this.ratingPopup.style.display = 'block';
 
     this.ratingPopup.classList.remove('rating-anim');
-    void this.ratingPopup.offsetWidth; // trigger reflow
+    void this.ratingPopup.offsetWidth;
     this.ratingPopup.classList.add('rating-anim');
   }
 
@@ -2057,6 +2114,12 @@ export class ArcadeHubManager {
     this.container = container;
     this.ui = uiManager;
     this.activeGame = null;
+    this.difficulties = {
+      invaders: 'medium',
+      nitro: 'medium',
+      matrix: 'medium',
+      rhythm: 'medium'
+    };
   }
 
   renderLobby() {
@@ -2076,7 +2139,7 @@ export class ArcadeHubManager {
           <div class="arcade-badge-chip">🕹️ 4-GAME ARCADE ARENA</div>
           <h1 class="arcade-lobby-title">Master Speed, Accuracy &amp; Rhythm</h1>
           <p class="arcade-lobby-subtitle">
-            Four gamified typing test modes designed to build rapid finger cadence, burst velocity, code syntax reflexes, and metronome endurance.
+            Choose your speed mode (Easy / Med / Hard) on any game to calibrate falling velocities and test difficulty to your exact typing level.
           </p>
         </div>
 
@@ -2123,7 +2186,7 @@ export class ArcadeHubManager {
             <div class="game-card-body">
               <h2 class="game-card-title">Type Invaders: Orbit Defense</h2>
               <p class="game-card-desc">
-                Defend Earth against descending word-vessels and meteors. Features laser lock-on, EMP shockwaves, Cryo time freeze, and multi-phase Mothership Boss battles.
+                Defend Earth against descending word-vessels. Features laser lock-on, EMP shockwaves, Cryo time freeze, and multi-phase Mothership Boss battles.
               </p>
               
               <div class="game-features-pills">
@@ -2133,11 +2196,11 @@ export class ArcadeHubManager {
               </div>
 
               <div class="game-difficulty-select">
-                <label>Difficulty:</label>
-                <div class="difficulty-toggles">
-                  <button class="diff-btn active" data-diff="cadet">Cadet (30+ WPM)</button>
-                  <button class="diff-btn" data-diff="ace">Ace (50+ WPM)</button>
-                  <button class="diff-btn" data-diff="hyperdrive">Hyper (80+ WPM)</button>
+                <label>SPEED &amp; DIFFICULTY:</label>
+                <div class="difficulty-toggles" data-game="invaders">
+                  <button class="diff-btn ${this.difficulties.invaders === 'easy' ? 'active' : ''}" data-diff="easy">Easy (~30 WPM)</button>
+                  <button class="diff-btn ${this.difficulties.invaders === 'medium' ? 'active' : ''}" data-diff="medium">Med (~55 WPM)</button>
+                  <button class="diff-btn ${this.difficulties.invaders === 'hard' ? 'active' : ''}" data-diff="hard">Hard (85+ WPM)</button>
                 </div>
               </div>
 
@@ -2165,9 +2228,16 @@ export class ArcadeHubManager {
                 <span class="feature-tag">🏎️ Live Speedometer</span>
               </div>
 
-              <div style="flex: 1;"></div>
+              <div class="game-difficulty-select">
+                <label>TEXT COMPLEXITY:</label>
+                <div class="difficulty-toggles" data-game="nitro">
+                  <button class="diff-btn ${this.difficulties.nitro === 'easy' ? 'active' : ''}" data-diff="easy">Easy (Common)</button>
+                  <button class="diff-btn ${this.difficulties.nitro === 'medium' ? 'active' : ''}" data-diff="medium">Med (Prose)</button>
+                  <button class="diff-btn ${this.difficulties.nitro === 'hard' ? 'active' : ''}" data-diff="hard">Hard (Code &amp; Symbols)</button>
+                </div>
+              </div>
 
-              <button id="btn-launch-nitro" class="btn btn-secondary btn-lg arcade-launch-btn" style="margin-top: 24px;">
+              <button id="btn-launch-nitro" class="btn btn-secondary btn-lg arcade-launch-btn">
                 Start 60s Drag Race
               </button>
             </div>
@@ -2191,9 +2261,16 @@ export class ArcadeHubManager {
                 <span class="feature-tag">💻 Code Syntax</span>
               </div>
 
-              <div style="flex: 1;"></div>
+              <div class="game-difficulty-select">
+                <label>STREAM VELOCITY:</label>
+                <div class="difficulty-toggles" data-game="matrix">
+                  <button class="diff-btn ${this.difficulties.matrix === 'easy' ? 'active' : ''}" data-diff="easy">Easy (Slow Rain)</button>
+                  <button class="diff-btn ${this.difficulties.matrix === 'medium' ? 'active' : ''}" data-diff="medium">Med (Standard)</button>
+                  <button class="diff-btn ${this.difficulties.matrix === 'hard' ? 'active' : ''}" data-diff="hard">Hard (Turbo Hack)</button>
+                </div>
+              </div>
 
-              <button id="btn-launch-matrix" class="btn btn-primary btn-lg arcade-launch-btn" style="margin-top: 24px; background: #00D4AA; border-color: #00D4AA;">
+              <button id="btn-launch-matrix" class="btn btn-primary btn-lg arcade-launch-btn" style="background: #00D4AA; border-color: #00D4AA;">
                 Infiltrate Mainframe
               </button>
             </div>
@@ -2217,9 +2294,16 @@ export class ArcadeHubManager {
                 <span class="feature-tag">🎯 Precision Timing</span>
               </div>
 
-              <div style="flex: 1;"></div>
+              <div class="game-difficulty-select">
+                <label>TEMPO &amp; HIT WINDOW:</label>
+                <div class="difficulty-toggles" data-game="rhythm">
+                  <button class="diff-btn ${this.difficulties.rhythm === 'easy' ? 'active' : ''}" data-diff="easy">Easy (75 BPM)</button>
+                  <button class="diff-btn ${this.difficulties.rhythm === 'medium' ? 'active' : ''}" data-diff="medium">Med (105 BPM)</button>
+                  <button class="diff-btn ${this.difficulties.rhythm === 'hard' ? 'active' : ''}" data-diff="hard">Hard (140 BPM)</button>
+                </div>
+              </div>
 
-              <button id="btn-launch-rhythm" class="btn btn-secondary btn-lg arcade-launch-btn" style="margin-top: 24px;">
+              <button id="btn-launch-rhythm" class="btn btn-secondary btn-lg arcade-launch-btn">
                 Start Rhythm Flow
               </button>
             </div>
@@ -2228,35 +2312,39 @@ export class ArcadeHubManager {
       </div>
     `;
 
-    // Wire Difficulty Selector
-    let selectedDifficulty = 'cadet';
-    this.container.querySelectorAll('.diff-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.container.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedDifficulty = btn.dataset.diff;
+    // Wire Difficulty Selector on all cards
+    this.container.querySelectorAll('.difficulty-toggles').forEach(toggleGroup => {
+      const gameKey = toggleGroup.dataset.game;
+      toggleGroup.querySelectorAll('.diff-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toggleGroup.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          if (gameKey) {
+            this.difficulties[gameKey] = btn.dataset.diff;
+          }
+        });
       });
     });
 
     // Wire Launch Buttons
     this.container.querySelector('#btn-launch-invaders')?.addEventListener('click', () => {
-      this.launchTypeInvaders(selectedDifficulty);
+      this.launchTypeInvaders(this.difficulties.invaders);
     });
 
     this.container.querySelector('#btn-launch-nitro')?.addEventListener('click', () => {
-      this.launchNitroSprint();
+      this.launchNitroSprint(this.difficulties.nitro);
     });
 
     this.container.querySelector('#btn-launch-matrix')?.addEventListener('click', () => {
-      this.launchMatrixRain();
+      this.launchMatrixRain(this.difficulties.matrix);
     });
 
     this.container.querySelector('#btn-launch-rhythm')?.addEventListener('click', () => {
-      this.launchKeyBeats();
+      this.launchKeyBeats(this.difficulties.rhythm);
     });
   }
 
-  launchTypeInvaders(difficulty = 'cadet') {
+  launchTypeInvaders(difficulty = 'medium') {
     this.activeGame = new TypeInvadersGame(this.container, {
       difficulty,
       onExit: () => this.renderLobby()
@@ -2264,23 +2352,26 @@ export class ArcadeHubManager {
     this.activeGame.mount();
   }
 
-  launchNitroSprint() {
+  launchNitroSprint(difficulty = 'medium') {
     this.activeGame = new NitroSprintGame(this.container, {
       durationSec: 60,
+      difficulty,
       onExit: () => this.renderLobby()
     });
     this.activeGame.mount();
   }
 
-  launchMatrixRain() {
+  launchMatrixRain(difficulty = 'medium') {
     this.activeGame = new MatrixRainGame(this.container, {
+      difficulty,
       onExit: () => this.renderLobby()
     });
     this.activeGame.mount();
   }
 
-  launchKeyBeats() {
+  launchKeyBeats(difficulty = 'medium') {
     this.activeGame = new KeyBeatsGame(this.container, {
+      difficulty,
       onExit: () => this.renderLobby()
     });
     this.activeGame.mount();

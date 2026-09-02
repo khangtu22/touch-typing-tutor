@@ -148,9 +148,19 @@
   letter-spacing: 0.05em;
   text-align: left;
   width: 100%;
-  word-break: break-word;
-  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
   user-select: none;
+}
+
+/* Word Token Wrapper - Keeps words intact as single units so words never break across lines */
+.word-token {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.char-newline-token {
+  opacity: 0.6;
 }
 
 /* Character Token States */

@@ -1395,26 +1395,57 @@ export class UIManager {
   }
 
   renderTypingText(text, currentIndex, charStates = [], mistypedCharIndices = new Set(), charToWord = [], wordCorrectionMode = false) {
+    if (!text) {
+      if (this.typingTextDisplay) this.typingTextDisplay.innerHTML = '';
+      if (zenMode.isActive) zenMode.renderText('');
+      return;
+    }
+
     let html = '';
+    let currentWordHtml = '';
+
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
-      const displayChar = char === ' ' ? '&nbsp;' : escapeHtml(char);
+      const isSpace = char === ' ';
+      const isNewline = char === '\n';
+      const isTab = char === '\t';
+      const displayChar = isSpace ? '&nbsp;' : isTab ? '&nbsp;&nbsp;&nbsp;&nbsp;' : isNewline ? '↵' : escapeHtml(char);
       const isCharMistyped = mistypedCharIndices && mistypedCharIndices.has(i);
       const stateObj = charStates ? charStates[i] : null;
+      const spaceClass = (isSpace || isTab || isNewline) ? ' char-space' : '';
 
+      let charSpan = '';
       if (i < currentIndex) {
         if (stateObj && stateObj.status === 'incorrect') {
-          html += `<span class="char-token char-incorrect" data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-incorrect${spaceClass}" data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}</span>`;
         } else if (isCharMistyped) {
-          html += `<span class="char-token char-word-error" title="Corrected character">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-word-error${spaceClass}" title="Corrected character">${displayChar}</span>`;
         } else {
-          html += `<span class="char-token char-correct">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-correct${spaceClass}">${displayChar}</span>`;
         }
       } else if (i === currentIndex) {
-        html += `<span class="char-token char-current"><span class="char-caret"></span>${displayChar}</span>`;
+        charSpan = `<span class="char-token char-current${spaceClass}"><span class="char-caret"></span>${displayChar}</span>`;
       } else {
-        html += `<span class="char-token char-upcoming">${displayChar}</span>`;
+        charSpan = `<span class="char-token char-upcoming${spaceClass}">${displayChar}</span>`;
       }
+
+      if (isNewline) {
+        if (currentWordHtml) {
+          html += `<span class="word-token">${currentWordHtml}</span>`;
+          currentWordHtml = '';
+        }
+        html += `<span class="word-token char-newline-token">${charSpan}</span><br>`;
+      } else if (isSpace) {
+        currentWordHtml += charSpan;
+        html += `<span class="word-token">${currentWordHtml}</span>`;
+        currentWordHtml = '';
+      } else {
+        currentWordHtml += charSpan;
+      }
+    }
+
+    if (currentWordHtml) {
+      html += `<span class="word-token">${currentWordHtml}</span>`;
     }
 
     if (this.typingTextDisplay) {
