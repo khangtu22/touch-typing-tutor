@@ -98,6 +98,13 @@ const DEFAULT_STATE = {
   averageWpm: 0,
   bestAccuracy: 0,
   placementTest: null,
+  arcadeStats: {
+    invadersHighScore: 0,
+    invadersMaxWave: 1,
+    invadersBossDefeated: 0,
+    nitroBestWpm: 0,
+    totalGamesPlayed: 0
+  },
   settings: {
     soundEnabled: true,
     soundVolume: 0.6,
@@ -422,6 +429,42 @@ class StateStore {
     }
 
     return { currentStreak, history };
+  }
+
+  // Record arcade mini-game score, wave, and award XP
+  recordArcadeResult({ gameId, score = 0, wave = 1, bossDefeated = false, wpm = 0, accuracy = 100, xpEarned = 50 }) {
+    const today = new Date().toISOString().split('T')[0];
+    const streakResult = this.calculateStreakOnPractice(today);
+
+    this.update(prev => {
+      const currentArcade = prev.arcadeStats || DEFAULT_STATE.arcadeStats;
+      const invadersHighScore = gameId === 'type-invaders'
+        ? Math.max(currentArcade.invadersHighScore || 0, score)
+        : currentArcade.invadersHighScore || 0;
+      const invadersMaxWave = gameId === 'type-invaders'
+        ? Math.max(currentArcade.invadersMaxWave || 1, wave)
+        : currentArcade.invadersMaxWave || 1;
+      const invadersBossDefeated = (currentArcade.invadersBossDefeated || 0) + (bossDefeated ? 1 : 0);
+      const nitroBestWpm = gameId === 'nitro-sprint'
+        ? Math.max(currentArcade.nitroBestWpm || 0, wpm)
+        : currentArcade.nitroBestWpm || 0;
+
+      return {
+        ...prev,
+        xp: prev.xp + xpEarned,
+        arcadeStats: {
+          invadersHighScore,
+          invadersMaxWave,
+          invadersBossDefeated,
+          nitroBestWpm,
+          totalGamesPlayed: (currentArcade.totalGamesPlayed || 0) + 1
+        },
+        dailyStreak: streakResult.currentStreak,
+        bestStreak: Math.max(prev.bestStreak || 0, streakResult.currentStreak),
+        lastPracticeDate: today,
+        practiceDatesHistory: streakResult.history
+      };
+    });
   }
 
   // Export state to downloadable JSON string

@@ -986,6 +986,32 @@ export function getQuotesByFilter(category = null, difficulty = null) {
 }
 
 /**
+ * Pick a random quote from the QUOTE_VAULT.
+ * Optionally filtered by category and/or difficulty.
+ * Optionally excludes a specific quote ID to avoid consecutive duplicates.
+ *
+ * @param {string|null} [category=null]   - 'motivation' | 'literature' | 'programming' | 'science' | 'philosophy'
+ * @param {string|null} [difficulty=null] - 'short' | 'medium' | 'long'
+ * @param {number|null} [excludeId=null]  - ID of quote to exclude from selection if alternatives exist
+ * @returns {Quote|null}
+ */
+export function getRandomQuote(category = null, difficulty = null, excludeId = null) {
+  let pool = getQuotesByFilter(category, difficulty);
+  if (pool.length === 0) {
+    pool = QUOTE_VAULT;
+  }
+  if (excludeId !== null && pool.length > 1) {
+    const withoutExcluded = pool.filter(q => q.id !== excludeId);
+    if (withoutExcluded.length > 0) {
+      pool = withoutExcluded;
+    }
+  }
+  if (pool.length === 0) return null;
+  const randomIndex = Math.floor(Math.random() * pool.length);
+  return pool[randomIndex];
+}
+
+/**
  * Build a CustomPracticeManager-compatible lesson object for a given language.
  * Each of the three rounds contains a mix of random sentences and random words
  * from the target language, giving learners varied exposure to the script.

@@ -259,6 +259,43 @@ export const ACHIEVEMENTS = [
       } catch { return false; }
     }
   },
+  // --- Arcade Gaming Achievements ---
+  {
+    id: 'space_cadet',
+    title: 'Space Cadet',
+    description: 'Clear Wave 3 in Type Invaders: Orbit Defense.',
+    icon: '🚀',
+    category: 'arcade',
+    xpBonus: 100,
+    check: (state) => (state.arcadeStats?.invadersMaxWave || 1) >= 3
+  },
+  {
+    id: 'orbital_defender',
+    title: 'Orbital Defender',
+    description: 'Defeat the Mothership Boss in Type Invaders.',
+    icon: '🛸',
+    category: 'arcade',
+    xpBonus: 250,
+    check: (state) => (state.arcadeStats?.invadersBossDefeated || 0) >= 1
+  },
+  {
+    id: 'nitro_typist',
+    title: 'Nitro Typist',
+    description: 'Achieve 70+ WPM in Nitro Sprint Drag Race.',
+    icon: '🏎️',
+    category: 'arcade',
+    xpBonus: 150,
+    check: (state) => (state.arcadeStats?.nitroBestWpm || 0) >= 70
+  },
+  {
+    id: 'arcade_champion',
+    title: 'Arcade Champion',
+    description: 'Score 5,000+ points in a single Type Invaders game.',
+    icon: '🕹️',
+    category: 'arcade',
+    xpBonus: 200,
+    check: (state) => (state.arcadeStats?.invadersHighScore || 0) >= 5000
+  },
   {
     id: 'goal_achiever',
     title: 'Goal Achiever',

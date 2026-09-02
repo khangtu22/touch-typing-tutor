@@ -24,6 +24,7 @@ import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from '
 import { themeStudio, renderThemeStudioUI } from './theme-studio.js';
 import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js';
 import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, generateLanguagePractice } from './premium-features.js';
+import { ArcadeHubManager } from './arcade-games.js';
 
 const escapeHtml = value => String(value)
   .replace(/&/g, '&amp;')
@@ -37,6 +38,7 @@ export class UIManager {
     this.activeScreen = 'dashboard';
     this.keyboardRenderer = null;
     this.handRenderer = null;
+    this.arcadeManager = null;
     this.currentLessonData = null;
     this.currentSessionSummary = null;
     this.activeArenaTab = 'code'; // 'paste' | 'code' | 'sprint' | 'quotes' | 'language'
@@ -58,7 +60,8 @@ export class UIManager {
       results: document.getElementById('screen-results'),
       profile: document.getElementById('screen-profile'),
       settings: document.getElementById('screen-settings'),
-      quotes: document.getElementById('screen-quotes')
+      quotes: document.getElementById('screen-quotes'),
+      arcade: document.getElementById('screen-arcade')
     };
 
     this.toastContainer = document.getElementById('toast-container');
@@ -67,6 +70,7 @@ export class UIManager {
     // Navigation buttons
     this.navBrand = document.getElementById('nav-brand');
     this.navDashboardBtn = document.getElementById('nav-dashboard-btn');
+    this.navArcadeBtn = document.getElementById('nav-arcade-btn');
     this.navCustomBtn = document.getElementById('nav-custom-btn');
     this.navProfileBtn = document.getElementById('nav-profile-btn');
     this.navSettingsBtn = document.getElementById('nav-settings-btn');
@@ -99,6 +103,7 @@ export class UIManager {
   initEventListeners() {
     if (this.navBrand) this.navBrand.addEventListener('click', () => this.navigateTo('dashboard'));
     if (this.navDashboardBtn) this.navDashboardBtn.addEventListener('click', () => this.navigateTo('dashboard'));
+    if (this.navArcadeBtn) this.navArcadeBtn.addEventListener('click', () => this.navigateTo('arcade'));
     if (this.navCustomBtn) this.navCustomBtn.addEventListener('click', () => this.navigateTo('custom'));
     if (this.navProfileBtn) this.navProfileBtn.addEventListener('click', () => this.navigateTo('profile'));
     if (this.navSettingsBtn) this.navSettingsBtn.addEventListener('click', () => this.navigateTo('settings'));
@@ -177,6 +182,10 @@ export class UIManager {
             this.navigateTo('profile');
             break;
           case 'g':
+            e.preventDefault();
+            this.navigateTo('arcade');
+            break;
+          case 's':
             e.preventDefault();
             this.navigateTo('settings');
             break;
@@ -284,16 +293,27 @@ export class UIManager {
     });
 
     if (this.navDashboardBtn) this.navDashboardBtn.classList.toggle('nav-btn-active', screenName === 'dashboard');
+    if (this.navArcadeBtn) this.navArcadeBtn.classList.toggle('nav-btn-active', screenName === 'arcade');
     if (this.navCustomBtn) this.navCustomBtn.classList.toggle('nav-btn-active', screenName === 'custom');
     if (this.navQuotesBtn) this.navQuotesBtn.classList.toggle('nav-btn-active', screenName === 'quotes');
     if (this.navProfileBtn) this.navProfileBtn.classList.toggle('nav-btn-active', screenName === 'profile');
     if (this.navSettingsBtn) this.navSettingsBtn.classList.toggle('nav-btn-active', screenName === 'settings');
 
     if (screenName === 'dashboard') this.renderDashboard();
+    if (screenName === 'arcade') this.renderArcadeScreen();
     if (screenName === 'custom') this.renderCustomArena();
     if (screenName === 'quotes') this.renderQuoteVault();
     if (screenName === 'profile') this.renderProfile();
     if (screenName === 'settings') this.renderSettings();
+  }
+
+  renderArcadeScreen() {
+    const container = this.screens.arcade;
+    if (!container) return;
+    if (!this.arcadeManager) {
+      this.arcadeManager = new ArcadeHubManager(container, this);
+    }
+    this.arcadeManager.renderLobby();
   }
 
   updateHeaderStats(state) {
@@ -2730,7 +2750,11 @@ export class UIManager {
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">G</span></td>
-                <td>Navigate to Settings &amp; Goal Management</td>
+                <td>Navigate to Arcade Games Arena (Type Invaders &amp; Nitro Sprint)</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">S</span></td>
+                <td>Navigate to Settings &amp; Customization</td>
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">?</span></td>

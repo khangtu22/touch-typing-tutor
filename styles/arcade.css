@@ -1,0 +1,886 @@
+/**
+ * KeyFlow Arcade Hub & Gaming Styles (v3.1.0)
+ * Retro-futuristic cyberpunk arcade aesthetic, starfields, laser turrets, HUDs
+ */
+
+/* ==========================================
+   1. ARCADE LOBBY & HALL OF FAME
+   ========================================== */
+.arcade-lobby {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+
+.arcade-lobby-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.arcade-badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(124, 92, 252, 0.15);
+  border: 1px solid rgba(124, 92, 252, 0.35);
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.arcade-lobby-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+
+.arcade-lobby-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Hall of Fame Summary Banner */
+.arcade-hall-of-fame {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.hof-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.hof-stat-icon {
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hof-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hof-stat-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+}
+
+.hof-stat-value {
+  font-size: 18px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* Game Selection Cards */
+.arcade-game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 24px;
+}
+
+.arcade-game-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.arcade-game-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(124, 92, 252, 0.4);
+}
+
+.game-card-banner {
+  position: relative;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.banner-invaders {
+  background: radial-gradient(circle at center, rgba(124, 92, 252, 0.3), rgba(12, 15, 23, 0.95)),
+              linear-gradient(135deg, #1f0b3b 0%, #0d1222 100%);
+  border-bottom: 1px solid rgba(124, 92, 252, 0.25);
+}
+
+.banner-nitro {
+  background: radial-gradient(circle at center, rgba(255, 184, 107, 0.25), rgba(12, 15, 23, 0.95)),
+              linear-gradient(135deg, #2e1708 0%, #0d1222 100%);
+  border-bottom: 1px solid rgba(255, 184, 107, 0.25);
+}
+
+.game-banner-icon {
+  font-size: 54px;
+  filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.3));
+}
+
+.game-banner-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+}
+
+.game-card-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.game-card-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.game-card-desc {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.game-features-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.feature-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.game-difficulty-select {
+  margin-bottom: 20px;
+}
+
+.game-difficulty-select label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.difficulty-toggles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.diff-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.diff-btn.active {
+  background: rgba(124, 92, 252, 0.2);
+  border-color: var(--accent-primary);
+  color: #FFF;
+  box-shadow: 0 0 10px rgba(124, 92, 252, 0.3);
+}
+
+.arcade-launch-btn {
+  width: 100%;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+
+/* ==========================================
+   2. ARCADE CABINET & GAME HUD
+   ========================================== */
+.arcade-cabinet {
+  max-width: 960px;
+  margin: 12px auto 40px;
+  background: #090C14;
+  border: 2px solid rgba(124, 92, 252, 0.4);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 0 35px rgba(124, 92, 252, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+}
+
+.arcade-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: rgba(18, 22, 34, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hud-left, .hud-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.arcade-hud-pill {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.hud-label {
+  font-size: 8.5px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.hud-value {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.hud-glow-cyan { color: #00D4AA; text-shadow: 0 0 8px rgba(0, 212, 170, 0.5); }
+.hud-glow-purple { color: #A78BFA; text-shadow: 0 0 8px rgba(167, 139, 250, 0.5); }
+.hud-glow-gold { color: #FFD166; text-shadow: 0 0 8px rgba(255, 209, 102, 0.5); }
+
+/* Shield HP Bar */
+.arcade-shield-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.shield-cells {
+  display: flex;
+  gap: 6px;
+}
+
+.shield-cell {
+  width: 22px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.shield-cell.filled {
+  background: #00D4AA;
+  border-color: #00D4AA;
+  box-shadow: 0 0 8px rgba(0, 212, 170, 0.7);
+}
+
+/* Powerup Bar */
+.arcade-powerup-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.arcade-powerup-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s ease;
+}
+
+.arcade-powerup-btn:hover {
+  background: rgba(124, 92, 252, 0.2);
+  border-color: var(--accent-primary);
+}
+
+.powerup-count {
+  font-size: 12px;
+  font-weight: 800;
+  color: #FFD166;
+}
+
+.powerup-key {
+  font-size: 8.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text-muted);
+}
+
+.arcade-control-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.arcade-control-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFF;
+}
+
+
+/* ==========================================
+   3. TYPE INVADERS BATTLE ARENA
+   ========================================== */
+.arcade-arena {
+  position: relative;
+  height: 480px;
+  background: radial-gradient(ellipse at bottom, #0f1629 0%, #060810 100%);
+  overflow: hidden;
+  user-select: none;
+}
+
+.arcade-fx-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.arcade-enemies-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+/* Invader Word Capsule */
+.invader-capsule {
+  position: absolute;
+  transform: translate(-50%, 0);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20, 26, 42, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  transition: transform 0.05s linear;
+}
+
+.invader-capsule.target-locked {
+  border-color: #00D4AA;
+  box-shadow: 0 0 16px rgba(0, 212, 170, 0.6), inset 0 0 8px rgba(0, 212, 170, 0.2);
+  transform: translate(-50%, 0) scale(1.05);
+}
+
+.invader-capsule.boss-vessel {
+  background: rgba(45, 12, 25, 0.95);
+  border-color: #FF5C7A;
+  box-shadow: 0 0 25px rgba(255, 92, 122, 0.6);
+  padding: 10px 18px;
+}
+
+.invader-icon {
+  font-size: 18px;
+}
+
+.invader-word {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.word-typed {
+  color: #00D4AA;
+  text-shadow: 0 0 8px rgba(0, 212, 170, 0.8);
+}
+
+.word-remaining {
+  color: #FFFFFF;
+}
+
+.invader-powerup-badge {
+  font-size: 12px;
+  animation: pulsePowerup 1s infinite alternate;
+}
+
+@keyframes pulsePowerup {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(1.25); filter: brightness(1.5); }
+}
+
+/* Defensive Turret at Bottom */
+.arcade-turret {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 38px;
+  z-index: 15;
+  pointer-events: none;
+  transition: transform 0.08s ease-out;
+}
+
+.turret-barrel {
+  width: 6px;
+  height: 24px;
+  background: #00D4AA;
+  border-radius: 3px;
+  margin: 0 auto;
+  box-shadow: 0 0 10px #00D4AA;
+}
+
+.turret-base {
+  width: 38px;
+  height: 18px;
+  background: #1F273B;
+  border: 2px solid #36425F;
+  border-radius: 19px 19px 0 0;
+  margin: -4px auto 0;
+}
+
+.turret-misfire {
+  animation: turretShake 0.15s ease-in-out;
+}
+
+@keyframes turretShake {
+  0%, 100% { transform: translateX(-50%) translate3d(0, 0, 0); }
+  25% { transform: translateX(-50%) translate3d(-4px, 0, 0); }
+  75% { transform: translateX(-50%) translate3d(4px, 0, 0); }
+}
+
+/* Planetary Shield Dome */
+.arcade-shield-dome {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110%;
+  height: 90px;
+  border-radius: 50% 50% 0 0;
+  border-top: 2px solid rgba(0, 212, 170, 0.4);
+  background: radial-gradient(ellipse at bottom, rgba(0, 212, 170, 0.15), transparent 70%);
+  pointer-events: none;
+  z-index: 8;
+  transition: all 0.2s ease;
+}
+
+.dome-impact {
+  border-top-color: #FF5C7A !important;
+  background: radial-gradient(ellipse at bottom, rgba(255, 92, 122, 0.4), transparent 70%) !important;
+  box-shadow: 0 -10px 30px rgba(255, 92, 122, 0.6);
+}
+
+/* EMP & Freeze Visual Effects */
+.emp-flash {
+  animation: empScreenFlash 0.5s ease-out;
+}
+
+@keyframes empScreenFlash {
+  0% { filter: brightness(3) saturate(0.5); background-color: rgba(0, 212, 170, 0.4); }
+  100% { filter: brightness(1) saturate(1); }
+}
+
+.cryo-frozen {
+  filter: hue-rotate(180deg) saturate(1.4);
+  box-shadow: inset 0 0 40px rgba(0, 180, 255, 0.6);
+}
+
+/* Boss Banner */
+.arcade-boss-banner {
+  background: rgba(255, 92, 122, 0.15);
+  border-bottom: 1px solid rgba(255, 92, 122, 0.4);
+  padding: 8px 16px;
+}
+
+.boss-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: #FF5C7A;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.boss-hp-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.boss-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FF5C7A, #FFB86B);
+  box-shadow: 0 0 10px rgba(255, 92, 122, 0.8);
+  transition: width 0.2s ease-out;
+}
+
+/* Bottom Telemetry */
+.arcade-bottom-telemetry {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 10px 16px;
+  background: rgba(14, 18, 28, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telemetry-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.telem-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.telem-val {
+  font-size: 15px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+
+/* ==========================================
+   4. NITRO SPRINT SPEED DRAG RACE
+   ========================================== */
+.nitro-hud {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 24px 20px;
+  background: rgba(18, 22, 34, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nitro-speedometer-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speedo-gauge {
+  position: relative;
+  width: 140px;
+  height: 70px;
+  background: radial-gradient(circle at 50% 100%, #151d30 0%, #0b0f19 100%);
+  border-top: 3px solid #FFB86B;
+  border-radius: 70px 70px 0 0;
+  box-shadow: 0 0 20px rgba(255, 184, 107, 0.3);
+  overflow: hidden;
+}
+
+.speedo-needle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  height: 55px;
+  background: #FF5C7A;
+  border-radius: 2px;
+  transform-origin: bottom center;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 8px #FF5C7A;
+}
+
+.speedo-center {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.speedo-val {
+  font-size: 20px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: #FFF;
+  line-height: 1;
+}
+
+.speedo-unit {
+  font-size: 8.5px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.nitro-metrics-row {
+  display: flex;
+  gap: 16px;
+}
+
+.nitro-boost-bar {
+  width: 120px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.nitro-boost-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFB86B, #FF5C7A);
+  box-shadow: 0 0 8px rgba(255, 92, 122, 0.8);
+  transition: width 0.15s ease;
+}
+
+.nitro-track-arena {
+  position: relative;
+  padding: 40px 24px;
+  background: radial-gradient(ellipse at center, #101728 0%, #070a12 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+.nitro-turbo-active {
+  animation: nitroShake 0.1s infinite;
+  box-shadow: inset 0 0 40px rgba(255, 92, 122, 0.4);
+}
+
+@keyframes nitroShake {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(1px, -1px); }
+}
+
+.nitro-typing-box {
+  max-width: 760px;
+  background: rgba(20, 26, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.nitro-text-display {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  line-height: 1.7;
+  letter-spacing: 0.5px;
+}
+
+.char-correct {
+  color: #00D4AA;
+}
+
+.char-current {
+  color: #FFFFFF;
+  background: rgba(124, 92, 252, 0.4);
+  border-bottom: 2px solid var(--accent-primary);
+  border-radius: 2px;
+}
+
+.char-upcoming {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+
+/* ==========================================
+   5. GAME OVER & VICTORY MODALS
+   ========================================== */
+.arcade-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(6, 8, 14, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+  animation: modalFadeIn 0.25s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.arcade-modal-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface-1);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 32px 28px;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.modal-victory {
+  border-color: rgba(0, 212, 170, 0.5);
+  box-shadow: 0 0 30px rgba(0, 212, 170, 0.2);
+}
+
+.modal-defeat {
+  border-color: rgba(255, 92, 122, 0.5);
+  box-shadow: 0 0 30px rgba(255, 92, 122, 0.2);
+}
+
+.modal-badge-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.modal-subtitle {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.arcade-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.summary-pill {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.summary-value {
+  font-size: 16px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.arcade-reward-banner {
+  background: rgba(124, 92, 252, 0.15);
+  border: 1px solid rgba(124, 92, 252, 0.3);
+  color: #A78BFA;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-actions button {
+  flex: 1;
+}
