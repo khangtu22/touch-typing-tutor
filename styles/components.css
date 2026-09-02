@@ -412,6 +412,7 @@
   border-radius: 3px;
 }
 
+.legend-box.untested { background: rgba(255, 255, 255, 0.08); border: 1px dashed rgba(255, 255, 255, 0.3); }
 .legend-box.poor { background: rgba(255, 92, 122, 0.6); border: 1px solid #FF5C7A; }
 .legend-box.improving { background: rgba(255, 184, 107, 0.6); border: 1px solid #FFB86B; }
 .legend-box.good { background: rgba(6, 214, 160, 0.6); border: 1px solid #06D6A0; }

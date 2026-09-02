@@ -181,36 +181,68 @@ export class KeyboardRenderer {
   }
 
   applyHeatmap(keyStats = {}) {
-    this.keyElements.forEach((el, code) => {
-      el.classList.remove('heatmap-mastered', 'heatmap-good', 'heatmap-improving', 'heatmap-poor');
+    const statsObj = keyStats || {};
 
-      let foundChar = null;
+    this.keyElements.forEach((el, code) => {
+      el.classList.remove('heatmap-mastered', 'heatmap-good', 'heatmap-improving', 'heatmap-poor', 'heatmap-untested');
+
+      let attempts = 0;
+      let errors = 0;
+      let totalLatencyMs = 0;
+      let charsFound = [];
+
+      // Collect all stats associated with this physical keycap
       for (const [char, cCode] of this.charToCode.entries()) {
-        if (cCode === code && char.length === 1) {
-          foundChar = char.toLowerCase();
-          break;
+        if (cCode === code) {
+          const lower = char.toLowerCase();
+          const stats = statsObj[char] || statsObj[lower];
+          if (stats && stats.attempts > 0) {
+            attempts += (stats.attempts || 0);
+            errors += (stats.errors || 0);
+            totalLatencyMs += (stats.totalLatencyMs || 0);
+            if (!charsFound.includes(lower)) charsFound.push(lower);
+          }
         }
       }
 
-      if (foundChar && keyStats[foundChar]) {
-        const stats = keyStats[foundChar];
-        const attempts = stats.attempts || 0;
-        const errors = stats.errors || 0;
+      if (attempts > 0) {
+        const accuracy = Math.max(0, Math.min(100, Math.round(((attempts - errors) / attempts) * 100)));
+        const avgLatency = Math.round(totalLatencyMs / attempts);
 
-        if (attempts >= 10) {
-          const accuracy = ((attempts - errors) / attempts) * 100;
-          if (accuracy >= 97) el.classList.add('heatmap-mastered');
-          else if (accuracy >= 90) el.classList.add('heatmap-good');
-          else if (accuracy >= 80) el.classList.add('heatmap-improving');
-          else el.classList.add('heatmap-poor');
+        if (accuracy >= 97) el.classList.add('heatmap-mastered');
+        else if (accuracy >= 90) el.classList.add('heatmap-good');
+        else if (accuracy >= 80) el.classList.add('heatmap-improving');
+        else el.classList.add('heatmap-poor');
+
+        const labelName = charsFound.length > 0 ? charsFound.join('/').toUpperCase() : code.replace('Key', '');
+        el.title = `Key [${labelName}]: ${accuracy}% Accuracy (${attempts} strokes, ${errors} mistakes, ${avgLatency}ms avg)`;
+
+        // Micro accuracy percentage badge
+        const inner = el.querySelector('.keycap-inner');
+        if (inner) {
+          let badge = inner.querySelector('.keycap-heatmap-badge');
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'keycap-heatmap-badge';
+            inner.appendChild(badge);
+          }
+          badge.textContent = `${accuracy}%`;
         }
+      } else {
+        el.classList.add('heatmap-untested');
+        el.title = `Key [${code.replace('Key', '')}]: Untested`;
+        const existingBadge = el.querySelector('.keycap-heatmap-badge');
+        if (existingBadge) existingBadge.remove();
       }
     });
   }
 
   clearHeatmap() {
     this.keyElements.forEach(el => {
-      el.classList.remove('heatmap-mastered', 'heatmap-good', 'heatmap-improving', 'heatmap-poor');
+      el.classList.remove('heatmap-mastered', 'heatmap-good', 'heatmap-improving', 'heatmap-poor', 'heatmap-untested');
+      el.removeAttribute('title');
+      const badge = el.querySelector('.keycap-heatmap-badge');
+      if (badge) badge.remove();
     });
   }
 }

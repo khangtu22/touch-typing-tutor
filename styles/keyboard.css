@@ -188,19 +188,84 @@
 }
 
 /* Heatmap Overlays */
-.keycap.heatmap-mastered {
-  background: rgba(0, 212, 170, 0.22);
-  border: 1px solid #00D4AA;
+.keycap.heatmap-mastered,
+body[class*="theme-"] .keycap.heatmap-mastered {
+  background: rgba(0, 212, 170, 0.28) !important;
+  border: 1.5px solid #00D4AA !important;
+  box-shadow: 0 0 10px rgba(0, 212, 170, 0.35), 0 4px 0 #0C0F17 !important;
 }
-.keycap.heatmap-good {
-  background: rgba(6, 214, 160, 0.15);
-  border: 1px solid #06D6A0;
+.keycap.heatmap-mastered .key-legend-primary {
+  color: #00D4AA !important;
+  font-weight: 800;
 }
-.keycap.heatmap-improving {
-  background: rgba(255, 184, 107, 0.18);
-  border: 1px solid #FFB86B;
+
+.keycap.heatmap-good,
+body[class*="theme-"] .keycap.heatmap-good {
+  background: rgba(6, 214, 160, 0.24) !important;
+  border: 1.5px solid #06D6A0 !important;
+  box-shadow: 0 0 8px rgba(6, 214, 160, 0.28), 0 4px 0 #0C0F17 !important;
 }
-.keycap.heatmap-poor {
-  background: rgba(255, 92, 122, 0.25);
-  border: 1px solid #FF5C7A;
+.keycap.heatmap-good .key-legend-primary {
+  color: #06D6A0 !important;
+  font-weight: 800;
+}
+
+.keycap.heatmap-improving,
+body[class*="theme-"] .keycap.heatmap-improving {
+  background: rgba(255, 184, 107, 0.28) !important;
+  border: 1.5px solid #FFB86B !important;
+  box-shadow: 0 0 8px rgba(255, 184, 107, 0.3), 0 4px 0 #0C0F17 !important;
+}
+.keycap.heatmap-improving .key-legend-primary {
+  color: #FFB86B !important;
+  font-weight: 800;
+}
+
+.keycap.heatmap-poor,
+body[class*="theme-"] .keycap.heatmap-poor {
+  background: rgba(255, 92, 122, 0.32) !important;
+  border: 1.5px solid #FF5C7A !important;
+  box-shadow: 0 0 10px rgba(255, 92, 122, 0.35), 0 4px 0 #0C0F17 !important;
+}
+.keycap.heatmap-poor .key-legend-primary {
+  color: #FF5C7A !important;
+  font-weight: 800;
+}
+
+.keycap.heatmap-untested,
+body[class*="theme-"] .keycap.heatmap-untested {
+  opacity: 0.65;
+  border: 1px dashed rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Micro Accuracy Badge inside keycaps for heatmap view */
+.keycap-heatmap-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 5px;
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.keycap.heatmap-mastered .keycap-heatmap-badge {
+  color: #00D4AA;
+  border: 1px solid rgba(0, 212, 170, 0.4);
+}
+.keycap.heatmap-good .keycap-heatmap-badge {
+  color: #06D6A0;
+  border: 1px solid rgba(6, 214, 160, 0.4);
+}
+.keycap.heatmap-improving .keycap-heatmap-badge {
+  color: #FFB86B;
+  border: 1px solid rgba(255, 184, 107, 0.4);
+}
+.keycap.heatmap-poor .keycap-heatmap-badge {
+  color: #FF5C7A;
+  border: 1px solid rgba(255, 92, 122, 0.4);
 }

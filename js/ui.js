@@ -1766,12 +1766,19 @@ export class UIManager {
               <p class="card-subtitle">Visual accuracy performance breakdown per physical key</p>
             </div>
             <div class="heatmap-legend">
+              <span class="legend-item"><span class="legend-box untested"></span> Untested</span>
               <span class="legend-item"><span class="legend-box poor"></span> Needs Practice (&lt;80%)</span>
               <span class="legend-item"><span class="legend-box improving"></span> Improving (80-89%)</span>
               <span class="legend-item"><span class="legend-box good"></span> Good (90-96%)</span>
               <span class="legend-item"><span class="legend-box mastered"></span> Mastered (97%+)</span>
             </div>
           </div>
+          ${Object.keys(state.keyStats || {}).length === 0 ? `
+            <div style="padding: 10px 14px; margin-bottom: 12px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); font-size: 12.5px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+              <span>💡 <strong>Live Telemetry:</strong> Complete practice lessons to illuminate your physical key accuracy heatmap.</span>
+              <button id="profile-demo-seed-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">Load Demo Data</button>
+            </div>
+          ` : ''}
           <div id="profile-heatmap-container" class="profile-heatmap-container"></div>
         </div>
 
@@ -1837,7 +1844,15 @@ export class UIManager {
     const heatmapContainer = document.getElementById('profile-heatmap-container');
     if (heatmapContainer) {
       const kb = new KeyboardRenderer(heatmapContainer, { interactive: false, layoutId: state.settings.layout || 'qwerty' });
-      kb.applyHeatmap(state.keyStats);
+      kb.applyHeatmap(state.keyStats || {});
+    }
+
+    const seedBtn = document.getElementById('profile-demo-seed-btn');
+    if (seedBtn) {
+      seedBtn.addEventListener('click', () => {
+        store.seedDemoData();
+        this.renderProfileScreen();
+      });
     }
   }
 
