@@ -5,6 +5,7 @@
 
 import { sound } from './sound-engine.js';
 import { AnalyticsEngine } from './analytics.js';
+import { QUOTE_VAULT } from './premium-features.js';
 
 export const ACHIEVEMENTS = [
   {
@@ -297,6 +298,24 @@ export const ACHIEVEMENTS = [
     check: (state) => (state.arcadeStats?.invadersHighScore || 0) >= 5000
   },
   {
+    id: 'code_breaker',
+    title: 'Cyber Code Breaker',
+    description: 'Exfiltrate 3,000+ KB in Matrix Rain: Code Breaker.',
+    icon: '💻',
+    category: 'arcade',
+    xpBonus: 150,
+    check: (state) => (state.arcadeStats?.matrixHighScore || 0) >= 3000
+  },
+  {
+    id: 'rhythm_master',
+    title: 'KeyBeats Virtuoso',
+    description: 'Score 10,000+ points in KeyBeats: Rhythm Flow.',
+    icon: '🎵',
+    category: 'arcade',
+    xpBonus: 150,
+    check: (state) => (state.arcadeStats?.rhythmHighScore || 0) >= 10000
+  },
+  {
     id: 'goal_achiever',
     title: 'Goal Achiever',
     description: 'Meet your daily practice goal 3 days in a row.',
@@ -313,8 +332,8 @@ export const ACHIEVEMENTS = [
     category: 'premium',
     xpBonus: 75,
     check: (state) => (state.quotesPracticed || []).filter(id => {
-      // literature quotes have id starting with 'lit_' (set by Quote Vault data)
-      return typeof id === 'string' && id.startsWith('lit_');
+      const q = QUOTE_VAULT.find(item => item.id === id);
+      return (q && q.category === 'literature') || (typeof id === 'string' && id.startsWith('lit_'));
     }).length >= 5
   },
   {

@@ -23,7 +23,7 @@ import { focusMode, zenMode } from './focus-zen.js';
 import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js';
 import { themeStudio, renderThemeStudioUI } from './theme-studio.js';
 import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js';
-import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, generateLanguagePractice } from './premium-features.js';
+import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice } from './premium-features.js';
 import { ArcadeHubManager } from './arcade-games.js';
 
 const escapeHtml = value => String(value)
@@ -870,10 +870,7 @@ export class UIManager {
       this.startLesson(createPlacementLesson());
     });
     document.getElementById('qotd-practice-btn')?.addEventListener('click', () => {
-      const qLesson = CustomPracticeManager.createLessonFromText(`Quote: ${qotd.author}`, qotd.text);
-      qLesson.quoteId = qotd.id;
-      qLesson.category = qotd.category;
-      this.startLesson(qLesson);
+      this.startQuotePractice(qotd);
     });
     document.getElementById('adaptive-focus-btn')?.addEventListener('click', () => {
       if (coach2?.lesson) {
@@ -1133,6 +1130,31 @@ export class UIManager {
     });
   }
 
+  startQuotePractice(quote) {
+    if (!quote) return;
+    const lesson = CustomPracticeManager.createLessonFromText(`Quote: ${quote.author}`, quote.text);
+    if (!lesson) return;
+    lesson.id = `quote-${quote.id}`;
+    lesson.quoteId = quote.id;
+    lesson.quoteData = quote;
+    lesson.category = quote.category;
+    lesson.difficulty = quote.difficulty;
+    lesson.isQuote = true;
+    lesson.subtitle = `${quote.category ? quote.category.charAt(0).toUpperCase() + quote.category.slice(1) : 'Quote'} • ${quote.difficulty || 'standard'} length • ${quote.text.length} chars`;
+    this.startLesson(lesson);
+  }
+
+  startRandomQuote(category = null, difficulty = null, excludeId = null) {
+    const targetCat = category !== undefined ? category : this.activeQuoteCategory;
+    const targetDiff = difficulty !== undefined ? difficulty : this.activeQuoteDifficulty;
+    const quote = getRandomQuote(targetCat, targetDiff, excludeId);
+    if (quote) {
+      this.startQuotePractice(quote);
+    } else {
+      this.showToast('No quotes found matching filter.', 'amber');
+    }
+  }
+
   // ==========================================
   // QUOTE VAULT SCREEN
   // ==========================================
@@ -1151,7 +1173,12 @@ export class UIManager {
             <h2 class="section-title">Quote Vault &amp; Classic Passages</h2>
             <p class="section-subtitle">Practice touch typing with 60+ curated public-domain literature, philosophy, code, and science excerpts</p>
           </div>
-          <span class="badge badge-accent">${practicedList.length} Quotes Practiced</span>
+          <div class="quote-vault-header-actions">
+            <span class="badge badge-accent">${practicedList.length} Quotes Practiced</span>
+            <button id="start-random-quote-btn" class="btn btn-primary" title="Start a random quote from current filter or all quotes">
+              <span>🎲 Practice Random Quote</span>
+            </button>
+          </div>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
@@ -1199,6 +1226,11 @@ export class UIManager {
       </div>
     `;
 
+    // Start Random Quote button
+    container.querySelector('#start-random-quote-btn')?.addEventListener('click', () => {
+      this.startRandomQuote(this.activeQuoteCategory, this.activeQuoteDifficulty);
+    });
+
     // Filter clicks
     container.querySelectorAll('[data-cat]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1216,17 +1248,26 @@ export class UIManager {
       });
     });
 
-    // Start Quote Practice
+    // Start Quote Practice (button click)
     container.querySelectorAll('.start-quote-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = parseInt(btn.dataset.quoteId, 10);
         const quote = QUOTE_VAULT.find(q => q.id === id);
         if (quote) {
-          const lesson = CustomPracticeManager.createLessonFromText(`Quote: ${quote.author}`, quote.text);
-          lesson.quoteId = quote.id;
-          lesson.category = quote.category;
-          this.startLesson(lesson);
+          this.startQuotePractice(quote);
+        }
+      });
+    });
+
+    // Start Quote Practice (card click)
+    container.querySelectorAll('.quote-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.start-quote-btn')) return;
+        const id = parseInt(card.dataset.quoteId, 10);
+        const quote = QUOTE_VAULT.find(q => q.id === id);
+        if (quote) {
+          this.startQuotePractice(quote);
         }
       });
     });
@@ -1427,11 +1468,19 @@ export class UIManager {
     }
 
     // Record premium data tracking
-    if (this.currentLessonData?.quoteId) {
-      store.update(prev => ({
-        ...prev,
-        quotesPracticed: Array.from(new Set([...(prev.quotesPracticed || []), this.currentLessonData.quoteId]))
-      }));
+    if (this.currentLessonData?.quoteId || this.currentLessonData?.isQuote) {
+      const qId = this.currentLessonData.quoteId;
+      if (qId) {
+        store.update(prev => ({
+          ...prev,
+          quotesPracticed: Array.from(new Set([...(prev.quotesPracticed || []), qId]))
+        }));
+      }
+      summary.isQuote = true;
+      summary.quoteId = qId;
+      summary.quoteData = this.currentLessonData.quoteData || (qId ? QUOTE_VAULT.find(q => q.id === qId) : null);
+      summary.quoteCategory = this.currentLessonData.category || summary.quoteData?.category || this.activeQuoteCategory;
+      summary.quoteDifficulty = this.currentLessonData.difficulty || summary.quoteData?.difficulty || this.activeQuoteDifficulty;
     }
 
     if (this.currentLessonData?.isZen) {
@@ -1548,28 +1597,35 @@ export class UIManager {
     const isCurriculumLesson = Number.isInteger(summary.lessonId)
       && summary.lessonId >= 1
       && summary.lessonId <= CURRICULUM.length;
+    const isQuoteLesson = !!summary.isQuote || !!summary.quoteId || !!this.currentLessonData?.isQuote || !!this.currentLessonData?.quoteId;
     const isFinalCurriculumLesson = isCurriculumLesson && summary.lessonId === CURRICULUM.length;
     const resultTitle = summary.isPlacementTest
       ? 'Skill Check Complete!'
-      : mastery.isPerfected
-        ? 'Perfected!'
-        : mastery.isMastered
-          ? 'Lesson Mastered!'
-          : mastery.isPassed
-            ? 'Ready to Advance!'
-            : 'Practice Round Complete';
+      : isQuoteLesson
+        ? (mastery.isPerfected ? 'Perfect Run!' : mastery.isMastered ? 'Mastered Quote!' : mastery.isPassed ? 'Quote Completed!' : 'Quote Practice Complete')
+        : mastery.isPerfected
+          ? 'Perfected!'
+          : mastery.isMastered
+            ? 'Lesson Mastered!'
+            : mastery.isPassed
+              ? 'Ready to Advance!'
+              : 'Practice Round Complete';
     const resultSubtitle = summary.isPlacementTest
       ? `${summary.placementRecommendation?.message || 'Your next starting point is ready.'} • +${summary.xpEarned} XP Earned`
       : `${summary.lessonTitle} • +${summary.xpEarned} XP Earned`;
     const primaryActionLabel = summary.isPlacementTest
       ? `Start Lesson ${summary.placementRecommendation?.lessonId || 1} →`
-      : isCurriculumLesson && !mastery.isPassed
-        ? 'Practice Again →'
-        : isFinalCurriculumLesson && mastery.isPassed
-          ? 'View Mastery Plan →'
-          : isCurriculumLesson && mastery.isPassed
-            ? 'Next Lesson →'
-            : 'Back to Curriculum →';
+      : isQuoteLesson
+        ? 'Next Random Quote →'
+        : isCurriculumLesson && !mastery.isPassed
+          ? 'Practice Again →'
+          : isFinalCurriculumLesson && mastery.isPassed
+            ? 'View Mastery Plan →'
+            : isCurriculumLesson && mastery.isPassed
+              ? 'Next Lesson →'
+              : 'Back to Curriculum →';
+    const retryActionLabel = isQuoteLesson ? 'Replay Quote (R)' : 'Retry Lesson (R)';
+    const backActionLabel = isQuoteLesson ? 'Back to Quote Vault' : 'Back to Dashboard';
 
     container.innerHTML = `
       <div class="results-layout">
@@ -1659,8 +1715,8 @@ export class UIManager {
 
         <div class="results-actions">
           <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} (Enter ↵)</button>
-          <button id="results-retry-btn" class="btn btn-secondary">Retry Lesson (R)</button>
-          <button id="results-dashboard-btn" class="btn btn-outline">Back to Dashboard</button>
+          <button id="results-retry-btn" class="btn btn-secondary">${retryActionLabel}</button>
+          <button id="results-dashboard-btn" class="btn btn-outline">${backActionLabel}</button>
         </div>
       </div>
     `;
@@ -1670,6 +1726,14 @@ export class UIManager {
         const recommendedId = summary.placementRecommendation?.lessonId || 1;
         const recommendedLesson = CURRICULUM.find(lesson => lesson.id === recommendedId) || CURRICULUM[0];
         this.startLesson(recommendedLesson);
+        return;
+      }
+
+      if (isQuoteLesson) {
+        const category = summary.quoteCategory || this.activeQuoteCategory || null;
+        const difficulty = summary.quoteDifficulty || this.activeQuoteDifficulty || null;
+        const excludeId = summary.quoteId || null;
+        this.startRandomQuote(category, difficulty, excludeId);
         return;
       }
 
@@ -1697,12 +1761,24 @@ export class UIManager {
     });
 
     document.getElementById('results-retry-btn')?.addEventListener('click', () => {
+      if (isQuoteLesson) {
+        if (summary.quoteData) {
+          this.startQuotePractice(summary.quoteData);
+        } else if (this.currentLessonData) {
+          this.startLesson(this.currentLessonData);
+        }
+        return;
+      }
       const lesson = CURRICULUM.find(l => l.id === summary.lessonId) || this.currentLessonData;
       if (lesson) this.startLesson(lesson);
     });
 
     document.getElementById('results-dashboard-btn')?.addEventListener('click', () => {
-      this.navigateTo('dashboard');
+      if (isQuoteLesson) {
+        this.navigateTo('quotes');
+      } else {
+        this.navigateTo('dashboard');
+      }
     });
 
     container.querySelectorAll('.rec-btn').forEach(btn => {

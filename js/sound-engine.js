@@ -572,6 +572,78 @@ class SoundEngine {
     osc.start(now);
     osc.stop(now + 0.46);
   }
+
+  playCyberDecrypt() {
+    if (!this.enabled || !this.ctx) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    [1200, 1600, 2400].forEach((freq, idx) => {
+      const startTime = now + idx * 0.03;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(this.volume * 0.25, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.06);
+    });
+  }
+
+  playBeatHit(rating = 'perfect') {
+    if (!this.enabled || !this.ctx) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    if (rating === 'perfect') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
+      gain.gain.setValueAtTime(this.volume * 0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    } else if (rating === 'great') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, now);
+      gain.gain.setValueAtTime(this.volume * 0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      gain.gain.setValueAtTime(this.volume * 0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    }
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.11);
+  }
+
+  playFeverActive() {
+    if (!this.enabled || !this.ctx) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+      const startTime = now + idx * 0.05;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(this.volume * 0.35, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.22);
+    });
+  }
 }
 
 export const sound = new SoundEngine();

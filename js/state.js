@@ -103,6 +103,8 @@ const DEFAULT_STATE = {
     invadersMaxWave: 1,
     invadersBossDefeated: 0,
     nitroBestWpm: 0,
+    matrixHighScore: 0,
+    rhythmHighScore: 0,
     totalGamesPlayed: 0
   },
   settings: {
@@ -448,6 +450,12 @@ class StateStore {
       const nitroBestWpm = gameId === 'nitro-sprint'
         ? Math.max(currentArcade.nitroBestWpm || 0, wpm)
         : currentArcade.nitroBestWpm || 0;
+      const matrixHighScore = gameId === 'matrix-rain'
+        ? Math.max(currentArcade.matrixHighScore || 0, score)
+        : currentArcade.matrixHighScore || 0;
+      const rhythmHighScore = gameId === 'key-beats'
+        ? Math.max(currentArcade.rhythmHighScore || 0, score)
+        : currentArcade.rhythmHighScore || 0;
 
       return {
         ...prev,
@@ -457,6 +465,8 @@ class StateStore {
           invadersMaxWave,
           invadersBossDefeated,
           nitroBestWpm,
+          matrixHighScore,
+          rhythmHighScore,
           totalGamesPlayed: (currentArcade.totalGamesPlayed || 0) + 1
         },
         dailyStreak: streakResult.currentStreak,

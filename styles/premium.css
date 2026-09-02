@@ -909,6 +909,13 @@ body.focus-mode-active .hud-live-metrics {
   flex-wrap: wrap;
 }
 
+.quote-vault-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .quote-filters {
   display: flex;
   gap: 8px;
@@ -955,12 +962,18 @@ body.focus-mode-active .hud-live-metrics {
   flex-direction: column;
   gap: 12px;
   transition: all 0.2s ease;
-  cursor: default;
+  cursor: pointer;
 }
 
 .quote-card:hover {
   border-color: var(--border-light);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.quote-card.quote-practiced {
+  border-color: rgba(0, 212, 170, 0.25);
+  background: linear-gradient(180deg, rgba(0, 212, 170, 0.04) 0%, var(--surface-1) 100%);
 }
 
 .quote-card-top {

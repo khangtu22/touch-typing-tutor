@@ -1,8 +1,10 @@
 /**
- * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.1.0)
- * Featuring:
- * 1. Type Invaders: Orbit Defense (Laser turret, particle physics, wave spawner, power-ups, boss battle)
+ * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.2.0)
+ * Featuring 4 Distinct Arcade Game Modes:
+ * 1. Type Invaders: Orbit Defense (Laser turret, wave spawner, power-ups, boss battle)
  * 2. Nitro Sprint: 60s Speed Drag Race (Analog speedometer physics, turbo bursts, ghost racer)
+ * 3. Matrix Rain: Code Breaker (Netrunner terminal hacking, digital rain canvas, syntax tokens)
+ * 4. KeyBeats: Rhythm Flow (4-Lane rhythm action, timing hit zones, Fever Mode overdrive)
  */
 
 import { sound } from './sound-engine.js';
@@ -40,6 +42,22 @@ const BOSS_PHRASES = [
   'OVERCHARGE_PLASMA_CANNON',
   'REBOOT_PLANETARY_SHIELDS',
   'MAXIMUM_VELOCITY_ENGAGED'
+];
+
+const CODE_TOKENS = [
+  'function', 'return', 'async', 'await', 'import', 'export', 'const', 'let',
+  'typeof', 'instanceof', 'Promise', 'resolve', 'reject', 'try', 'catch',
+  'throw', 'finally', 'switch', 'case', 'break', 'default', 'continue',
+  'console.log', 'document.get', 'window.fetch', 'JSON.stringify', 'Math.floor',
+  'Array.from', 'Object.keys', 'setTimeout', 'setInterval', 'addEventListener',
+  '0x7F4A', '0xFF00', '0x1A2B', '0x99C1', '0xDE44', '0x00FF',
+  'item => item.id', 'sum += val;', 'res.json();', 'el.classList', 'key === code'
+];
+
+const RHYTHM_BEAT_WORDS = [
+  'flow', 'beat', 'drop', 'bass', 'step', 'wave', 'tune', 'kick',
+  'snare', 'vibe', 'drum', 'groove', 'rhythm', 'pulse', 'tempo', 'track',
+  'synth', 'audio', 'sonic', 'dance', 'hyper', 'fever', 'stride', 'glide'
 ];
 
 const POWERUP_TYPES = [
@@ -507,7 +525,7 @@ export class TypeInvadersGame {
       this.state.targetEnemyId = null;
     }
 
-    // Check Wave Advancement (every 10 enemies vaporized per wave)
+    // Check Wave Advancement (every 8 enemies vaporized per wave)
     if (this.state.totalEnemiesVaporized % 8 === 0 && this.state.wave < this.state.maxWave) {
       this.advanceWave();
     }
@@ -1160,7 +1178,879 @@ export class NitroSprintGame {
 }
 
 // ==========================================
-// 3. ARCADE HUB MANAGER (Lobby & Game Selector)
+// 3. MATRIX RAIN: CODE BREAKER TERMINAL HACK
+// ==========================================
+export class MatrixRainGame {
+  constructor(container, options = {}) {
+    this.container = container;
+    this.onExit = options.onExit || (() => {});
+
+    this.state = {
+      running: false,
+      paused: false,
+      score: 0,
+      securityBreachPct: 0, // 0 to 100%
+      dataExfiltratedKb: 0,
+      combo: 0,
+      multiplier: 1,
+      columns: [],
+      targetTokenId: null,
+      overclockBombs: 1,
+      totalHacked: 0,
+      totalKeystrokes: 0,
+      totalErrors: 0,
+      startTime: 0,
+      wpm: 0
+    };
+
+    this.animationId = null;
+    this.lastFrameTime = performance.now();
+    this.spawnTimer = 0;
+    this.matrixCanvas = null;
+    this.matrixCtx = null;
+    this.matrixDrops = [];
+
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  mount() {
+    this.container.innerHTML = `
+      <div class="arcade-cabinet matrix-theme">
+        <!-- Matrix Terminal HUD -->
+        <div class="arcade-hud matrix-hud">
+          <div class="hud-left">
+            <div class="arcade-hud-pill">
+              <span class="hud-label">DATA EXFILTRATED</span>
+              <span id="matrix-hud-score" class="hud-value hud-glow-cyan">0 KB</span>
+            </div>
+            <div class="arcade-hud-pill">
+              <span class="hud-label">BREACH LEVEL</span>
+              <span id="matrix-hud-breach" class="hud-value hud-glow-gold">0%</span>
+            </div>
+            <div class="arcade-hud-pill">
+              <span class="hud-label">OVERCLOCK MULTIPLIER</span>
+              <span id="matrix-hud-multiplier" class="hud-value hud-glow-purple">1x</span>
+            </div>
+          </div>
+
+          <div class="hud-center">
+            <div class="matrix-firewall-bar">
+              <span class="hud-label" style="margin-right: 6px;">FIREWALL OVERHEAT:</span>
+              <div class="firewall-track">
+                <div id="matrix-firewall-fill" class="firewall-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud-right">
+            <button id="btn-matrix-purge" class="arcade-powerup-btn" title="Press [TAB] or click for Buffer Overclock Purge">
+              <span class="powerup-icon">⚡</span>
+              <span class="powerup-count" id="count-matrix-bombs">1</span>
+              <span class="powerup-key">TAB</span>
+            </button>
+            <button id="matrix-btn-pause" class="arcade-control-btn" title="Pause Game (Escape)">⏸</button>
+            <button id="matrix-btn-quit" class="arcade-control-btn" title="Exit to Hub">✕</button>
+          </div>
+        </div>
+
+        <!-- Terminal Stage Area -->
+        <div id="matrix-arena" class="arcade-arena matrix-arena">
+          <canvas id="matrix-bg-canvas" class="matrix-bg-canvas"></canvas>
+          <div id="matrix-tokens-layer" class="matrix-tokens-layer"></div>
+
+          <!-- Bottom Decryption Buffer Line -->
+          <div class="matrix-buffer-line">
+            <span class="buffer-label">> ROOT ACCESS BUFFER ACTIVE</span>
+          </div>
+        </div>
+
+        <!-- Matrix Telemetry -->
+        <div class="arcade-bottom-telemetry">
+          <div class="telemetry-item">
+            <span class="telem-label">COMBO HACKS</span>
+            <span id="matrix-telem-combo" class="telem-val">0</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telem-label">HACK RATE</span>
+            <span id="matrix-telem-wpm" class="telem-val">0 WPM</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telem-label">TOKENS DECRYPTED</span>
+            <span id="matrix-telem-hacked" class="telem-val">0</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.matrixCanvas = this.container.querySelector('#matrix-bg-canvas');
+    this.matrixCtx = this.matrixCanvas ? this.matrixCanvas.getContext('2d') : null;
+    this.tokensLayer = this.container.querySelector('#matrix-tokens-layer');
+
+    this.initMatrixRainCanvas();
+    window.addEventListener('resize', () => this.initMatrixRainCanvas());
+    window.addEventListener('keydown', this.handleKeyDown);
+
+    this.container.querySelector('#btn-matrix-purge')?.addEventListener('click', () => this.triggerBufferPurge());
+    this.container.querySelector('#matrix-btn-pause')?.addEventListener('click', () => this.togglePause());
+    this.container.querySelector('#matrix-btn-quit')?.addEventListener('click', () => this.quitGame());
+
+    this.start();
+  }
+
+  initMatrixRainCanvas() {
+    if (!this.matrixCanvas) return;
+    const rect = this.matrixCanvas.getBoundingClientRect();
+    this.matrixCanvas.width = rect.width;
+    this.matrixCanvas.height = rect.height;
+
+    const columns = Math.floor(rect.width / 18);
+    this.matrixDrops = new Array(columns).fill(1);
+  }
+
+  start() {
+    this.state.running = true;
+    this.state.paused = false;
+    this.state.score = 0;
+    this.state.securityBreachPct = 0;
+    this.state.combo = 0;
+    this.state.multiplier = 1;
+    this.state.columns = [];
+    this.state.overclockBombs = 1;
+    this.state.totalHacked = 0;
+    this.state.totalKeystrokes = 0;
+    this.state.totalErrors = 0;
+    this.state.startTime = performance.now();
+
+    this.updateHud();
+    sound.playCyberDecrypt();
+
+    this.lastFrameTime = performance.now();
+    this.loop(this.lastFrameTime);
+  }
+
+  loop(currentTime) {
+    if (!this.state.running) return;
+
+    const dt = (currentTime - this.lastFrameTime) / 1000;
+    this.lastFrameTime = currentTime;
+
+    if (!this.state.paused) {
+      this.update(dt);
+      this.renderMatrixBg();
+    }
+
+    this.animationId = requestAnimationFrame(time => this.loop(time));
+  }
+
+  update(dt) {
+    const elapsedMinutes = (performance.now() - this.state.startTime) / 60000;
+    if (elapsedMinutes > 0 && this.state.totalKeystrokes > 0) {
+      this.state.wpm = Math.round((this.state.totalKeystrokes / 5) / elapsedMinutes);
+      const wpmEl = this.container.querySelector('#matrix-telem-wpm');
+      if (wpmEl) wpmEl.textContent = `${this.state.wpm} WPM`;
+    }
+
+    // Token Spawning
+    this.spawnTimer += dt;
+    if (this.spawnTimer >= 1.4 && this.state.columns.length < 5) {
+      this.spawnTimer = 0;
+      this.spawnToken();
+    }
+
+    // Token descent
+    const fallSpeed = 22 + (this.state.securityBreachPct * 0.2);
+    for (let i = this.state.columns.length - 1; i >= 0; i--) {
+      const token = this.state.columns[i];
+      token.y += (fallSpeed * token.speedFactor) * dt;
+
+      // Firewall breach (token reached bottom buffer)
+      if (token.y >= 86) {
+        this.handleFirewallOverheat(token, i);
+      }
+    }
+
+    this.renderTokensDOM();
+  }
+
+  spawnToken() {
+    const text = CODE_TOKENS[Math.floor(Math.random() * CODE_TOKENS.length)];
+    const existing = new Set(this.state.columns.map(t => t.text));
+    if (existing.has(text) && this.state.columns.length > 0) return;
+
+    const laneX = 14 + Math.random() * 72;
+    const isHex = text.startsWith('0x');
+
+    const token = {
+      id: `token-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      text,
+      typedIndex: 0,
+      x: laneX,
+      y: 4,
+      speedFactor: 0.85 + Math.random() * 0.35,
+      isHex
+    };
+
+    this.state.columns.push(token);
+  }
+
+  handleKeyDown(e) {
+    if (!this.state.running || this.state.paused) {
+      if (e.key === 'Escape' && this.state.running) this.togglePause();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      this.triggerBufferPurge();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.togglePause();
+      return;
+    }
+
+    if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const char = e.key;
+    this.state.totalKeystrokes++;
+
+    // 1. Locked target
+    if (this.state.targetTokenId) {
+      const token = this.state.columns.find(t => t.id === this.state.targetTokenId);
+      if (token) {
+        const expectedChar = token.text[token.typedIndex];
+        if (char === expectedChar) {
+          this.hitToken(token);
+          return;
+        } else {
+          this.misfire();
+          return;
+        }
+      }
+    }
+
+    // 2. Unlocked target: find closest matching token
+    const candidate = this.state.columns
+      .filter(t => t.text.startsWith(char) && t.typedIndex === 0)
+      .sort((a, b) => b.y - a.y)[0];
+
+    if (candidate) {
+      this.state.targetTokenId = candidate.id;
+      this.hitToken(candidate);
+    } else {
+      this.misfire();
+    }
+  }
+
+  hitToken(token) {
+    token.typedIndex++;
+    this.state.combo++;
+    this.state.multiplier = Math.min(8, 1 + Math.floor(this.state.combo / 8));
+
+    sound.playKeyClick(token.text[token.typedIndex - 1]);
+
+    if (token.typedIndex >= token.text.length) {
+      this.decryptToken(token);
+    }
+
+    this.updateHud();
+    this.renderTokensDOM();
+  }
+
+  misfire() {
+    this.state.totalErrors++;
+    this.state.combo = 0;
+    this.state.multiplier = 1;
+    sound.playShieldAlarm();
+    this.updateHud();
+  }
+
+  decryptToken(token) {
+    this.state.totalHacked++;
+    const dataYield = (token.text.length * 32) * this.state.multiplier;
+    this.state.score += dataYield;
+    this.state.securityBreachPct = Math.min(100, this.state.securityBreachPct + 3);
+
+    sound.playCyberDecrypt();
+
+    this.state.columns = this.state.columns.filter(t => t.id !== token.id);
+    if (this.state.targetTokenId === token.id) this.state.targetTokenId = null;
+
+    if (this.state.securityBreachPct >= 100) {
+      this.handleMainframeBreached();
+    }
+  }
+
+  handleFirewallOverheat(token, index) {
+    sound.playShieldAlarm();
+    this.state.columns.splice(index, 1);
+    if (this.state.targetTokenId === token.id) this.state.targetTokenId = null;
+
+    this.state.securityBreachPct = Math.max(0, this.state.securityBreachPct - 12);
+    this.updateHud();
+  }
+
+  triggerBufferPurge() {
+    if (this.state.overclockBombs <= 0) return;
+    this.state.overclockBombs--;
+    sound.playCyberDecrypt();
+
+    const count = this.state.columns.length;
+    this.state.score += count * 250;
+    this.state.totalHacked += count;
+    this.state.columns = [];
+    this.state.targetTokenId = null;
+
+    const arena = this.container.querySelector('#matrix-arena');
+    if (arena) {
+      arena.classList.add('emp-flash');
+      setTimeout(() => arena.classList.remove('emp-flash'), 400);
+    }
+
+    this.updateHud();
+    this.renderTokensDOM();
+  }
+
+  renderMatrixBg() {
+    if (!this.matrixCtx || !this.matrixCanvas) return;
+    this.matrixCtx.fillStyle = 'rgba(6, 8, 14, 0.12)';
+    this.matrixCtx.fillRect(0, 0, this.matrixCanvas.width, this.matrixCanvas.height);
+
+    this.matrixCtx.fillStyle = '#00D4AA';
+    this.matrixCtx.font = '13px monospace';
+
+    for (let i = 0; i < this.matrixDrops.length; i++) {
+      const char = String.fromCharCode(0x30A0 + Math.random() * 96);
+      const x = i * 18;
+      const y = this.matrixDrops[i] * 18;
+
+      this.matrixCtx.fillText(char, x, y);
+
+      if (y > this.matrixCanvas.height && Math.random() > 0.975) {
+        this.matrixDrops[i] = 0;
+      }
+      this.matrixDrops[i]++;
+    }
+  }
+
+  renderTokensDOM() {
+    if (!this.tokensLayer) return;
+
+    this.tokensLayer.innerHTML = this.state.columns.map(token => {
+      const isLocked = this.state.targetTokenId === token.id;
+      const typedPart = token.text.slice(0, token.typedIndex);
+      const remainingPart = token.text.slice(token.typedIndex);
+
+      return `
+        <div class="matrix-token-pill ${isLocked ? 'target-locked' : ''} ${token.isHex ? 'hex-token' : ''}" style="left: ${token.x}%; top: ${token.y}%;">
+          <span class="token-glyph">⚡</span>
+          <span class="token-code"><span class="code-typed">${typedPart}</span><span class="code-rem">${remainingPart}</span></span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  updateHud() {
+    const scoreEl = this.container.querySelector('#matrix-hud-score');
+    if (scoreEl) scoreEl.textContent = `${this.state.score.toLocaleString()} KB`;
+
+    const breachEl = this.container.querySelector('#matrix-hud-breach');
+    if (breachEl) breachEl.textContent = `${this.state.securityBreachPct}%`;
+
+    const multEl = this.container.querySelector('#matrix-hud-multiplier');
+    if (multEl) multEl.textContent = `${this.state.multiplier}x`;
+
+    const comboEl = this.container.querySelector('#matrix-telem-combo');
+    if (comboEl) comboEl.textContent = `${this.state.combo}`;
+
+    const hackedEl = this.container.querySelector('#matrix-telem-hacked');
+    if (hackedEl) hackedEl.textContent = `${this.state.totalHacked}`;
+
+    const purgeCountEl = this.container.querySelector('#count-matrix-bombs');
+    if (purgeCountEl) purgeCountEl.textContent = `${this.state.overclockBombs}`;
+
+    const firewallFill = this.container.querySelector('#matrix-firewall-fill');
+    if (firewallFill) firewallFill.style.width = `${this.state.securityBreachPct}%`;
+  }
+
+  togglePause() {
+    this.state.paused = !this.state.paused;
+    const pauseBtn = this.container.querySelector('#matrix-btn-pause');
+    if (pauseBtn) pauseBtn.textContent = this.state.paused ? '▶' : '⏸';
+  }
+
+  handleMainframeBreached() {
+    this.state.running = false;
+    cancelAnimationFrame(this.animationId);
+    window.removeEventListener('keydown', this.handleKeyDown);
+
+    const accuracy = this.state.totalKeystrokes > 0
+      ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
+      : 100;
+    const xpEarned = Math.round(this.state.score / 20) + 200;
+
+    store.recordArcadeResult({
+      gameId: 'matrix-rain',
+      score: this.state.score,
+      wpm: this.state.wpm,
+      accuracy,
+      xpEarned
+    });
+
+    const modal = document.createElement('div');
+    modal.className = 'arcade-modal-overlay';
+    modal.innerHTML = `
+      <div class="arcade-modal-card modal-victory">
+        <div class="modal-badge-icon">💻</div>
+        <h2 class="modal-title">MAINFRAME COMPROMISED!</h2>
+        <p class="modal-subtitle">100% Security Breach &amp; Data Exfiltration Complete</p>
+
+        <div class="arcade-summary-grid">
+          <div class="summary-pill">
+            <span class="summary-label">DATA EXFILTRATED</span>
+            <span class="summary-value hud-glow-cyan">${this.state.score.toLocaleString()} KB</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">HACK RATE</span>
+            <span class="summary-value hud-glow-gold">${this.state.wpm} WPM</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">ACCURACY</span>
+            <span class="summary-value hud-glow-purple">${accuracy}%</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">TOKENS DECRYPTED</span>
+            <span class="summary-value">${this.state.totalHacked}</span>
+          </div>
+        </div>
+
+        <div class="arcade-reward-banner">
+          <span>⚡ +${xpEarned} Bonus XP Earned</span>
+        </div>
+
+        <div class="modal-actions">
+          <button id="matrix-btn-replay" class="btn btn-primary btn-lg">Hack Again</button>
+          <button id="matrix-btn-hub" class="btn btn-secondary btn-lg">Back to Arcade Hub</button>
+        </div>
+      </div>
+    `;
+
+    this.container.appendChild(modal);
+
+    modal.querySelector('#matrix-btn-replay')?.addEventListener('click', () => {
+      modal.remove();
+      this.mount();
+    });
+
+    modal.querySelector('#matrix-btn-hub')?.addEventListener('click', () => {
+      modal.remove();
+      this.quitGame();
+    });
+  }
+
+  quitGame() {
+    this.state.running = false;
+    cancelAnimationFrame(this.animationId);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.onExit();
+  }
+}
+
+// ==========================================
+// 4. KEYBEATS: RHYTHM FLOW ACTION
+// ==========================================
+export class KeyBeatsGame {
+  constructor(container, options = {}) {
+    this.container = container;
+    this.onExit = options.onExit || (() => {});
+
+    this.state = {
+      running: false,
+      paused: false,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      multiplier: 1,
+      feverPct: 0,
+      feverActive: false,
+      feverTimer: null,
+      notes: [],
+      totalNotesHit: 0,
+      totalKeystrokes: 0,
+      totalErrors: 0,
+      startTime: 0,
+      wpm: 0
+    };
+
+    this.animationId = null;
+    this.lastFrameTime = performance.now();
+    this.spawnTimer = 0;
+
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  mount() {
+    this.container.innerHTML = `
+      <div class="arcade-cabinet rhythm-theme">
+        <!-- Rhythm HUD -->
+        <div class="arcade-hud rhythm-hud">
+          <div class="hud-left">
+            <div class="arcade-hud-pill">
+              <span class="hud-label">BEAT SCORE</span>
+              <span id="rhythm-hud-score" class="hud-value hud-glow-cyan">0</span>
+            </div>
+            <div class="arcade-hud-pill">
+              <span class="hud-label">RHYTHM COMBO</span>
+              <span id="rhythm-hud-combo" class="hud-value hud-glow-gold">0</span>
+            </div>
+            <div class="arcade-hud-pill">
+              <span class="hud-label">FEVER MULTIPLIER</span>
+              <span id="rhythm-hud-multiplier" class="hud-value hud-glow-purple">1x</span>
+            </div>
+          </div>
+
+          <div class="hud-center">
+            <div class="fever-meter-bar">
+              <span class="hud-label" style="margin-right: 6px;">FEVER OVERDRIVE:</span>
+              <div class="fever-track">
+                <div id="rhythm-fever-fill" class="fever-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud-right">
+            <button id="rhythm-btn-pause" class="arcade-control-btn" title="Pause Game (Escape)">⏸</button>
+            <button id="rhythm-btn-quit" class="arcade-control-btn" title="Exit to Hub">✕</button>
+          </div>
+        </div>
+
+        <!-- 4-Lane Rhythm Highway -->
+        <div id="rhythm-arena" class="arcade-arena rhythm-arena">
+          <div class="rhythm-lanes">
+            <div class="rhythm-lane lane-0"></div>
+            <div class="rhythm-lane lane-1"></div>
+            <div class="rhythm-lane lane-2"></div>
+            <div class="rhythm-lane lane-3"></div>
+          </div>
+
+          <div id="rhythm-notes-layer" class="rhythm-notes-layer"></div>
+
+          <!-- Target Hit Line -->
+          <div class="rhythm-hit-line">
+            <div class="hit-indicator"></div>
+          </div>
+
+          <!-- Rating Popups Container -->
+          <div id="rhythm-rating-popup" class="rhythm-rating-popup" style="display: none;">PERFECT</div>
+        </div>
+
+        <!-- Telemetry -->
+        <div class="arcade-bottom-telemetry">
+          <div class="telemetry-item">
+            <span class="telem-label">MAX COMBO</span>
+            <span id="rhythm-telem-maxcombo" class="telem-val">0</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telem-label">BEAT CADENCE</span>
+            <span id="rhythm-telem-wpm" class="telem-val">0 WPM</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telem-label">NOTES STRUCK</span>
+            <span id="rhythm-telem-notes" class="telem-val">0</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.notesLayer = this.container.querySelector('#rhythm-notes-layer');
+    this.ratingPopup = this.container.querySelector('#rhythm-rating-popup');
+
+    window.addEventListener('keydown', this.handleKeyDown);
+    this.container.querySelector('#rhythm-btn-pause')?.addEventListener('click', () => this.togglePause());
+    this.container.querySelector('#rhythm-btn-quit')?.addEventListener('click', () => this.quitGame());
+
+    this.start();
+  }
+
+  start() {
+    this.state.running = true;
+    this.state.paused = false;
+    this.state.score = 0;
+    this.state.combo = 0;
+    this.state.maxCombo = 0;
+    this.state.multiplier = 1;
+    this.state.feverPct = 0;
+    this.state.feverActive = false;
+    this.state.notes = [];
+    this.state.totalNotesHit = 0;
+    this.state.totalKeystrokes = 0;
+    this.state.totalErrors = 0;
+    this.state.startTime = performance.now();
+
+    this.updateHud();
+    sound.playBeatHit('perfect');
+
+    this.lastFrameTime = performance.now();
+    this.loop(this.lastFrameTime);
+  }
+
+  loop(currentTime) {
+    if (!this.state.running) return;
+
+    const dt = (currentTime - this.lastFrameTime) / 1000;
+    this.lastFrameTime = currentTime;
+
+    if (!this.state.paused) {
+      this.update(dt);
+    }
+
+    this.animationId = requestAnimationFrame(time => this.loop(time));
+  }
+
+  update(dt) {
+    const elapsedMinutes = (performance.now() - this.state.startTime) / 60000;
+    if (elapsedMinutes > 0 && this.state.totalKeystrokes > 0) {
+      this.state.wpm = Math.round((this.state.totalKeystrokes / 5) / elapsedMinutes);
+      const wpmEl = this.container.querySelector('#rhythm-telem-wpm');
+      if (wpmEl) wpmEl.textContent = `${this.state.wpm} WPM`;
+    }
+
+    // Spawn notes down lanes
+    this.spawnTimer += dt;
+    if (this.spawnTimer >= 1.2) {
+      this.spawnTimer = 0;
+      this.spawnRhythmNote();
+    }
+
+    // Move notes down
+    const speed = 28;
+    for (let i = this.state.notes.length - 1; i >= 0; i--) {
+      const note = this.state.notes[i];
+      note.y += speed * dt;
+
+      // Note missed past hit line (y > 88)
+      if (note.y > 90) {
+        this.handleMiss(note, i);
+      }
+    }
+
+    this.renderNotesDOM();
+  }
+
+  spawnRhythmNote() {
+    const word = RHYTHM_BEAT_WORDS[Math.floor(Math.random() * RHYTHM_BEAT_WORDS.length)];
+    const lane = Math.floor(Math.random() * 4); // 0, 1, 2, 3
+    const laneX = [16, 38, 62, 84][lane];
+
+    const note = {
+      id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      word,
+      typedIndex: 0,
+      lane,
+      x: laneX,
+      y: 0
+    };
+
+    this.state.notes.push(note);
+  }
+
+  handleKeyDown(e) {
+    if (!this.state.running || this.state.paused) {
+      if (e.key === 'Escape' && this.state.running) this.togglePause();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.togglePause();
+      return;
+    }
+
+    if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const char = e.key;
+    this.state.totalKeystrokes++;
+
+    // Find notes near hit line (y between 40 and 88)
+    const candidates = this.state.notes
+      .filter(n => n.y >= 35 && n.y <= 88)
+      .sort((a, b) => b.y - a.y); // closest to hit line first
+
+    let matchedNote = null;
+    for (const note of candidates) {
+      if (note.word[note.typedIndex] === char) {
+        matchedNote = note;
+        break;
+      }
+    }
+
+    if (matchedNote) {
+      matchedNote.typedIndex++;
+      sound.playKeyClick(char);
+
+      if (matchedNote.typedIndex >= matchedNote.word.length) {
+        this.hitCompleteNote(matchedNote);
+      }
+    } else {
+      this.state.totalErrors++;
+      this.state.combo = 0;
+      this.state.multiplier = 1;
+      sound.playShieldAlarm();
+      this.showRating('MISS', '#FF5C7A');
+    }
+
+    this.updateHud();
+    this.renderNotesDOM();
+  }
+
+  hitCompleteNote(note) {
+    this.state.totalNotesHit++;
+    this.state.combo++;
+    this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+
+    // Accuracy rating based on y distance to hit line (target y = 78)
+    const dist = Math.abs(note.y - 78);
+    let rating = 'PERFECT';
+    let pts = 500;
+    let color = '#00D4AA';
+
+    if (dist <= 8) {
+      rating = 'PERFECT';
+      pts = 500;
+      color = '#00D4AA';
+      this.state.feverPct = Math.min(100, this.state.feverPct + 12);
+    } else if (dist <= 16) {
+      rating = 'GREAT';
+      pts = 300;
+      color = '#FFD166';
+      this.state.feverPct = Math.min(100, this.state.feverPct + 8);
+    } else {
+      rating = 'GOOD';
+      pts = 150;
+      color = '#A78BFA';
+      this.state.feverPct = Math.min(100, this.state.feverPct + 4);
+    }
+
+    sound.playBeatHit(rating.toLowerCase());
+    this.showRating(rating, color);
+
+    const mult = this.state.feverActive ? 4 : (1 + Math.floor(this.state.combo / 10));
+    this.state.score += pts * mult;
+
+    // Check Fever activation
+    if (this.state.feverPct >= 100 && !this.state.feverActive) {
+      this.activateFeverMode();
+    }
+
+    this.state.notes = this.state.notes.filter(n => n.id !== note.id);
+  }
+
+  handleMiss(note, index) {
+    this.state.notes.splice(index, 1);
+    this.state.combo = 0;
+    this.state.multiplier = 1;
+    sound.playShieldAlarm();
+    this.showRating('MISS', '#FF5C7A');
+    this.updateHud();
+  }
+
+  activateFeverMode() {
+    this.state.feverActive = true;
+    this.state.multiplier = 4;
+    sound.playFeverActive();
+
+    const arena = this.container.querySelector('#rhythm-arena');
+    if (arena) arena.classList.add('fever-overdrive');
+
+    clearTimeout(this.state.feverTimer);
+    this.state.feverTimer = setTimeout(() => {
+      this.state.feverActive = false;
+      this.state.feverPct = 0;
+      if (arena) arena.classList.remove('fever-overdrive');
+      this.updateHud();
+    }, 8000);
+
+    this.updateHud();
+  }
+
+  showRating(text, color) {
+    if (!this.ratingPopup) return;
+    this.ratingPopup.textContent = text;
+    this.ratingPopup.style.color = color;
+    this.ratingPopup.style.display = 'block';
+
+    this.ratingPopup.classList.remove('rating-anim');
+    void this.ratingPopup.offsetWidth; // trigger reflow
+    this.ratingPopup.classList.add('rating-anim');
+  }
+
+  renderNotesDOM() {
+    if (!this.notesLayer) return;
+
+    this.notesLayer.innerHTML = this.state.notes.map(note => {
+      const typedPart = note.word.slice(0, note.typedIndex);
+      const remainingPart = note.word.slice(note.typedIndex);
+
+      return `
+        <div class="rhythm-note-pill lane-${note.lane}" style="left: ${note.x}%; top: ${note.y}%;">
+          <span class="note-typed">${typedPart}</span><span class="note-rem">${remainingPart}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  updateHud() {
+    const scoreEl = this.container.querySelector('#rhythm-hud-score');
+    if (scoreEl) scoreEl.textContent = this.state.score.toLocaleString();
+
+    const comboEl = this.container.querySelector('#rhythm-hud-combo');
+    if (comboEl) comboEl.textContent = `${this.state.combo}`;
+
+    const multEl = this.container.querySelector('#rhythm-hud-multiplier');
+    if (multEl) multEl.textContent = `${this.state.multiplier}x`;
+
+    const maxComboEl = this.container.querySelector('#rhythm-telem-maxcombo');
+    if (maxComboEl) maxComboEl.textContent = `${this.state.maxCombo}`;
+
+    const notesCountEl = this.container.querySelector('#rhythm-telem-notes');
+    if (notesCountEl) notesCountEl.textContent = `${this.state.totalNotesHit}`;
+
+    const feverFill = this.container.querySelector('#rhythm-fever-fill');
+    if (feverFill) feverFill.style.width = `${this.state.feverPct}%`;
+  }
+
+  togglePause() {
+    this.state.paused = !this.state.paused;
+    const pauseBtn = this.container.querySelector('#rhythm-btn-pause');
+    if (pauseBtn) pauseBtn.textContent = this.state.paused ? '▶' : '⏸';
+  }
+
+  quitGame() {
+    this.state.running = false;
+    cancelAnimationFrame(this.animationId);
+    window.removeEventListener('keydown', this.handleKeyDown);
+
+    const accuracy = this.state.totalKeystrokes > 0
+      ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
+      : 100;
+    const xpEarned = Math.round(this.state.score / 25) + 50;
+
+    store.recordArcadeResult({
+      gameId: 'key-beats',
+      score: this.state.score,
+      wpm: this.state.wpm,
+      accuracy,
+      xpEarned
+    });
+
+    this.onExit();
+  }
+}
+
+// ==========================================
+// 5. ARCADE HUB MANAGER (Lobby & Game Selector)
 // ==========================================
 export class ArcadeHubManager {
   constructor(container, uiManager) {
@@ -1175,16 +2065,18 @@ export class ArcadeHubManager {
       invadersHighScore: 0,
       invadersMaxWave: 1,
       nitroBestWpm: 0,
+      matrixHighScore: 0,
+      rhythmHighScore: 0,
       totalGamesPlayed: 0
     };
 
     this.container.innerHTML = `
       <div class="arcade-lobby">
         <div class="arcade-lobby-header">
-          <div class="arcade-badge-chip">🕹️ ARCADE GAMING ARENA</div>
-          <h1 class="arcade-lobby-title">Master Speed, Accuracy &amp; Panic Control</h1>
+          <div class="arcade-badge-chip">🕹️ 4-GAME ARCADE ARENA</div>
+          <h1 class="arcade-lobby-title">Master Speed, Accuracy &amp; Rhythm</h1>
           <p class="arcade-lobby-subtitle">
-            Gamified typing tests designed to build rapid finger cadence, burst velocity, and laser-focused error recovery.
+            Four gamified typing test modes designed to build rapid finger cadence, burst velocity, code syntax reflexes, and metronome endurance.
           </p>
         </div>
 
@@ -1193,15 +2085,8 @@ export class ArcadeHubManager {
           <div class="hof-stat-card">
             <div class="hof-stat-icon">👾</div>
             <div class="hof-stat-info">
-              <span class="hof-stat-label">TYPE INVADERS HIGH SCORE</span>
+              <span class="hof-stat-label">TYPE INVADERS</span>
               <span class="hof-stat-value">${(stats.invadersHighScore || 0).toLocaleString()} PTS</span>
-            </div>
-          </div>
-          <div class="hof-stat-card">
-            <div class="hof-stat-icon">🌊</div>
-            <div class="hof-stat-info">
-              <span class="hof-stat-label">MAX WAVE CLEARED</span>
-              <span class="hof-stat-value">Wave ${stats.invadersMaxWave || 1}</span>
             </div>
           </div>
           <div class="hof-stat-card">
@@ -1211,20 +2096,34 @@ export class ArcadeHubManager {
               <span class="hof-stat-value">${stats.nitroBestWpm || 0} WPM</span>
             </div>
           </div>
+          <div class="hof-stat-card">
+            <div class="hof-stat-icon">💻</div>
+            <div class="hof-stat-info">
+              <span class="hof-stat-label">MATRIX TERMINAL HACK</span>
+              <span class="hof-stat-value">${(stats.matrixHighScore || 0).toLocaleString()} KB</span>
+            </div>
+          </div>
+          <div class="hof-stat-card">
+            <div class="hof-stat-icon">🎵</div>
+            <div class="hof-stat-info">
+              <span class="hof-stat-label">KEYBEATS RHYTHM</span>
+              <span class="hof-stat-value">${(stats.rhythmHighScore || 0).toLocaleString()} PTS</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Game Mode Selection Grid -->
+        <!-- 4 Game Selection Grid -->
         <div class="arcade-game-grid">
           <!-- Game 1: Type Invaders -->
           <div class="arcade-game-card">
             <div class="game-card-banner banner-invaders">
-              <span class="game-banner-badge">FEATURED ACTION</span>
+              <span class="game-banner-badge">ACTION DEFENSE</span>
               <span class="game-banner-icon">🚀</span>
             </div>
             <div class="game-card-body">
               <h2 class="game-card-title">Type Invaders: Orbit Defense</h2>
               <p class="game-card-desc">
-                Defend Earth against descending word-vessels and meteors. Target lock-on lasers, EMP shockwaves, Cryo time freeze, and multi-phase Mothership Boss battles.
+                Defend Earth against descending word-vessels and meteors. Features laser lock-on, EMP shockwaves, Cryo time freeze, and multi-phase Mothership Boss battles.
               </p>
               
               <div class="game-features-pills">
@@ -1273,6 +2172,58 @@ export class ArcadeHubManager {
               </button>
             </div>
           </div>
+
+          <!-- Game 3: Matrix Rain -->
+          <div class="arcade-game-card">
+            <div class="game-card-banner banner-matrix">
+              <span class="game-banner-badge">SYNTAX HACK</span>
+              <span class="game-banner-icon">💻</span>
+            </div>
+            <div class="game-card-body">
+              <h2 class="game-card-title">Matrix Rain: Code Breaker</h2>
+              <p class="game-card-desc">
+                Infiltrate the cyber mainframe. Decrypt cascading streams of JavaScript keywords, hex numbers, and code tokens before the firewall overheats.
+              </p>
+
+              <div class="game-features-pills">
+                <span class="feature-tag">🟢 Digital Rain Canvas</span>
+                <span class="feature-tag">⚡ Buffer Purge</span>
+                <span class="feature-tag">💻 Code Syntax</span>
+              </div>
+
+              <div style="flex: 1;"></div>
+
+              <button id="btn-launch-matrix" class="btn btn-primary btn-lg arcade-launch-btn" style="margin-top: 24px; background: #00D4AA; border-color: #00D4AA;">
+                Infiltrate Mainframe
+              </button>
+            </div>
+          </div>
+
+          <!-- Game 4: KeyBeats -->
+          <div class="arcade-game-card">
+            <div class="game-card-banner banner-rhythm">
+              <span class="game-banner-badge">RHYTHM ACTION</span>
+              <span class="game-banner-icon">🎵</span>
+            </div>
+            <div class="game-card-body">
+              <h2 class="game-card-title">KeyBeats: Rhythm Flow</h2>
+              <p class="game-card-desc">
+                4-Lane rhythm typing game. Strike words precisely as they cross the neon hit line to build your Fever Overdrive and master steady metronome cadence.
+              </p>
+
+              <div class="game-features-pills">
+                <span class="feature-tag">🎵 4-Lane Highway</span>
+                <span class="feature-tag">✨ Fever Overdrive</span>
+                <span class="feature-tag">🎯 Precision Timing</span>
+              </div>
+
+              <div style="flex: 1;"></div>
+
+              <button id="btn-launch-rhythm" class="btn btn-secondary btn-lg arcade-launch-btn" style="margin-top: 24px;">
+                Start Rhythm Flow
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1295,6 +2246,14 @@ export class ArcadeHubManager {
     this.container.querySelector('#btn-launch-nitro')?.addEventListener('click', () => {
       this.launchNitroSprint();
     });
+
+    this.container.querySelector('#btn-launch-matrix')?.addEventListener('click', () => {
+      this.launchMatrixRain();
+    });
+
+    this.container.querySelector('#btn-launch-rhythm')?.addEventListener('click', () => {
+      this.launchKeyBeats();
+    });
   }
 
   launchTypeInvaders(difficulty = 'cadet') {
@@ -1308,6 +2267,20 @@ export class ArcadeHubManager {
   launchNitroSprint() {
     this.activeGame = new NitroSprintGame(this.container, {
       durationSec: 60,
+      onExit: () => this.renderLobby()
+    });
+    this.activeGame.mount();
+  }
+
+  launchMatrixRain() {
+    this.activeGame = new MatrixRainGame(this.container, {
+      onExit: () => this.renderLobby()
+    });
+    this.activeGame.mount();
+  }
+
+  launchKeyBeats() {
+    this.activeGame = new KeyBeatsGame(this.container, {
       onExit: () => this.renderLobby()
     });
     this.activeGame.mount();
