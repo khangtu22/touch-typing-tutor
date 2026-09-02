@@ -8,6 +8,7 @@ import { sound } from './sound-engine.js';
 import { getFingerForKey, getOppositeShift, isShiftRequired } from './finger-mapping.js';
 import { store } from './state.js';
 import { calculateMastery } from './mastery.js';
+import { calculateConsistency } from './speed-test.js';
 
 export function buildWordIndexMap(text) {
   if (!text) return { charToWord: [], words: [] };
@@ -60,6 +61,7 @@ export class TypingEngine {
     this.charStates = [];
     this.mistypedCharIndices = new Set();
     this.mistypedWordIndices = new Set();
+    this.sessionMistypedWords = new Set();
     this.wordMap = null;
 
     this.isActive = false;
@@ -106,6 +108,7 @@ export class TypingEngine {
     this.maxCombo = 0;
     this.keyStatsDelta = {};
     this.wpmHistory = [];
+    this.sessionMistypedWords = new Set();
     this.isActive = true;
     this.isPaused = false;
     this.startTime = null;
@@ -246,6 +249,17 @@ export class TypingEngine {
     }
   }
 
+  recordMistypedWord(charIdx) {
+    const wordIdx = this.getWordIndexForChar(charIdx);
+    if (wordIdx >= 0 && this.wordMap?.words?.[wordIdx]) {
+      const raw = this.wordMap.words[wordIdx].word;
+      const clean = raw.trim().replace(/^[^a-zA-Z0-9_]+|[^a-zA-Z0-9_]+$/g, '');
+      if (clean.length > 0) {
+        this.sessionMistypedWords.add(clean);
+      }
+    }
+  }
+
   handleKeyDown(e) {
     if (!this.isActive || this.isPaused) return;
 
@@ -361,6 +375,7 @@ export class TypingEngine {
         this.totalErrors += 1;
         this.currentCombo = 0;
         this.keyStatsDelta[charKey].errors += 1;
+        this.recordMistypedWord(this.charIndex);
 
         sound.playError();
 
@@ -481,6 +496,7 @@ export class TypingEngine {
           this.keyStatsDelta[charKey].errors += 1;
           this.mistypedCharIndices.add(this.charIndex);
           if (currentWordIdx >= 0) this.mistypedWordIndices.add(currentWordIdx);
+          this.recordMistypedWord(this.charIndex);
 
           this.charStates[this.charIndex] = {
             status: 'incorrect',
@@ -574,6 +590,8 @@ export class TypingEngine {
       if (this.maxCombo >= 50) xpEarned += 10;
     }
 
+    const consistency = calculateConsistency(this.wpmHistory);
+
     const summary = {
       lessonId: this.lesson.id,
       lessonTitle: this.lesson.title,
@@ -591,6 +609,8 @@ export class TypingEngine {
       totalErrors: this.totalErrors,
       keyStatsDelta: this.keyStatsDelta,
       wpmHistory: this.wpmHistory,
+      consistency,
+      mistypedWords: Array.from(this.sessionMistypedWords),
       accuracyTarget: accTarget,
       wpmTarget: wpmTarget
     };

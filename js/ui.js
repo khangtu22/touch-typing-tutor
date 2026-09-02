@@ -25,6 +25,11 @@ import { themeStudio, renderThemeStudioUI } from './theme-studio.js';
 import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js';
 import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice } from './premium-features.js';
 import { ArcadeHubManager } from './arcade-games.js';
+import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js';
+import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js';
+import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js';
+import { CommandPalette } from './command-palette.js';
+import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js';
 
 const escapeHtml = value => String(value)
   .replace(/&/g, '&amp;')
@@ -61,7 +66,9 @@ export class UIManager {
       profile: document.getElementById('screen-profile'),
       settings: document.getElementById('screen-settings'),
       quotes: document.getElementById('screen-quotes'),
-      arcade: document.getElementById('screen-arcade')
+      arcade: document.getElementById('screen-arcade'),
+      code: document.getElementById('screen-code'),
+      speedtest: document.getElementById('screen-speedtest')
     };
 
     this.toastContainer = document.getElementById('toast-container');
@@ -70,13 +77,19 @@ export class UIManager {
     // Navigation buttons
     this.navBrand = document.getElementById('nav-brand');
     this.navDashboardBtn = document.getElementById('nav-dashboard-btn');
+    this.navCodeBtn = document.getElementById('nav-code-btn');
+    this.navSpeedtestBtn = document.getElementById('nav-speedtest-btn');
     this.navArcadeBtn = document.getElementById('nav-arcade-btn');
     this.navCustomBtn = document.getElementById('nav-custom-btn');
     this.navProfileBtn = document.getElementById('nav-profile-btn');
     this.navSettingsBtn = document.getElementById('nav-settings-btn');
     this.navQuotesBtn = document.getElementById('nav-quotes-btn');
+    this.navPaletteBtn = document.getElementById('nav-palette-btn');
     this.navPremiumBtn = document.getElementById('nav-premium-btn');
     this.navShortcutsBtn = document.getElementById('nav-shortcuts-btn');
+
+    // Initialize Universal Command Palette
+    this.commandPalette = new CommandPalette(this, store);
 
     // Lesson Screen HUD elements
     this.lessonTitleEl = document.getElementById('hud-lesson-title');
@@ -103,11 +116,14 @@ export class UIManager {
   initEventListeners() {
     if (this.navBrand) this.navBrand.addEventListener('click', () => this.navigateTo('dashboard'));
     if (this.navDashboardBtn) this.navDashboardBtn.addEventListener('click', () => this.navigateTo('dashboard'));
+    if (this.navCodeBtn) this.navCodeBtn.addEventListener('click', () => this.navigateTo('code'));
+    if (this.navSpeedtestBtn) this.navSpeedtestBtn.addEventListener('click', () => this.navigateTo('speedtest'));
     if (this.navArcadeBtn) this.navArcadeBtn.addEventListener('click', () => this.navigateTo('arcade'));
     if (this.navCustomBtn) this.navCustomBtn.addEventListener('click', () => this.navigateTo('custom'));
     if (this.navProfileBtn) this.navProfileBtn.addEventListener('click', () => this.navigateTo('profile'));
     if (this.navSettingsBtn) this.navSettingsBtn.addEventListener('click', () => this.navigateTo('settings'));
     if (this.navQuotesBtn) this.navQuotesBtn.addEventListener('click', () => this.navigateTo('quotes'));
+    if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
     if (this.navPremiumBtn) this.navPremiumBtn.addEventListener('click', () => this.navigateTo('settings'));
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
 
@@ -293,6 +309,8 @@ export class UIManager {
     });
 
     if (this.navDashboardBtn) this.navDashboardBtn.classList.toggle('nav-btn-active', screenName === 'dashboard');
+    if (this.navCodeBtn) this.navCodeBtn.classList.toggle('nav-btn-active', screenName === 'code');
+    if (this.navSpeedtestBtn) this.navSpeedtestBtn.classList.toggle('nav-btn-active', screenName === 'speedtest');
     if (this.navArcadeBtn) this.navArcadeBtn.classList.toggle('nav-btn-active', screenName === 'arcade');
     if (this.navCustomBtn) this.navCustomBtn.classList.toggle('nav-btn-active', screenName === 'custom');
     if (this.navQuotesBtn) this.navQuotesBtn.classList.toggle('nav-btn-active', screenName === 'quotes');
@@ -300,6 +318,8 @@ export class UIManager {
     if (this.navSettingsBtn) this.navSettingsBtn.classList.toggle('nav-btn-active', screenName === 'settings');
 
     if (screenName === 'dashboard') this.renderDashboard();
+    if (screenName === 'code') this.renderCodeArena();
+    if (screenName === 'speedtest') this.renderSpeedTest();
     if (screenName === 'arcade') this.renderArcadeScreen();
     if (screenName === 'custom') this.renderCustomArena();
     if (screenName === 'quotes') this.renderQuoteVault();
@@ -597,15 +617,26 @@ export class UIManager {
               <span class="target-pill">~${currentLessonObj.estimatedMinutes} min</span>
             </div>
           </div>
-          <div class="hero-action" style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
+          <div class="hero-action" style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
             <button id="hero-start-btn" class="btn btn-primary btn-hero">
               <span>${currentLessonMastery.isMastered ? 'Keep Sharp' : currentLessonMastery.isPassed ? 'Master This Lesson' : currentLessonMastery.isAttempted ? 'Practice Again' : 'Continue Lesson'}</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </button>
-            <button id="dashboard-zen-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 6px; border-color: rgba(124, 92, 252, 0.4); color: var(--text-primary);">
-              <span>🧘 Zen Mode</span>
-              <span style="font-size: 10px; opacity: 0.6; font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px;">Z</span>
-            </button>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+              <button id="dashboard-weakness-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(0, 212, 170, 0.4); color: var(--text-primary); font-size: 11.5px;">
+                <span>🎯 Keybr AI Drill</span>
+              </button>
+              <button id="dashboard-speedtest-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(255, 184, 107, 0.4); color: var(--text-primary); font-size: 11.5px;">
+                <span>⚡ Speed Test</span>
+              </button>
+              <button id="dashboard-code-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(88, 166, 255, 0.4); color: var(--text-primary); font-size: 11.5px;">
+                <span>💻 Code Arena</span>
+              </button>
+              <button id="dashboard-zen-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(124, 92, 252, 0.4); color: var(--text-primary); font-size: 11.5px;">
+                <span>🧘 Zen</span>
+                <span style="font-size: 10px; opacity: 0.6; font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 1px 3px; border-radius: 3px;">Z</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -861,6 +892,9 @@ export class UIManager {
 
     document.getElementById('configure-goals-btn')?.addEventListener('click', () => this.navigateTo('settings'));
     document.getElementById('dashboard-zen-btn')?.addEventListener('click', () => this.launchZenMode());
+    document.getElementById('dashboard-weakness-btn')?.addEventListener('click', () => this.startWeaknessDrill());
+    document.getElementById('dashboard-speedtest-btn')?.addEventListener('click', () => this.navigateTo('speedtest'));
+    document.getElementById('dashboard-code-btn')?.addEventListener('click', () => this.navigateTo('code'));
     document.getElementById('hero-start-btn')?.addEventListener('click', () => this.startLesson(currentLessonObj));
     document.getElementById('daily-challenge-btn')?.addEventListener('click', () => this.startLesson(dailyChallenge.lesson));
     document.getElementById('mastery-review-btn')?.addEventListener('click', () => {
@@ -1274,6 +1308,345 @@ export class UIManager {
   }
 
   // ==========================================
+  // DEVELOPER CODE ARENA SCREEN
+  // ==========================================
+  renderCodeArena() {
+    const container = this.screens.code;
+    if (!container) return;
+
+    const state = store.getState();
+    const currentLang = this.activeCodeLanguage || 'all';
+    const snippets = getFilteredSnippets(currentLang);
+    const practiced = state.codeSnippetsPracticed || [];
+
+    container.innerHTML = `
+      <div class="code-arena-container">
+        <div class="code-arena-header">
+          <div>
+            <h2 class="section-title">Developer Code Arena</h2>
+            <p class="section-subtitle">Real-world syntax typing across 8 programming languages with live formatting and brackets</p>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <span class="badge badge-accent">${practiced.length} Snippets Mastered</span>
+            <button id="code-random-btn" class="btn btn-primary">
+              <span>🎲 Practice Random Snippet</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="code-lang-tabs">
+          ${CODE_LANGUAGES.map(l => `
+            <button class="code-lang-pill ${currentLang === l.id ? 'active' : ''}" data-code-lang="${l.id}">
+              <span>${l.icon}</span>
+              <span>${l.name}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <div class="code-grid">
+          ${snippets.map(s => {
+            const isPracticed = practiced.includes(s.id);
+            const diffClass = s.difficulty === 'easy' ? 'badge-teal' : s.difficulty === 'medium' ? 'badge-amber' : 'badge-coral';
+            return `
+              <div class="code-card" data-snippet-id="${s.id}">
+                <div>
+                  <div class="code-card-header">
+                    <span class="badge ${diffClass}" style="text-transform: uppercase;">${s.difficulty}</span>
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">${s.language}</span>
+                  </div>
+                  <h3 class="code-card-title">${escapeHtml(s.title)}</h3>
+                  <p class="code-card-desc">${escapeHtml(s.description)}</p>
+                </div>
+                <div class="code-preview-box">${escapeHtml(s.code)}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                  <span style="font-size: 11.5px; color: var(--text-muted);">${s.code.length} chars</span>
+                  <button class="btn btn-secondary btn-sm start-snippet-btn" data-snippet-id="${s.id}">
+                    ${isPracticed ? '✓ Practice Again' : 'Type Snippet →'}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // Filter clicks
+    container.querySelectorAll('[data-code-lang]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.activeCodeLanguage = btn.dataset.codeLang;
+        this.renderCodeArena();
+      });
+    });
+
+    // Random snippet click
+    container.querySelector('#code-random-btn')?.addEventListener('click', () => {
+      this.startRandomCodeSnippet(this.activeCodeLanguage);
+    });
+
+    // Snippet start clicks
+    container.querySelectorAll('.start-snippet-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const snippet = CODE_SNIPPETS.find(s => s.id === btn.dataset.snippetId);
+        if (snippet) this.startCodePractice(snippet);
+      });
+    });
+
+    container.querySelectorAll('.code-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.start-snippet-btn')) return;
+        const snippet = CODE_SNIPPETS.find(s => s.id === card.dataset.snippetId);
+        if (snippet) this.startCodePractice(snippet);
+      });
+    });
+  }
+
+  startCodePractice(snippet) {
+    if (!snippet) return;
+    const lesson = {
+      id: snippet.id,
+      title: `💻 ${snippet.title}`,
+      subtitle: `${snippet.language.toUpperCase()} • ${snippet.difficulty.toUpperCase()} • ${snippet.code.length} characters`,
+      skillFocus: `Syntax fidelity and special character fluidity: ${snippet.title}`,
+      targetWpm: 40,
+      accuracyTarget: 95,
+      estimatedMinutes: 2,
+      rounds: [snippet.code],
+      isCodeLesson: true,
+      snippetData: snippet,
+      snippetId: snippet.id
+    };
+    this.startLesson(lesson);
+  }
+
+  startRandomCodeSnippet(lang = 'all') {
+    const snippet = getRandomCodeSnippet(lang);
+    if (snippet) {
+      this.startCodePractice(snippet);
+    }
+  }
+
+  // ==========================================
+  // BENCHMARK SPEED TEST SCREEN
+  // ==========================================
+  renderSpeedTest() {
+    const container = this.screens.speedtest;
+    if (!container) return;
+
+    const state = store.getState();
+    const bests = state.speedTestBests || {};
+    const activePresetId = this.activeSpeedPresetId || '60s';
+
+    container.innerHTML = `
+      <div class="speedtest-container">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h2 class="section-title">⚡ Benchmark Speed Tests</h2>
+            <p class="section-subtitle">Official typing velocity benchmarks with Monkeytype-standard consistency analysis</p>
+          </div>
+          <button id="speedtest-launch-btn" class="btn btn-primary btn-large">
+            <span>🚀 Start Selected Test</span>
+          </button>
+        </div>
+
+        <div class="speedtest-presets-bar">
+          <div class="speedtest-preset-group">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Timed:</span>
+            ${SPEED_TEST_PRESETS.filter(p => p.type === 'time').map(p => `
+              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}">
+                <span>${p.icon}</span>
+                <span>${p.label}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div style="width: 1px; height: 24px; background: var(--border-subtle); margin: 0 4px;"></div>
+          <div class="speedtest-preset-group">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Words:</span>
+            ${SPEED_TEST_PRESETS.filter(p => p.type === 'words').map(p => `
+              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}">
+                <span>${p.icon}</span>
+                <span>${p.label}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--text-primary);">Personal Benchmark Records</h3>
+          <div class="speedtest-bests-grid">
+            ${SPEED_TEST_PRESETS.map(p => {
+              const record = bests[p.id];
+              return `
+                <div class="speedtest-best-card">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.icon} ${p.label}</span>
+                    <span style="font-size: 10px; color: var(--text-muted);">${p.type}</span>
+                  </div>
+                  ${record ? `
+                    <div style="font-size: 28px; font-family: var(--font-mono); font-weight: 800; color: var(--accent-primary); line-height: 1.2;">
+                      ${record.wpm} <span style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">WPM</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+                      <span>Accuracy: <strong>${record.accuracy}%</strong></span>
+                      <span>Consistency: <strong>${record.consistency || 100}%</strong></span>
+                    </div>
+                  ` : `
+                    <div style="font-size: 14px; color: var(--text-muted); margin: 12px 0;">No record yet</div>
+                    <button class="btn btn-secondary btn-sm quick-start-speed-btn" data-speed-preset="${p.id}">Start Trial →</button>
+                  `}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.querySelectorAll('[data-speed-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.activeSpeedPresetId = btn.dataset.speedPreset;
+        this.renderSpeedTest();
+      });
+    });
+
+    container.querySelector('#speedtest-launch-btn')?.addEventListener('click', () => {
+      this.startSpeedTest(this.activeSpeedPresetId || '60s');
+    });
+
+    container.querySelectorAll('.quick-start-speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.startSpeedTest(btn.dataset.speedPreset);
+      });
+    });
+  }
+
+  startSpeedTest(presetId = '60s') {
+    const lesson = generateSpeedTestLesson(presetId);
+    this.startLesson(lesson);
+  }
+
+  startWeaknessDrill() {
+    const state = store.getState();
+    const drill = generateWeaknessDrill(state.keyStats || {});
+    this.showToast(`🎯 Keybr AI Drill Generated: Targets [ ${drill.targetKeys.join(', ').toUpperCase()} ]`, 'accent');
+    this.startLesson(drill);
+  }
+
+  startMissedWordsDrill(mistypedWords = []) {
+    const drill = generateMissedWordsDrill(mistypedWords);
+    this.showToast(`🔁 Missed Words Reinforcement: ${drill.mistypedWords.length} words`, 'amber');
+    this.startLesson(drill);
+  }
+
+  openCommandPalette() {
+    if (this.commandPalette) {
+      this.commandPalette.open();
+    }
+  }
+
+  openCertificateModal(initialName = null) {
+    const state = store.getState();
+    let currentName = initialName || state.certificateName || 'Touch Typist';
+    const modalContainer = document.getElementById('certificate-modal-container');
+    if (!modalContainer) return;
+
+    modalContainer.innerHTML = `
+      <div id="cert-modal-overlay" class="cert-modal-overlay">
+        <div class="cert-modal-card">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin: 0 0 4px;">🏆 Verified Touch Typing Certificate</h2>
+              <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Official high-resolution print-ready diploma of touch typing proficiency</p>
+            </div>
+            <button id="cert-close-btn" class="btn btn-secondary btn-sm" style="font-size: 16px; padding: 6px 12px;">✕</button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px;">
+            <label for="cert-name-input" style="font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap;">Recipient Name:</label>
+            <input type="text" id="cert-name-input" class="input-field" value="${escapeHtml(currentName)}" style="flex: 1; padding: 8px 12px; font-size: 14px;" />
+          </div>
+
+          <canvas id="cert-canvas" class="cert-canvas-preview"></canvas>
+
+          <div class="cert-controls-row">
+            <span style="font-size: 12px; color: var(--text-muted);">Format: 2400 × 1600 px • 300 DPI Luxury Print Edition</span>
+            <div style="display: flex; gap: 10px;">
+              <button id="cert-download-btn" class="btn btn-primary">
+                <span>📥 Download High-Res PNG</span>
+              </button>
+              <button id="cert-print-btn" class="btn btn-secondary">
+                <span>🖨️ Print Certificate</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const canvas = modalContainer.querySelector('#cert-canvas');
+    const nameInput = modalContainer.querySelector('#cert-name-input');
+    const closeBtn = modalContainer.querySelector('#cert-close-btn');
+    const downloadBtn = modalContainer.querySelector('#cert-download-btn');
+    const printBtn = modalContainer.querySelector('#cert-print-btn');
+    const overlay = modalContainer.querySelector('#cert-modal-overlay');
+
+    const updateCanvas = () => {
+      const bestWpm = Math.max(state.bestWpm || 65, 30);
+      const bestAcc = Math.max(state.bestAccuracy || 98, 90);
+      drawCertificate(canvas, {
+        name: currentName,
+        wpm: bestWpm,
+        accuracy: bestAcc,
+        totalKeystrokes: state.totalKeystrokes || 15000
+      });
+    };
+
+    updateCanvas();
+
+    nameInput.addEventListener('input', (e) => {
+      currentName = e.target.value.trim() || 'Touch Typist';
+      store.update(prev => ({ ...prev, certificateName: currentName }));
+      updateCanvas();
+    });
+
+    const closeModal = () => {
+      modalContainer.innerHTML = '';
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      downloadCertificatePng(canvas, currentName);
+      this.showToast('📥 Certificate PNG downloaded!', 'teal');
+    });
+
+    printBtn.addEventListener('click', () => {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`
+          <html>
+            <head>
+              <title>Certificate - ${escapeHtml(currentName)}</title>
+              <style>
+                body { margin: 0; display: flex; justify-content: center; align-items: center; background: #000; height: 100vh; }
+                img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+              </style>
+            </head>
+            <body>
+              <img src="${canvas.toDataURL('image/png')}" onload="window.print();" />
+            </body>
+          </html>
+        `);
+        win.document.close();
+      }
+    });
+  }
+
+  // ==========================================
   // LESSON SCREEN & RACING HUD
   // ==========================================
   startLesson(lessonData) {
@@ -1453,7 +1826,14 @@ export class UIManager {
     }
 
     if (zenMode.isActive) {
-      zenMode.renderText(html);
+      zenMode.renderText(html, {
+        wpm: typingEngine.wpm || 0,
+        accuracy: typingEngine.accuracy !== undefined ? typingEngine.accuracy : 100,
+        progressPct: typingEngine.progressPct || 0,
+        combo: typingEngine.combo || 0,
+        title: this.currentLessonData?.title,
+        author: this.currentLessonData?.author
+      });
     }
   }
 
@@ -1526,6 +1906,37 @@ export class UIManager {
         ...prev,
         languagesPracticed: Array.from(new Set([...(prev.languagesPracticed || []), this.currentLessonData.languageCode]))
       }));
+    }
+
+    if (this.currentLessonData?.isCodeLesson || this.currentLessonData?.snippetId) {
+      const sId = this.currentLessonData.snippetId || this.currentLessonData.id;
+      store.recordCodeSnippetCompleted(sId);
+      summary.isCodeLesson = true;
+      summary.snippetData = this.currentLessonData.snippetData;
+    }
+
+    if (this.currentLessonData?.isSpeedTest) {
+      const presetId = this.currentLessonData.speedTestPreset || '60s';
+      const pbResult = store.recordSpeedTestResult({
+        presetId,
+        wpm: summary.wpm,
+        accuracy: summary.accuracy,
+        consistency: summary.consistency || 100,
+        durationSec: summary.durationSec
+      });
+      summary.isSpeedTest = true;
+      summary.speedTestPreset = presetId;
+      summary.isNewPB = pbResult.isNewPB;
+      summary.speedTestPB = pbResult.best;
+    }
+
+    if (this.currentLessonData?.isAdaptiveDrill) {
+      summary.isAdaptiveDrill = true;
+      summary.targetKeys = this.currentLessonData.targetKeys;
+    }
+
+    if (this.currentLessonData?.isMissedWordsDrill) {
+      summary.isMissedWordsDrill = true;
     }
 
     store.recordSession({
@@ -1625,38 +2036,78 @@ export class UIManager {
       isPerfected: summary.stars >= 5,
       nextGoal: `Reach ${summary.accuracyTarget}% accuracy and ${summary.wpmTarget} WPM`
     };
+    const isCodeLesson = !!summary.isCodeLesson || !!this.currentLessonData?.isCodeLesson;
+    const isSpeedTest = !!summary.isSpeedTest || !!this.currentLessonData?.isSpeedTest;
+    const isAdaptiveDrill = !!summary.isAdaptiveDrill || !!this.currentLessonData?.isAdaptiveDrill;
+    const isMissedWordsDrill = !!summary.isMissedWordsDrill || !!this.currentLessonData?.isMissedWordsDrill;
     const isCurriculumLesson = Number.isInteger(summary.lessonId)
       && summary.lessonId >= 1
       && summary.lessonId <= CURRICULUM.length;
     const isQuoteLesson = !!summary.isQuote || !!summary.quoteId || !!this.currentLessonData?.isQuote || !!this.currentLessonData?.quoteId;
     const isFinalCurriculumLesson = isCurriculumLesson && summary.lessonId === CURRICULUM.length;
+
     const resultTitle = summary.isPlacementTest
       ? 'Skill Check Complete!'
-      : isQuoteLesson
-        ? (mastery.isPerfected ? 'Perfect Run!' : mastery.isMastered ? 'Mastered Quote!' : mastery.isPassed ? 'Quote Completed!' : 'Quote Practice Complete')
-        : mastery.isPerfected
-          ? 'Perfected!'
-          : mastery.isMastered
-            ? 'Lesson Mastered!'
-            : mastery.isPassed
-              ? 'Ready to Advance!'
-              : 'Practice Round Complete';
+      : isSpeedTest
+        ? (summary.isNewPB ? '⚡ New Personal Benchmark Record!' : '⚡ Speed Benchmark Complete')
+        : isCodeLesson
+          ? '💻 Code Snippet Mastered!'
+          : isAdaptiveDrill
+            ? '🎯 AI Precision Drill Complete'
+            : isMissedWordsDrill
+              ? '🔁 Reinforcement Drill Finished'
+              : isQuoteLesson
+                ? (mastery.isPerfected ? 'Perfect Run!' : mastery.isMastered ? 'Mastered Quote!' : mastery.isPassed ? 'Quote Completed!' : 'Quote Practice Complete')
+                : mastery.isPerfected
+                  ? 'Perfected!'
+                  : mastery.isMastered
+                    ? 'Lesson Mastered!'
+                    : mastery.isPassed
+                      ? 'Ready to Advance!'
+                      : 'Practice Round Complete';
+
     const resultSubtitle = summary.isPlacementTest
       ? `${summary.placementRecommendation?.message || 'Your next starting point is ready.'} • +${summary.xpEarned} XP Earned`
-      : `${summary.lessonTitle} • +${summary.xpEarned} XP Earned`;
+      : isSpeedTest
+        ? `Consistency: ${summary.consistency || 100}% • Duration: ${Math.round(summary.durationSec)}s • +${summary.xpEarned} XP`
+        : `${summary.lessonTitle} • +${summary.xpEarned} XP Earned`;
+
     const primaryActionLabel = summary.isPlacementTest
       ? `Start Lesson ${summary.placementRecommendation?.lessonId || 1} →`
-      : isQuoteLesson
-        ? 'Next Random Quote →'
-        : isCurriculumLesson && !mastery.isPassed
-          ? 'Practice Again →'
-          : isFinalCurriculumLesson && mastery.isPassed
-            ? 'View Mastery Plan →'
-            : isCurriculumLesson && mastery.isPassed
-              ? 'Next Lesson →'
-              : 'Back to Curriculum →';
-    const retryActionLabel = isQuoteLesson ? 'Replay Quote (R)' : 'Retry Lesson (R)';
-    const backActionLabel = isQuoteLesson ? 'Back to Quote Vault' : 'Back to Dashboard';
+      : isSpeedTest
+        ? 'Choose Speed Benchmark →'
+        : isCodeLesson
+          ? 'Next Code Snippet →'
+          : isAdaptiveDrill || isMissedWordsDrill
+            ? 'New AI Drill →'
+            : isQuoteLesson
+              ? 'Next Random Quote →'
+              : isCurriculumLesson && !mastery.isPassed
+                ? 'Practice Again →'
+                : isFinalCurriculumLesson && mastery.isPassed
+                  ? 'View Mastery Plan →'
+                  : isCurriculumLesson && mastery.isPassed
+                    ? 'Next Lesson →'
+                    : 'Back to Curriculum →';
+
+    const retryActionLabel = isSpeedTest
+      ? 'Repeat Benchmark (R)'
+      : isCodeLesson
+        ? 'Retype Code (R)'
+        : isQuoteLesson
+          ? 'Replay Quote (R)'
+          : 'Retry Lesson (R)';
+
+    const backActionLabel = isCodeLesson
+      ? 'Back to Code Arena'
+      : isSpeedTest
+        ? 'Back to Speed Tests'
+        : isQuoteLesson
+          ? 'Back to Quote Vault'
+          : 'Back to Dashboard';
+
+    const hasMissedWords = summary.mistypedWords && summary.mistypedWords.length > 0;
+    const isCertEligible = summary.wpm >= 50 || summary.stars >= 3 || (state.bestWpm && state.bestWpm >= 50);
 
     container.innerHTML = `
       <div class="results-layout">
@@ -1686,10 +2137,29 @@ export class UIManager {
             <div class="result-metric-card">
               <span class="metric-val">${Math.round(summary.durationSec)}s</span>
               <span class="metric-lbl">Practice Time</span>
-              <span class="metric-target">${summary.totalKeystrokes} Keystrokes</span>
+              <span class="metric-target">${summary.consistency ? `${summary.consistency}% Consistency` : `${summary.totalKeystrokes} Keystrokes`}</span>
             </div>
           </div>
         </div>
+
+        ${hasMissedWords ? `
+          <!-- Missed Words Targeted Drill Callout -->
+          <div class="missed-words-callout">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">⚠️</span>
+                <strong style="color: var(--text-primary); font-size: 14px;">${summary.mistypedWords.length} Missed Word${summary.mistypedWords.length > 1 ? 's' : ''} Detected</strong>
+              </div>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Reinforce muscle memory before moving forward:</p>
+              <div class="missed-words-tags">
+                ${summary.mistypedWords.map(w => `<span class="missed-word-tag">${escapeHtml(w)}</span>`).join('')}
+              </div>
+            </div>
+            <button id="results-practice-missed-btn" class="btn btn-primary" style="background: #E06C75; border-color: #E06C75;">
+              <span>🔁 Practice Missed Words Only</span>
+            </button>
+          </div>
+        ` : ''}
 
         <div class="results-mastery-card ${summary.isPlacementTest ? 'placement-result' : mastery.isMastered ? 'mastered-result' : 'review-result'}">
           ${summary.isPlacementTest ? `
@@ -1698,6 +2168,13 @@ export class UIManager {
               <span class="mastery-result-kicker">Recommended starting point</span>
               <h3>Lesson ${summary.placementRecommendation?.lessonId || 1}: ${summary.placementRecommendation?.label || 'Home Row Foundations'}</h3>
               <p>Lessons before this point are available to explore, but none are marked as mastered until you earn the stars.</p>
+            </div>
+          ` : isSpeedTest ? `
+            <div class="mastery-result-icon">⚡</div>
+            <div>
+              <span class="mastery-result-kicker">Benchmark Assessment</span>
+              <h3>${summary.isNewPB ? '🏆 All-Time Personal Best!' : 'Benchmark Logged Successfully'}</h3>
+              <p>Consistency rating: ${summary.consistency || 100}%. Pacing stability is tracked across 1-second velocity samples.</p>
             </div>
           ` : `
             <div class="mastery-result-icon">${mastery.isPerfected ? '💎' : mastery.isMastered ? '✦' : mastery.isPassed ? '🚀' : '🎯'}</div>
@@ -1744,19 +2221,53 @@ export class UIManager {
           </div>
         </div>
 
-        <div class="results-actions">
+        <div class="results-actions" style="flex-wrap: wrap; justify-content: center; gap: 10px;">
           <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} (Enter ↵)</button>
           <button id="results-retry-btn" class="btn btn-secondary">${retryActionLabel}</button>
+          ${isCertEligible ? `
+            <button id="results-cert-btn" class="btn btn-outline" style="border-color: #D4AF37; color: #D4AF37;">
+              <span>📜 View Certificate</span>
+            </button>
+          ` : ''}
           <button id="results-dashboard-btn" class="btn btn-outline">${backActionLabel}</button>
         </div>
       </div>
     `;
+
+    // Missed Words Drill button
+    if (hasMissedWords) {
+      document.getElementById('results-practice-missed-btn')?.addEventListener('click', () => {
+        this.startMissedWordsDrill(summary.mistypedWords);
+      });
+    }
+
+    // Certificate button
+    if (isCertEligible) {
+      document.getElementById('results-cert-btn')?.addEventListener('click', () => {
+        this.openCertificateModal();
+      });
+    }
 
     document.getElementById('results-next-btn')?.addEventListener('click', () => {
       if (summary.isPlacementTest) {
         const recommendedId = summary.placementRecommendation?.lessonId || 1;
         const recommendedLesson = CURRICULUM.find(lesson => lesson.id === recommendedId) || CURRICULUM[0];
         this.startLesson(recommendedLesson);
+        return;
+      }
+
+      if (isSpeedTest) {
+        this.navigateTo('speedtest');
+        return;
+      }
+
+      if (isCodeLesson) {
+        this.startRandomCodeSnippet(this.activeCodeLanguage || 'all');
+        return;
+      }
+
+      if (isAdaptiveDrill || isMissedWordsDrill) {
+        this.startWeaknessDrill();
         return;
       }
 
@@ -1792,6 +2303,14 @@ export class UIManager {
     });
 
     document.getElementById('results-retry-btn')?.addEventListener('click', () => {
+      if (isCodeLesson && summary.snippetData) {
+        this.startCodePractice(summary.snippetData);
+        return;
+      }
+      if (isSpeedTest && summary.speedTestPreset) {
+        this.startSpeedTest(summary.speedTestPreset);
+        return;
+      }
       if (isQuoteLesson) {
         if (summary.quoteData) {
           this.startQuotePractice(summary.quoteData);
@@ -1805,7 +2324,11 @@ export class UIManager {
     });
 
     document.getElementById('results-dashboard-btn')?.addEventListener('click', () => {
-      if (isQuoteLesson) {
+      if (isCodeLesson) {
+        this.navigateTo('code');
+      } else if (isSpeedTest) {
+        this.navigateTo('speedtest');
+      } else if (isQuoteLesson) {
         this.navigateTo('quotes');
       } else {
         this.navigateTo('dashboard');
@@ -1848,6 +2371,20 @@ export class UIManager {
             </div>
             <span class="profile-xp-sub">${state.xp.toLocaleString()} Total XP (${lvlInfo.progressXp} / ${lvlInfo.neededXp} to Level ${lvlInfo.currentLvl + 1})</span>
           </div>
+        </div>
+
+        <!-- Certificate of Proficiency Action Banner -->
+        <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(124, 92, 252, 0.12)); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: var(--radius-md); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-size: 36px;">📜</span>
+            <div>
+              <h3 style="font-size: 16px; font-weight: 800; color: #D4AF37; margin: 0 0 4px;">KeyFlow Touch Typing Diploma</h3>
+              <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Verified 300 DPI high-resolution printable certificate with custom name &amp; official credentials</p>
+            </div>
+          </div>
+          <button id="profile-cert-btn" class="btn btn-primary" style="background: #D4AF37; color: #16162A; border-color: #D4AF37; font-weight: 700;">
+            <span>🏆 View &amp; Download Diploma</span>
+          </button>
         </div>
 
         <!-- Advanced Analytics Dashboard Slot (Canvas Trend Charts, Finger Trends, Session History, CSV Export) -->
@@ -1978,7 +2515,14 @@ export class UIManager {
     if (seedBtn) {
       seedBtn.addEventListener('click', () => {
         store.seedDemoData();
-        this.renderProfileScreen();
+        this.renderProfile();
+      });
+    }
+
+    const certBtn = document.getElementById('profile-cert-btn');
+    if (certBtn) {
+      certBtn.addEventListener('click', () => {
+        this.openCertificateModal();
       });
     }
   }
@@ -2745,12 +3289,22 @@ export class UIManager {
   // ==========================================
   // PREMIUM SUITE HELPERS
   // ==========================================
-  launchZenMode() {
-    const qotd = getQuoteOfTheDay();
-    const zenLesson = CustomPracticeManager.createLessonFromText(`Zen: ${qotd.author}`, qotd.text);
-    zenLesson.isZen = true;
+  launchZenMode(customLesson = null) {
+    let lessonToUse = customLesson;
+    if (!lessonToUse) {
+      if (this.activeScreen === 'lesson' && this.currentLessonData) {
+        lessonToUse = this.currentLessonData;
+      } else {
+        const qotd = getQuoteOfTheDay();
+        lessonToUse = CustomPracticeManager.createLessonFromText(`Zen: ${qotd.author}`, qotd.text);
+        lessonToUse.author = qotd.author;
+        lessonToUse.isZen = true;
+      }
+    }
 
-    this.startLesson(zenLesson);
+    if (this.activeScreen !== 'lesson' || this.currentLessonData !== lessonToUse) {
+      this.startLesson(lessonToUse);
+    }
 
     zenMode.enter((e) => {
       sound.resume();
@@ -2760,13 +3314,16 @@ export class UIManager {
         }
         typingEngine.handleKeyDown(e);
       }
+    }, {
+      title: lessonToUse.title || 'Zen Sanctuary',
+      author: lessonToUse.author || ''
     });
 
-    if (zenLesson.rounds && zenLesson.rounds[0]) {
-      this.renderTypingText(zenLesson.rounds[0], 0);
+    if (lessonToUse.rounds && lessonToUse.rounds[0]) {
+      this.renderTypingText(lessonToUse.rounds[0], typingEngine.charIndex || 0);
     }
 
-    // Auto-start ambient soundscape (e.g. rain)
+    // Auto-start ambient soundscape (e.g. rain) if sound is enabled
     if (store.getState().settings.soundEnabled !== false && zenMode.zenSoundEngine) {
       zenMode.zenSoundEngine.play('rain');
     }
@@ -2779,7 +3336,6 @@ export class UIManager {
     }));
 
     AchievementEngine.evaluate(store);
-    this.showToast('🧘 Entering Zen Mode. Press Esc anytime to exit.', 'teal');
   }
 
   toggleFocusMode() {

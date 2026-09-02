@@ -42,35 +42,31 @@ const RING_COLORS = {
 const OVERLAY_AUTO_DISMISS_MS = 30_000;
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 /**
- * Returns an ISO date string (YYYY-MM-DD) for a given Date object.
- * @param {Date} d
- * @returns {string}
+ * Checks if a session date falls on the same calendar day as targetDate in local time.
+ * @param {string|Date} sessionDate
+ * @param {Date} [targetDate=new Date()]
+ * @returns {boolean}
  */
-function isoDate(d) {
-  return d.toISOString().split('T')[0];
+function isSameLocalDate(sessionDate, targetDate = new Date()) {
+  if (!sessionDate) return false;
+  const d = new Date(sessionDate);
+  if (isNaN(d.getTime())) return false;
+  return d.getFullYear() === targetDate.getFullYear() &&
+         d.getMonth() === targetDate.getMonth() &&
+         d.getDate() === targetDate.getDate();
 }
 
 /**
- * Returns the ISO date string for today.
- * @returns {string}
+ * Returns the start of the week (Sunday 00:00:00.000 local time) for targetDate.
+ * @param {Date} [targetDate=new Date()]
+ * @returns {Date}
  */
-function today() {
-  return isoDate(new Date());
-}
-
-/**
- * Returns the ISO date string for the most recent Sunday (start of the
- * week in a Sunday-Saturday calendar).
- * @returns {string}
- */
-function startOfWeek() {
-  const d = new Date();
+function getLocalStartOfWeek(targetDate = new Date()) {
+  const d = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
   d.setDate(d.getDate() - d.getDay()); // rewind to Sunday
-  return isoDate(d);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 /**
@@ -111,69 +107,76 @@ class GoalsManager {
    * @returns {{
    *   todayMinutes: number,
    *   todayBestWpm: number,
+   *   todaySessionsCount: number,
    *   weekLessons: number,
    *   goals: object,
-   *   ringData: Array<{label:string, current:number, target:number, pct:number, color:string}>
+   *   ringData: Array<{label:string, current:number, target:number, pct:number, color:string, unit:string}>
    * }}
    */
   getGoalProgress(state) {
-    const goals    = { ...DEFAULT_GOALS,   ...(state.settings?.goals    || {}) };
-    const sessions = state.sessions || [];
-    const todayStr = today();
-    const weekStr  = startOfWeek();
+    const goals     = { ...DEFAULT_GOALS,   ...(state.settings?.goals    || {}) };
+    const sessions  = state.sessions || [];
+    const now       = new Date();
+    const weekStart = getLocalStartOfWeek(now);
 
     // -- Today's stats ------------------------------------------------------
-    // Match sessions by the .date field (YYYY-MM-DD) recorded by store.recordSession,
-    // or fall back to the ISO prefix of .recordedAt for legacy entries.
-    const todaySessions = sessions.filter(s =>
-      s.date === todayStr || (s.recordedAt && s.recordedAt.startsWith(todayStr))
-    );
+    // Match sessions occurring on the current local calendar day
+    const todaySessions = sessions.filter(s => isSameLocalDate(s.date || s.recordedAt, now));
 
     const todayMinutes = todaySessions.reduce(
-      (sum, s) => sum + ((s.durationSec || 0) / 60),
+      (sum, s) => sum + ((Number(s.durationSec) || 0) / 60),
       0
     );
 
     const todayBestWpm = todaySessions.reduce(
-      (best, s) => Math.max(best, s.wpm || 0),
+      (best, s) => Math.max(best, Number(s.wpm) || 0),
       0
     );
 
-    // -- This week's curriculum lesson completions --------------------------
-    // A session counts when it belongs to a curriculum lesson (integer lessonId
-    // 1-30) and was recorded on or after the most recent Sunday.
-    const weekLessons = sessions.filter(s => {
-      const sessionDate = s.date || (s.recordedAt && s.recordedAt.split('T')[0]);
-      const isCurriculum = Number.isInteger(s.lessonId) && s.lessonId >= 1 && s.lessonId <= 30;
-      return isCurriculum && sessionDate >= weekStr;
-    }).length;
+    // -- This week's lesson & practice completions --------------------------
+    // All completed sessions recorded since the start of the current local week
+    const weekSessions = sessions.filter(s => {
+      const rawDate = s.date || s.recordedAt;
+      if (!rawDate) return false;
+      const d = new Date(rawDate);
+      return !isNaN(d.getTime()) && d >= weekStart;
+    });
+
+    const weekLessons = weekSessions.length;
 
     // -- Build ring data ----------------------------------------------------
+    const targetMin = Number(goals.dailyMinutes) || DEFAULT_GOALS.dailyMinutes;
+    const targetWpm = Number(goals.dailyWpm) || DEFAULT_GOALS.dailyWpm;
+    const targetLessons = Number(goals.weeklyLessons) || DEFAULT_GOALS.weeklyLessons;
+
     const ringData = [
       {
         label:   'Daily Time',
         current: Math.round(todayMinutes * 10) / 10, // 1-decimal minutes
-        target:  goals.dailyMinutes,
-        pct:     toPct(todayMinutes, goals.dailyMinutes),
-        color:   RING_COLORS.indigo
+        target:  targetMin,
+        pct:     toPct(todayMinutes, targetMin),
+        color:   RING_COLORS.indigo,
+        unit:    'min'
       },
       {
         label:   'Daily WPM',
-        current: todayBestWpm,
-        target:  goals.dailyWpm,
-        pct:     toPct(todayBestWpm, goals.dailyWpm),
-        color:   RING_COLORS.teal
+        current: Math.round(todayBestWpm),
+        target:  targetWpm,
+        pct:     toPct(todayBestWpm, targetWpm),
+        color:   RING_COLORS.teal,
+        unit:    'WPM'
       },
       {
         label:   'Weekly Lessons',
         current: weekLessons,
-        target:  goals.weeklyLessons,
-        pct:     toPct(weekLessons, goals.weeklyLessons),
-        color:   RING_COLORS.amber
+        target:  targetLessons,
+        pct:     toPct(weekLessons, targetLessons),
+        color:   RING_COLORS.amber,
+        unit:    'done'
       }
     ];
 
-    return { todayMinutes, todayBestWpm, weekLessons, goals, ringData };
+    return { todayMinutes, todayBestWpm, todaySessionsCount: todaySessions.length, weekLessons, goals, ringData };
   }
 
   // -------------------------------------------------------------------------
@@ -590,10 +593,14 @@ export function renderGoalRings(container, goalProgress) {
     // Format the centre display value depending on which ring it is.
     let displayValue;
     if (idx === 0) {
-      // Daily minutes: one decimal when < 10, otherwise integer + 'm'
-      displayValue = ring.current >= 10
-        ? `${Math.round(ring.current)}m`
-        : `${ring.current.toFixed(1)}m`;
+      // Daily minutes: '0m', '2.5m', '15m'
+      if (ring.current <= 0) {
+        displayValue = '0m';
+      } else if (ring.current >= 10) {
+        displayValue = `${Math.round(ring.current)}m`;
+      } else {
+        displayValue = `${ring.current.toFixed(1)}m`;
+      }
     } else if (idx === 1) {
       // Daily WPM: plain integer
       displayValue = `${ring.current}`;
@@ -665,12 +672,18 @@ export function renderGoalRings(container, goalProgress) {
       </svg>
       <!-- Descriptive label below the ring -->
       <span style="
-        font-size:0.72rem;
-        color:rgba(255,255,255,0.55);
+        font-size:0.75rem;
+        font-weight:600;
+        color:var(--text-secondary);
         text-align:center;
-        letter-spacing:0.03em;
+        letter-spacing:0.02em;
         white-space:nowrap;
       ">${ring.label}</span>
+      <span style="
+        font-size:0.68rem;
+        color:var(--text-muted);
+        text-align:center;
+      ">Target: ${ring.target}${ring.unit === 'min' ? ' min' : ring.unit === 'WPM' ? ' WPM' : ''}</span>
     `;
 
     // Animate from empty (CIRCUMFERENCE) to the target offset on the next

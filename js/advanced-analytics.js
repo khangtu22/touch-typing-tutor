@@ -619,15 +619,41 @@ function tdStyle() {
 }
 
 /**
- * Renders a sortable session history table into `container`.
- * Clicking a column header re-invokes this function with the toggled sort params.
+ * Inline style for pagination buttons.
+ * @param {boolean} disabled
+ * @returns {string}
+ */
+function pageBtnStyle(disabled) {
+  return [
+    'padding: 6px 14px',
+    'border-radius: var(--radius-sm, 6px)',
+    'font-size: 12px',
+    'font-weight: 600',
+    `color: ${disabled ? 'var(--text-muted)' : 'var(--text-primary)'}`,
+    `background: ${disabled ? 'rgba(255,255,255,0.02)' : 'var(--surface-2)'}`,
+    `border: 1px solid ${disabled ? 'rgba(255,255,255,0.05)' : 'var(--border-subtle)'}`,
+    `cursor: ${disabled ? 'not-allowed' : 'pointer'}`,
+    `opacity: ${disabled ? '0.4' : '1'}`,
+    'transition: all 0.15s ease',
+    'font-family: var(--font-sans)',
+    'display: inline-flex',
+    'align-items: center',
+    'gap: 4px'
+  ].join('; ');
+}
+
+/**
+ * Renders a sortable and paginated session history table into `container`.
+ * Displays 10 attempts per page with previous/next navigation and column sorting.
  *
  * @param {HTMLElement} container
  * @param {Array}       sessions
  * @param {'date'|'wpm'|'accuracy'|'duration'|'stars'} [sortKey='date']
  * @param {'asc'|'desc'} [sortDir='desc']
+ * @param {number}      [page=1]
+ * @param {number}      [pageSize=10]
  */
-export function renderSessionHistoryTable(container, sessions, sortKey = 'date', sortDir = 'desc') {
+export function renderSessionHistoryTable(container, sessions, sortKey = 'date', sortDir = 'desc', page = 1, pageSize = 10) {
   // ── Empty state ──────────────────────────────────────────────────────────
   if (!sessions || sessions.length === 0) {
     container.innerHTML = `
@@ -655,6 +681,14 @@ export function renderSessionHistoryTable(container, sessions, sortKey = 'date',
     return sortDir === 'asc' ? va - vb : vb - va;
   });
 
+  // ── Pagination calculations (10 items per page) ──────────────────────────
+  const totalCount = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalCount);
+  const pageItems = sorted.slice(startIndex, endIndex);
+
   // ── Column definitions ───────────────────────────────────────────────────
   const COLS = [
     { key: 'date',     label: 'Date' },
@@ -677,7 +711,7 @@ export function renderSessionHistoryTable(container, sessions, sortKey = 'date',
   }).join('');
 
   // ── Body rows ─────────────────────────────────────────────────────────────
-  const bodyRows = sorted.map((s, idx) => {
+  const bodyRows = pageItems.map((s, idx) => {
     const rowBg = idx % 2 === 0 ? 'background: rgba(255,255,255,0.015);' : '';
     const accColor = s.accuracy >= 97
       ? 'var(--success-teal)'
@@ -688,7 +722,7 @@ export function renderSessionHistoryTable(container, sessions, sortKey = 'date',
     return `
       <tr style="${rowBg}">
         <td style="${tdStyle()}">${fmtDateTime(s.date)}</td>
-        <td style="${tdStyle()} max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        <td style="${tdStyle()} max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtmlStr(s.lessonTitle || `Lesson ${s.lessonId}`)}">
           ${escapeHtmlStr(s.lessonTitle || `Lesson ${s.lessonId}`)}
         </td>
         <td style="${tdStyle()} font-family:var(--font-mono); color:var(--accent-primary); font-weight:700;">
@@ -707,7 +741,7 @@ export function renderSessionHistoryTable(container, sessions, sortKey = 'date',
     `;
   }).join('');
 
-  // ── Assemble ──────────────────────────────────────────────────────────────
+  // ── Assemble HTML ─────────────────────────────────────────────────────────
   container.innerHTML = `
     <div style="overflow-x: auto; width: 100%;">
       <table style="
@@ -722,15 +756,59 @@ export function renderSessionHistoryTable(container, sessions, sortKey = 'date',
         <tbody>${bodyRows}</tbody>
       </table>
     </div>
+
+    <!-- Pagination Bar (10 per page) -->
+    <div style="
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 12px;
+      color: var(--text-muted);
+    ">
+      <div>
+        Showing <strong style="color:var(--text-primary); font-family:var(--font-mono);">${totalCount > 0 ? startIndex + 1 : 0}–${endIndex}</strong> of <strong style="color:var(--text-primary); font-family:var(--font-mono);">${totalCount}</strong> attempts
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button class="aa-page-btn aa-page-prev" ${currentPage <= 1 ? 'disabled' : ''} style="${pageBtnStyle(currentPage <= 1)}" title="Previous 10 attempts">
+          ‹ Previous
+        </button>
+        <span style="font-family: var(--font-mono); padding: 0 8px; color: var(--text-secondary); font-weight: 600;">
+          Page ${currentPage} of ${totalPages}
+        </span>
+        <button class="aa-page-btn aa-page-next" ${currentPage >= totalPages ? 'disabled' : ''} style="${pageBtnStyle(currentPage >= totalPages)}" title="Next 10 attempts">
+          Next ›
+        </button>
+      </div>
+    </div>
   `;
 
   // ── Attach sort click handlers ────────────────────────────────────────────
   container.querySelectorAll('th[data-sort-key]').forEach(th => {
     th.style.cursor = 'pointer';
     th.addEventListener('click', () => {
-      renderSessionHistoryTable(container, sessions, th.dataset.sortKey, th.dataset.sortDir);
+      renderSessionHistoryTable(container, sessions, th.dataset.sortKey, th.dataset.sortDir, 1, pageSize);
     });
   });
+
+  // ── Attach pagination click handlers ──────────────────────────────────────
+  const prevBtn = container.querySelector('.aa-page-prev');
+  if (prevBtn && currentPage > 1) {
+    prevBtn.addEventListener('click', () => {
+      renderSessionHistoryTable(container, sessions, sortKey, sortDir, currentPage - 1, pageSize);
+    });
+  }
+
+  const nextBtn = container.querySelector('.aa-page-next');
+  if (nextBtn && currentPage < totalPages) {
+    nextBtn.addEventListener('click', () => {
+      renderSessionHistoryTable(container, sessions, sortKey, sortDir, currentPage + 1, pageSize);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1049,8 +1127,8 @@ export function renderAdvancedAnalyticsDashboard(container, state) {
     // Heatmap (period arg is passed for API consistency)
     renderFingerHeatmapTable(heatmapEl, state.keyStats || {}, activePeriod, sessions);
 
-    // History table always shows all sessions for full context
-    renderSessionHistoryTable(historyEl, sessions, 'date', 'desc');
+    // History table shows sessions paginated at 10 items per page
+    renderSessionHistoryTable(historyEl, sessions, 'date', 'desc', 1, 10);
   }
 
   // ── Period tab click ──────────────────────────────────────────────────────

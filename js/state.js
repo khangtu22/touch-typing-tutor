@@ -155,6 +155,9 @@ const DEFAULT_STATE = {
   quotesPracticed: [],         // Array of quote ids practiced
   zenSessionsCompleted: 0,     // Count of completed Zen mode sessions
   languagesPracticed: [],      // Array of language codes practiced
+  codeSnippetsPracticed: [],   // Array of code snippet ids practiced
+  speedTestBests: {},          // Personal bests per speed test preset: { '15s': { wpm, accuracy, consistency, date } }
+  certificateName: '',         // Custom name for printable diploma
 };
 
 class StateStore {
@@ -320,7 +323,7 @@ class StateStore {
       mastery: isCurriculumLesson ? sessionMastery : null
     };
 
-    const sessions = [newSession, ...(this.state.sessions || [])].slice(0, 50);
+    const sessions = [newSession, ...(this.state.sessions || [])].slice(0, 200);
 
     const starsByLesson = { ...(this.state.starsByLesson || {}) };
     const lessonCompletion = { ...(this.state.lessonCompletion || {}) };
@@ -477,6 +480,43 @@ class StateStore {
     });
   }
 
+  recordSpeedTestResult({ presetId, wpm, accuracy, consistency = 100, durationSec = 60 }) {
+    const prevBests = this.state.speedTestBests || {};
+    const existing = prevBests[presetId];
+    const isNewPB = !existing || wpm > existing.wpm;
+
+    const newBest = {
+      wpm: Math.max(existing?.wpm || 0, Math.round(wpm)),
+      accuracy: Math.round(accuracy),
+      consistency: Math.round(consistency),
+      date: new Date().toISOString()
+    };
+
+    this.update(prev => ({
+      ...prev,
+      speedTestBests: {
+        ...(prev.speedTestBests || {}),
+        [presetId]: isNewPB ? newBest : (prev.speedTestBests?.[presetId] || newBest)
+      }
+    }));
+
+    return { isNewPB, best: newBest };
+  }
+
+  recordCodeSnippetCompleted(snippetId) {
+    if (!snippetId) return;
+    this.update(prev => {
+      const current = prev.codeSnippetsPracticed || [];
+      if (!current.includes(snippetId)) {
+        return {
+          ...prev,
+          codeSnippetsPracticed: [...current, snippetId]
+        };
+      }
+      return prev;
+    });
+  }
+
   // Export state to downloadable JSON string
   exportBackupJson() {
     return JSON.stringify({
@@ -613,6 +653,10 @@ class StateStore {
     this.state = demoState;
     this.persist();
     this.notify();
+  }
+
+  seedDemoData() {
+    this.seedDemo();
   }
 }
 

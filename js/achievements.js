@@ -322,7 +322,7 @@ export const ACHIEVEMENTS = [
     icon: '🏅',
     category: 'premium',
     xpBonus: 125,
-    check: (state) => (state.goalStreakDays || 0) >= 3
+    check: (state) => (state.dailyStreak || 0) >= 3 || (state.goalStreakDays || 0) >= 3
   },
   {
     id: 'literary_typist',
@@ -353,6 +353,33 @@ export const ACHIEVEMENTS = [
     category: 'premium',
     xpBonus: 100,
     check: (state) => (state.breaksTaken || 0) >= 10
+  },
+  {
+    id: 'code_ninja',
+    title: 'Code Ninja',
+    description: 'Practice 3 programming code snippets in Code Arena.',
+    icon: '💻',
+    category: 'premium',
+    xpBonus: 150,
+    check: (state) => (state.codeSnippetsPracticed || []).length >= 3
+  },
+  {
+    id: 'speed_demon_60',
+    title: '60s Benchmark Master',
+    description: 'Reach 60+ WPM in a 60-Second Speed Benchmark Test.',
+    icon: '⚡',
+    category: 'speed',
+    xpBonus: 150,
+    check: (state) => (state.speedTestBests?.['60s']?.wpm || 0) >= 60
+  },
+  {
+    id: 'certified_master',
+    title: 'Certified Master',
+    description: 'Attain 70+ WPM qualifying for official Master Certification.',
+    icon: '📜',
+    category: 'milestone',
+    xpBonus: 200,
+    check: (state) => (state.bestWpm || 0) >= 70
   }
 ];
 

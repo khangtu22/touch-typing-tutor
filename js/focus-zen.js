@@ -52,8 +52,42 @@ class ZenSoundEngine {
 
     // Master gain for this engine so volume can be adjusted independently
     this.gainNode = this.ctx.createGain();
-    this.gainNode.gain.value = 0.5;
+    this.gainNode.gain.value = 0.45;
     this.gainNode.connect(this.ctx.destination);
+  }
+
+  /**
+   * Smoothly fade in ambient volume.
+   * @param {number} [duration=0.35]
+   */
+  fadeIn(duration = 0.35) {
+    if (this.gainNode && this.ctx && this.ctx.state !== 'closed') {
+      try {
+        const now = this.ctx.currentTime;
+        const target = this._targetVolume !== undefined ? this._targetVolume : 0.45;
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(0.001, now);
+        this.gainNode.gain.linearRampToValueAtTime(target, now + duration);
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Smoothly fade out ambient volume before stopping.
+   * @param {number} [duration=0.25]
+   */
+  fadeOut(duration = 0.25) {
+    if (this.gainNode && this.ctx && this.ctx.state !== 'closed') {
+      try {
+        const now = this.ctx.currentTime;
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+        this.gainNode.gain.linearRampToValueAtTime(0.001, now + duration);
+        setTimeout(() => this.stop(), duration * 1000 + 30);
+        return;
+      } catch (_) {}
+    }
+    this.stop();
   }
 
   /**
@@ -75,6 +109,8 @@ class ZenSoundEngine {
       default:
         console.warn(`ZenSoundEngine: unknown soundscape "${soundscape}"`);
     }
+
+    this.fadeIn(0.4);
   }
 
   /** Stop all active audio nodes and cancel any pending modulation loops. */
@@ -111,8 +147,14 @@ class ZenSoundEngine {
    */
   setVolume(v) {
     const vol = Math.max(0, Math.min(1, v));
-    if (this.gainNode) {
-      this.gainNode.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.05);
+    this._targetVolume = vol;
+    if (this.gainNode && this.ctx && this.ctx.state !== 'closed') {
+      try {
+        const now = this.ctx.currentTime;
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+        this.gainNode.gain.linearRampToValueAtTime(vol, now + 0.05);
+      } catch (_) {}
     }
   }
 
@@ -540,7 +582,7 @@ class FocusModeManager {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ZenModeManager — Fullscreen immersive typing environment
+// ZenModeManager — Ultra-Smooth Fullscreen Ambient Typing Environment
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ZenModeManager {
@@ -561,36 +603,36 @@ class ZenModeManager {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /**
-   * Enter Zen Mode.
-   * @param {Function} [onType] - Called with every KeyboardEvent so the
-   *   typing engine keeps working while the overlay has focus.
+   * Enter Zen Mode with smooth, zero-latency transition.
+   * @param {Function} [onType] - Called with every KeyboardEvent
+   * @param {object} [options] - Metadata { title, author }
    */
-  enter(onType = null) {
+  enter(onType = null, options = {}) {
     if (this.isActive) return;
     this.isActive = true;
     this._onType = onType;
 
-    const overlay = this._buildOverlay();
+    const overlay = this._buildOverlay(options);
     document.body.appendChild(overlay);
     this._overlay = overlay;
 
-    // Shift keyboard focus into the overlay so keydown events are captured
-    overlay.focus();
+    // Trigger smooth fade-in and scale-in via next frame
+    requestAnimationFrame(() => {
+      if (overlay) {
+        overlay.classList.add('zen-overlay-active');
+        overlay.focus();
+      }
+    });
 
-    document.addEventListener('keydown', this._onKeyDown);
+    document.addEventListener('keydown', this._onKeyDown, true);
     document.dispatchEvent(new CustomEvent('zenModeEnter', { bubbles: true }));
 
-    // Start particle animation
+    // Start high-efficiency particle canvas
     const canvas = overlay.querySelector('canvas.zen-particles');
     if (canvas) this.startParticles(canvas);
-
-    // Request fullscreen (non-critical — don't block if declined)
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
   }
 
-  /** Exit Zen Mode: remove overlay, stop audio, cancel fullscreen. */
+  /** Exit Zen Mode: smooth CSS fade out, audio fade out, cleanup overlay. */
   exit() {
     if (!this.isActive) return;
     this.isActive = false;
@@ -602,19 +644,19 @@ class ZenModeManager {
       this._particleRaf = null;
     }
 
-    // Stop ambient audio
-    this.zenSoundEngine.stop();
+    // Smooth audio fade out
+    this.zenSoundEngine.fadeOut(0.2);
+
+    document.removeEventListener('keydown', this._onKeyDown, true);
 
     if (this._overlay) {
-      this._overlay.remove();
+      const overlay = this._overlay;
       this._overlay = null;
-    }
-
-    document.removeEventListener('keydown', this._onKeyDown);
-
-    // Exit fullscreen if we entered it
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
+      overlay.classList.remove('zen-overlay-active');
+      overlay.classList.add('zen-overlay-leaving');
+      setTimeout(() => {
+        overlay.remove();
+      }, 200);
     }
 
     document.dispatchEvent(new CustomEvent('zenModeExit', { bubbles: true }));
@@ -629,89 +671,106 @@ class ZenModeManager {
   }
 
   /**
-   * Render the current typing tokens in the zen typing area.
+   * Render the current typing tokens in the zen typing area with live stats.
    * @param {string} html
+   * @param {object} [meta] - { wpm, accuracy, progressPct, combo, title, author }
    */
-  renderText(html) {
+  renderText(html, meta = {}) {
     if (!this._overlay) return;
-    const area = this._overlay.querySelector('.zen-typing-area');
-    if (area) {
-      area.innerHTML = html;
+    const content = this._overlay.querySelector('.zen-typing-content');
+    if (content) {
+      content.innerHTML = html;
+    }
+
+    if (meta.title || meta.author) {
+      const titleEl = this._overlay.querySelector('.zen-meta-title');
+      if (titleEl) {
+        titleEl.textContent = meta.author ? `Zen Sanctuary • ${meta.author}` : (meta.title || 'Zen Sanctuary');
+      }
+    }
+
+    if (meta.wpm !== undefined) {
+      const wpmEl = this._overlay.querySelector('.zen-live-wpm');
+      if (wpmEl) wpmEl.textContent = `${Math.round(meta.wpm)}`;
+    }
+
+    if (meta.accuracy !== undefined) {
+      const accEl = this._overlay.querySelector('.zen-live-acc');
+      if (accEl) accEl.textContent = `${Math.round(meta.accuracy)}%`;
+    }
+
+    if (meta.progressPct !== undefined) {
+      const fillEl = this._overlay.querySelector('.zen-top-progress-fill');
+      if (fillEl) fillEl.style.width = `${Math.min(100, Math.max(0, meta.progressPct))}%`;
     }
   }
 
   /**
-   * Trigger error shake on the current character inside zen mode.
+   * Trigger error shake on current character.
    */
   triggerError() {
     if (!this._overlay) return;
-    const currentCharEl = this._overlay.querySelector('.char-current');
+    const currentCharEl = this._overlay.querySelector('.char-current, .char-incorrect');
     if (currentCharEl) {
+      currentCharEl.classList.remove('char-error-shake');
+      void currentCharEl.offsetWidth; // trigger reflow
       currentCharEl.classList.add('char-error-shake');
-      setTimeout(() => currentCharEl.classList.remove('char-error-shake'), 250);
     }
   }
 
   /**
-   * Animate floating particles on the provided canvas element.
-   * 28 softly glowing particles drift upward with a sine wobble and wrap.
+   * High-performance particle animation.
+   * 18 glowing embers using optimized single-pass alpha drawing.
    * @param {HTMLCanvasElement} canvas
    */
   startParticles(canvas) {
-    const ctx2d = canvas.getContext('2d');
-    const COUNT = 28;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    const COUNT = 18;
 
-    // Size canvas to match its CSS dimensions
     const resize = () => {
-      canvas.width  = canvas.offsetWidth  || window.innerWidth;
-      canvas.height = canvas.offsetHeight || window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = (window.innerWidth) * dpr;
+      canvas.height = (window.innerHeight) * dpr;
+      ctx.scale(dpr, dpr);
     };
     resize();
 
-    const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
+    const onResize = () => resize();
+    window.addEventListener('resize', onResize);
 
-    // Initialise each particle with random starting properties
     const particles = Array.from({ length: COUNT }, () => ({
-      x:     Math.random() * canvas.width,
-      y:     Math.random() * canvas.height,
-      r:     1.2 + Math.random() * 2.8,        // radius 1.2–4 px
-      vx:    (Math.random() - 0.5) * 0.18,     // gentle horizontal drift
-      vy:    -(0.12 + Math.random() * 0.28),   // slow upward float
-      alpha: 0.08 + Math.random() * 0.25,      // translucency
-      phase: Math.random() * Math.PI * 2,      // sine wobble phase offset
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: 1.5 + Math.random() * 2.5,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: -(0.18 + Math.random() * 0.35),
+      alpha: 0.12 + Math.random() * 0.28,
+      phase: Math.random() * Math.PI * 2
     }));
 
     const tick = () => {
       if (!this.isActive) {
-        ro.disconnect();
+        window.removeEventListener('resize', onResize);
         return;
       }
 
-      ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-      particles.forEach(p => {
-        // Advance sine wobble
-        p.phase += 0.008;
-        p.x += p.vx + Math.sin(p.phase) * 0.3;
+      for (let i = 0; i < COUNT; i++) {
+        const p = particles[i];
+        p.phase += 0.012;
+        p.x += p.vx + Math.sin(p.phase) * 0.35;
         p.y += p.vy;
 
-        // Wrap around edges so particles cycle continuously
-        if (p.y < -(p.r * 2))                p.y = canvas.height + p.r;
-        if (p.x < -(p.r * 2))                p.x = canvas.width  + p.r;
-        if (p.x > canvas.width  + p.r * 2)   p.x = -p.r;
+        if (p.y < -10) p.y = window.innerHeight + 10;
+        if (p.x < -10) p.x = window.innerWidth + 10;
+        if (p.x > window.innerWidth + 10) p.x = -10;
 
-        // Soft radial glow
-        const grad = ctx2d.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2.5);
-        grad.addColorStop(0,   `rgba(160,140,255,${p.alpha})`);
-        grad.addColorStop(0.5, `rgba(100,120,255,${(p.alpha * 0.5).toFixed(3)})`);
-        grad.addColorStop(1,   'rgba(80,100,200,0)');
-
-        ctx2d.beginPath();
-        ctx2d.arc(p.x, p.y, p.r * 2.5, 0, Math.PI * 2);
-        ctx2d.fillStyle = grad;
-        ctx2d.fill();
-      });
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(160, 140, 255, ${p.alpha})`;
+        ctx.fill();
+      }
 
       this._particleRaf = requestAnimationFrame(tick);
     };
@@ -722,256 +781,114 @@ class ZenModeManager {
   // ── Private ────────────────────────────────────────────────────────────────
 
   /**
-   * Build and return the full-screen zen overlay DOM element.
+   * Build modern full-screen zen overlay DOM.
+   * @param {object} [options]
    * @returns {HTMLDivElement}
    */
-  _buildOverlay() {
-    // ── Root overlay ──────────────────────────────────────────────────────
+  _buildOverlay(options = {}) {
     const overlay = document.createElement('div');
     overlay.id = 'zen-overlay';
     overlay.className = 'zen-overlay';
-    overlay.tabIndex = -1; // must be focusable for keydown capture
+    overlay.tabIndex = -1;
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Zen Mode — distraction-free typing');
-    overlay.style.cssText = [
-      'position:fixed',
-      'inset:0',
-      'z-index:10000',
-      'display:flex',
-      'flex-direction:column',
-      'align-items:center',
-      'justify-content:center',
-      'background:radial-gradient(ellipse at 50% 60%,#1a1440 0%,#0e0d1a 55%,#070610 100%)',
-      'outline:none',
-      'overflow:hidden',
-    ].join(';');
+    overlay.setAttribute('aria-label', 'Zen Mode — Distraction-Free Sanctuary');
 
-    // ── Particle canvas (behind all content) ──────────────────────────────
-    const canvas = document.createElement('canvas');
-    canvas.className = 'zen-particles';
-    canvas.style.cssText = [
-      'position:absolute',
-      'inset:0',
-      'width:100%',
-      'height:100%',
-      'pointer-events:none',
-    ].join(';');
-    overlay.appendChild(canvas);
+    const titleText = options.author ? `Zen Sanctuary • ${options.author}` : (options.title || 'Zen Sanctuary');
 
-    // ── Typing area ───────────────────────────────────────────────────────
-    const typingArea = document.createElement('div');
-    typingArea.className = 'zen-typing-area';
-    typingArea.style.cssText = [
-      'position:relative',
-      'z-index:1',
-      'width:min(780px,90vw)',
-      'min-height:160px',
-      'padding:36px 40px',
-      'background:rgba(255,255,255,0.04)',
-      'backdrop-filter:blur(20px)',
-      '-webkit-backdrop-filter:blur(20px)',
-      'border:1px solid rgba(255,255,255,0.08)',
-      'border-radius:20px',
-      'box-shadow:0 8px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.06)',
-      'color:rgba(255,255,255,0.88)',
-      'font-size:1.35rem',
-      'line-height:1.85',
-      'letter-spacing:0.02em',
-      'text-align:center',
-    ].join(';');
+    overlay.innerHTML = `
+      <!-- Top Progress Line -->
+      <div class="zen-top-progress-bar">
+        <div class="zen-top-progress-fill" style="width: 0%;"></div>
+      </div>
 
-    // Placeholder shown until the typing engine populates the area
-    const placeholder = document.createElement('p');
-    placeholder.className = 'zen-placeholder';
-    placeholder.style.cssText = [
-      'margin:0',
-      'color:rgba(255,255,255,0.25)',
-      'font-style:italic',
-      'font-size:1rem',
-    ].join(';');
-    placeholder.textContent = 'Start typing to begin\u2026';
-    typingArea.appendChild(placeholder);
-    overlay.appendChild(typingArea);
+      <!-- Top Minimalist Bar -->
+      <div class="zen-top-bar">
+        <div class="zen-title-badge">
+          <span class="zen-icon">🧘</span>
+          <span class="zen-meta-title">${titleText}</span>
+        </div>
+        <div class="zen-live-metrics">
+          <span class="zen-metric-chip"><strong class="zen-live-wpm">0</strong> WPM</span>
+          <span class="zen-metric-chip"><strong class="zen-live-acc">100%</strong> ACC</span>
+        </div>
+        <button class="zen-quick-exit-btn" title="Exit Zen Mode (Esc)">Esc ✕</button>
+      </div>
 
-    // ── Soundscape control panel ──────────────────────────────────────────
-    const controls = document.createElement('div');
-    controls.className = 'zen-controls';
-    controls.style.cssText = [
-      'position:fixed',
-      'bottom:36px',
-      'left:50%',
-      'transform:translateX(-50%)',
-      'z-index:10',
-      'display:flex',
-      'align-items:center',
-      'gap:10px',
-      'padding:10px 20px',
-      'background:rgba(20, 16, 38, 0.85)',
-      'backdrop-filter:blur(20px)',
-      '-webkit-backdrop-filter:blur(20px)',
-      'border:1px solid rgba(255,255,255,0.12)',
-      'border-radius:50px',
-      'flex-wrap:nowrap',
-      'justify-content:center',
-      'box-shadow:0 8px 32px rgba(0,0,0,0.55)',
-      'margin:0',
-    ].join(';');
+      <!-- Particle Canvas -->
+      <canvas class="zen-particles"></canvas>
 
-    // Soundscape buttons
-    const soundscapes = [
-      { id: 'rain',       label: '\uD83C\uDF27 Rain'       },
-      { id: 'forest',     label: '\uD83C\uDF32 Forest'     },
-      { id: 'lofi',       label: '\uD83C\uDFB5 Lo-fi'      },
-      { id: 'whitenoise', label: '\uD83C\uDF00 White Noise' },
-      { id: 'ocean',      label: '\uD83C\uDF0A Ocean'       },
-    ];
+      <!-- Center Typing Container -->
+      <div class="zen-typing-container">
+        <div class="zen-typing-area">
+          <div class="zen-typing-content">
+            <p class="zen-placeholder">Start typing to begin...</p>
+          </div>
+        </div>
+      </div>
 
-    const btnBase = [
-      'padding:7px 14px',
-      'border:1px solid rgba(255,255,255,0.14)',
-      'border-radius:20px',
-      'background:transparent',
-      'color:rgba(255,255,255,0.6)',
-      'font-size:12px',
-      'font-family:inherit',
-      'cursor:pointer',
-      'transition:background 0.2s,color 0.2s,border-color 0.2s',
-      'white-space:nowrap',
-    ].join(';');
+      <!-- Bottom Floating Controls Pill -->
+      <div class="zen-controls">
+        <div class="zen-soundscapes-group">
+          <button class="zen-sound-btn active" data-soundscape="rain">🌧️ Rain</button>
+          <button class="zen-sound-btn" data-soundscape="forest">🌲 Forest</button>
+          <button class="zen-sound-btn" data-soundscape="lofi">🎵 Lo-Fi</button>
+          <button class="zen-sound-btn" data-soundscape="ocean">🌊 Ocean</button>
+          <button class="zen-sound-btn" data-soundscape="whitenoise">🌀 White Noise</button>
+        </div>
+        <div class="zen-divider"></div>
+        <div class="zen-volume-group">
+          <span class="zen-vol-icon">🔊</span>
+          <input type="range" min="0" max="1" step="0.01" value="0.45" class="zen-volume-slider" title="Ambient Soundscape Volume" />
+        </div>
+        <div class="zen-divider"></div>
+        <button class="zen-close-btn">✕ Exit</button>
+      </div>
+    `;
 
-    const activeStyle = {
-      background:   'rgba(130,110,255,0.25)',
-      color:        '#c8bcff',
-      borderColor:  'rgba(130,110,255,0.5)',
-    };
-
-    soundscapes.forEach(({ id, label }) => {
-      const btn = document.createElement('button');
-      btn.className = `zen-sound-btn zen-sound-btn--${id}`;
-      btn.dataset.soundscape = id;
-      btn.style.cssText = btnBase;
-      btn.textContent = label;
-      btn.type = 'button';
-
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const engine = this.zenSoundEngine;
-
-        if (engine.currentSoundscape === id) {
-          // Toggle off the currently active soundscape
-          engine.stop();
-          btn.style.background  = 'transparent';
-          btn.style.color       = 'rgba(255,255,255,0.6)';
-          btn.style.borderColor = 'rgba(255,255,255,0.14)';
-        } else {
-          // Deactivate previously highlighted button
-          controls.querySelectorAll('.zen-sound-btn').forEach(b => {
-            b.style.background  = 'transparent';
-            b.style.color       = 'rgba(255,255,255,0.6)';
-            b.style.borderColor = 'rgba(255,255,255,0.14)';
-          });
-          engine.play(id);
-          btn.style.background  = activeStyle.background;
-          btn.style.color       = activeStyle.color;
-          btn.style.borderColor = activeStyle.borderColor;
-        }
-
-        // Return keyboard focus to the overlay
-        overlay.focus();
-      });
-
-      controls.appendChild(btn);
+    // Exit buttons
+    overlay.querySelector('.zen-quick-exit-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.exit();
     });
 
-    // Vertical divider
-    const makeDivider = () => {
-      const d = document.createElement('div');
-      d.style.cssText = 'width:1px;height:22px;background:rgba(255,255,255,0.12);margin:0 4px;flex-shrink:0;';
-      return d;
-    };
-    controls.appendChild(makeDivider());
+    overlay.querySelector('.zen-close-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.exit();
+    });
 
-    // Volume icon
-    const volIcon = document.createElement('span');
-    volIcon.textContent = '\uD83D\uDD0A';
-    volIcon.style.cssText = 'font-size:14px;color:rgba(255,255,255,0.45);flex-shrink:0;';
-    controls.appendChild(volIcon);
+    // Soundscape selector
+    const soundBtns = overlay.querySelectorAll('.zen-sound-btn');
+    soundBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.soundscape;
+        if (this.zenSoundEngine.currentSoundscape === id) {
+          this.zenSoundEngine.fadeOut(0.2);
+          soundBtns.forEach(b => b.classList.remove('active'));
+        } else {
+          soundBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          this.zenSoundEngine.play(id);
+        }
+        overlay.focus();
+      });
+    });
 
     // Volume slider
-    const volSlider = document.createElement('input');
-    volSlider.type  = 'range';
-    volSlider.min   = '0';
-    volSlider.max   = '1';
-    volSlider.step  = '0.01';
-    volSlider.value = '0.5';
-    volSlider.className = 'zen-volume-slider';
-    volSlider.style.cssText = 'width:90px;accent-color:#7c6aff;cursor:pointer;';
-    volSlider.addEventListener('input', (e) => {
+    const volSlider = overlay.querySelector('.zen-volume-slider');
+    volSlider?.addEventListener('input', (e) => {
       e.stopPropagation();
       this.zenSoundEngine.setVolume(parseFloat(e.target.value));
       overlay.focus();
     });
-    controls.appendChild(volSlider);
-
-    controls.appendChild(makeDivider());
-
-    // Close / exit button
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'zen-close-btn';
-    closeBtn.textContent = '\u2715 Exit';
-    closeBtn.setAttribute('aria-label', 'Exit Zen Mode');
-    closeBtn.style.cssText = [
-      btnBase,
-      'color:rgba(255,100,100,0.7)',
-      'border-color:rgba(255,100,100,0.2)',
-    ].join(';');
-    closeBtn.addEventListener('mouseenter', () => {
-      closeBtn.style.background  = 'rgba(255,80,80,0.15)';
-      closeBtn.style.color       = 'rgba(255,130,130,0.9)';
-      closeBtn.style.borderColor = 'rgba(255,80,80,0.4)';
-    });
-    closeBtn.addEventListener('mouseleave', () => {
-      closeBtn.style.background  = 'transparent';
-      closeBtn.style.color       = 'rgba(255,100,100,0.7)';
-      closeBtn.style.borderColor = 'rgba(255,100,100,0.2)';
-    });
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.exit();
-    });
-    controls.appendChild(closeBtn);
-
-    overlay.appendChild(controls);
-
-    // ── Keyboard hint ─────────────────────────────────────────────────────
-    const hint = document.createElement('p');
-    hint.className = 'zen-hint';
-    hint.textContent = 'Press Esc to exit Zen Mode';
-    hint.style.cssText = [
-      'position:fixed',
-      'bottom:12px',
-      'left:50%',
-      'transform:translateX(-50%)',
-      'z-index:10',
-      'margin:0',
-      'color:rgba(255,255,255,0.3)',
-      'font-size:11px',
-      'letter-spacing:0.08em',
-      'text-transform:uppercase',
-      'pointer-events:none',
-      'user-select:none',
-      'white-space:nowrap',
-    ].join(';');
-    overlay.appendChild(hint);
 
     return overlay;
   }
 
   /**
-   * Global keydown handler installed while Zen Mode is active.
-   * Escape exits; all other events are forwarded to the typing engine callback.
+   * Keydown listener installed while Zen Mode is active.
+   * Escape exits cleanly; other keystrokes are forwarded to typing engine.
    * @param {KeyboardEvent} e
    * @private
    */
@@ -982,7 +899,10 @@ class ZenModeManager {
       return;
     }
 
-    // Forward the event to the typing engine so typing still works
+    if (e.key === ' ' && e.target === this._overlay) {
+      e.preventDefault();
+    }
+
     if (typeof this._onType === 'function') {
       this._onType(e);
     }
