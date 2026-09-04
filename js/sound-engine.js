@@ -55,7 +55,7 @@ class SoundEngine {
     this.resume();
 
     const now = this.ctx.currentTime;
-    const isSpecial = char === ' ' || char === 'Enter';
+    const isSpecial = char === ' ' || char === 'Enter' || char === '\n' || char === '\r';
 
     switch (this.switchProfile) {
       case 'gateron_brown':

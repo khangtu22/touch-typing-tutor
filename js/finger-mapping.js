@@ -158,7 +158,8 @@ export const KEY_TO_FINGER = {
   ';': 'right-pinky', ':': 'right-pinky',
   "'": 'right-pinky', '"': 'right-pinky',
   '/': 'right-pinky', '?': 'right-pinky',
-  'Enter': 'right-pinky', 'Backspace': 'right-pinky', 'ShiftRight': 'right-pinky'
+  'Enter': 'right-pinky', 'Backspace': 'right-pinky', 'ShiftRight': 'right-pinky',
+  '\n': 'right-pinky', '\r': 'right-pinky', '\t': 'left-pinky'
 };
 
 /**
@@ -191,6 +192,7 @@ export function getOppositeShift(char) {
  */
 export function isShiftRequired(char) {
   if (!char || char.length !== 1) return false;
+  if (char === '\n' || char === '\r' || char === '\t' || char === ' ') return false;
   if (char >= 'A' && char <= 'Z') return true;
   const shiftedSymbols = '~!@#$%^&*()_+{}|:"<>?';
   return shiftedSymbols.includes(char);

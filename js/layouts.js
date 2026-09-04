@@ -82,7 +82,7 @@ export function getLayoutKeycaps(layoutId = 'qwerty') {
   r1.push({ code: 'Backspace', label: 'Backspace', width: '2u', finger: 'right-pinky', isSpecial: true });
 
   // Row 2
-  const r2 = [{ code: 'Tab', label: 'Tab', width: '1.5u', finger: 'left-pinky', isSpecial: true }];
+  const r2 = [{ code: 'Tab', label: 'Tab', primary: '\t', width: '1.5u', finger: 'left-pinky', isSpecial: true }];
   layout.rows[1].forEach((char, i) => {
     let code = `Key${char.toUpperCase()}`;
     let shift = char.toUpperCase();
@@ -126,7 +126,7 @@ export function getLayoutKeycaps(layoutId = 'qwerty') {
       hasNub
     });
   });
-  r3.push({ code: 'Enter', label: 'Enter', width: '2.25u', finger: 'right-pinky', isSpecial: true });
+  r3.push({ code: 'Enter', label: 'Enter', primary: '\n', width: '2.25u', finger: 'right-pinky', isSpecial: true });
 
   // Row 4
   const r4 = [{ code: 'ShiftLeft', label: 'Shift', width: '2.25u', finger: 'left-pinky', isSpecial: true }];

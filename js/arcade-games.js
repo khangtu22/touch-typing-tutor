@@ -419,6 +419,8 @@ export class TypeInvadersGame {
   }
 
   handleKeyDown(e) {
+    if (e.metaKey || e.ctrlKey) return;
+
     if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
       e.preventDefault();
     }
@@ -1050,6 +1052,8 @@ export class NitroSprintGame {
   }
 
   handleKeyDown(e) {
+    if (e.metaKey || e.ctrlKey) return;
+
     if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
       e.preventDefault();
     }
@@ -1452,6 +1456,8 @@ export class MatrixRainGame {
   }
 
   handleKeyDown(e) {
+    if (e.metaKey || e.ctrlKey) return;
+
     if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
       e.preventDefault();
     }
@@ -1926,6 +1932,8 @@ export class KeyBeatsGame {
   }
 
   handleKeyDown(e) {
+    if (e.metaKey || e.ctrlKey) return;
+
     if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
       e.preventDefault();
     }

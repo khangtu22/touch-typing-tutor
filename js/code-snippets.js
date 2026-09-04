@@ -166,6 +166,22 @@ export const CODE_SNIPPETS = [
     description: 'std::transform, lambdas, and modern auto typing.',
     code: `#include <iostream>\n#include <vector>\n#include <algorithm>\n\nint main() {\n    std::vector<int> numbers = {1, 2, 3, 4, 5, 6};\n    std::vector<int> squares;\n    std::transform(numbers.begin(), numbers.end(), std::back_inserter(squares), [](int n) {\n        return n * n;\n    });\n    return 0;\n}`
   },
+  {
+    id: 'cpp_smart_pointers',
+    language: 'cpp',
+    title: 'RAII & Smart Pointer Factory',
+    difficulty: 'hard',
+    description: 'std::unique_ptr and std::make_shared memory management.',
+    code: `class SessionManager {\npublic:\n    explicit SessionManager(std::string id) : sessionId(std::move(id)) {}\n    void log() const { std::cout << "Session: " << sessionId << '\\n'; }\nprivate:\n    std::string sessionId;\n};\n\nauto createSession(const std::string& token) {\n    return std::make_unique<SessionManager>(token);\n}`
+  },
+  {
+    id: 'cpp_template_class',
+    language: 'cpp',
+    title: 'Template Class & Rule of Five',
+    difficulty: 'easy',
+    description: 'Generic template stack container with move semantics.',
+    code: `template <typename T>\nclass SimpleStack {\nprivate:\n    std::vector<T> elements;\npublic:\n    void push(const T& item) { elements.push_back(item); }\n    void push(T&& item) { elements.push_back(std::move(item)); }\n    bool empty() const { return elements.empty(); }\n    size_t size() const { return elements.size(); }\n};`
+  },
 
   // --- Bash / Shell ---
   {
@@ -174,7 +190,43 @@ export const CODE_SNIPPETS = [
     title: 'Automated Log Archiver Script',
     difficulty: 'easy',
     description: 'Shell script with variable interpolation, loops, and conditions.',
-    code: `#!/usr/bin/env bash\nset -euo pipefail\n\nBACKUP_DIR="/var/backups/$(date +%Y%m%d)"\nmkdir -p "\$BACKUP_DIR"\n\nfor log in /var/log/*.log; do\n  if [[ -f "\$log" ]]; then\n    gzip -c "\$log" > "\$BACKUP_DIR/$(basename "\$log").gz"\n    echo "Archived $(basename "\$log") successfully."\n  fi\ndone`
+    code: `#!/usr/bin/env bash\nset -euo pipefail\n\nBACKUP_DIR="/var/backups/$(date +%Y%m%d)"\nmkdir -p "$BACKUP_DIR"\n\nfor log in /var/log/*.log; do\n  if [[ -f "$log" ]]; then\n    gzip -c "$log" > "$BACKUP_DIR/$(basename "$log").gz"\n    echo "Archived $(basename "$log") successfully."\n  fi\ndone`
+  },
+  {
+    id: 'bash_cli_parser',
+    language: 'bash',
+    title: 'Robust Command-Line Flag Parser',
+    difficulty: 'medium',
+    description: 'Shell script argument parsing using getopts with error traps.',
+    code: `#!/usr/bin/env bash\nPORT=8080\nENV="production"\n\nwhile getopts "p:e:h" opt; do\n  case "$opt" in\n    p) PORT="$OPTARG" ;;\n    e) ENV="$OPTARG" ;;\n    h) echo "Usage: $0 [-p port] [-e env]" ; exit 0 ;;\n    *) echo "Invalid option" ; exit 1 ;;\n  esac\ndone\n\necho "Starting server in $ENV mode on port $PORT..."`
+  },
+  {
+    id: 'bash_git_deploy',
+    language: 'bash',
+    title: 'Production Zero-Downtime Deploy',
+    difficulty: 'hard',
+    description: 'Automated CI/CD health check and docker container rotation.',
+    code: `#!/usr/bin/env bash\nset -eo pipefail\n\necho "Pulling latest release from origin/main..."\ngit fetch origin main && git checkout -q FETCH_HEAD\n\ndocker compose pull -q\ndocker compose up -d --remove-orphans\n\nuntil curl -sf http://localhost:8080/health > /dev/null; do\n  echo "Waiting for healthcheck to pass..."\n  sleep 2\ndone\n\necho "Deployment verified healthy and live."`
+  },
+
+  // --- SQL (Additional) ---
+  {
+    id: 'sql_transaction_rollback',
+    language: 'sql',
+    title: 'ACID Transaction & Savepoint',
+    difficulty: 'hard',
+    description: 'Safe banking balance transfer with balance checks and rollback.',
+    code: `BEGIN;\n\nUPDATE accounts\nSET balance = balance - 250.00\nWHERE id = 101 AND balance >= 250.00;\n\nSAVEPOINT debit_checked;\n\nUPDATE accounts\nSET balance = balance + 250.00\nWHERE id = 202;\n\nINSERT INTO ledger (from_id, to_id, amount, status)\nVALUES (101, 202, 250.00, 'COMPLETED');\n\nCOMMIT;`
+  },
+
+  // --- Rust (Additional) ---
+  {
+    id: 'rust_tokio_channel',
+    language: 'rust',
+    title: 'Tokio Multi-Producer Async Channel',
+    difficulty: 'hard',
+    description: 'Concurrent message-passing pipeline with Tokio green threads.',
+    code: `use tokio::sync::mpsc;\n\n#[tokio::main]\nasync fn main() {\n    let (tx, mut rx) = mpsc::channel::<String>(32);\n    let producer = tokio::spawn(async move {\n        for i in 1..=5 {\n            tx.send(format!("Packet #{}", i)).await.unwrap();\n        }\n    });\n    while let Some(msg) = rx.recv().await {\n        println!("Received telemetry: {}", msg);\n    }\n    producer.await.unwrap();\n}`
   }
 ];
 

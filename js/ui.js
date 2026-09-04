@@ -146,6 +146,14 @@ export class UIManager {
         return;
       }
 
+      // If lesson is paused, R restarts the round
+      if (this.activeScreen === 'lesson' && typingEngine.isPaused && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        this.hidePauseModal();
+        typingEngine.retryLesson();
+        return;
+      }
+
       // On the results / complete screen:
       // Enter or Space advances to the next lesson; R retries the current lesson; Esc goes to dashboard.
       if (this.activeScreen === 'results') {
@@ -185,6 +193,16 @@ export class UIManager {
       }
 
       if (this.activeScreen === 'lesson') {
+        // If metaKey or ctrlKey is pressed, allow shortcuts like Cmd+K, Cmd+R, Cmd+C, etc.
+        if (e.metaKey || e.ctrlKey) {
+          if (e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            this.openCommandPalette();
+            return;
+          }
+          return;
+        }
+
         // Prevent default browser scrolling on typing screen
         if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || e.key === ' ') {
           e.preventDefault();
@@ -2090,13 +2108,18 @@ export class UIManager {
           <p class="modal-desc">Take a breath, relax your shoulders, and maintain hand posture.</p>
           <div class="modal-actions">
             <button id="resume-lesson-btn" class="btn btn-primary">Resume (Esc)</button>
-            <button id="exit-lesson-btn" class="btn btn-secondary">Exit to Dashboard</button>
+            <button id="restart-lesson-btn" class="btn btn-secondary">Restart Round (R)</button>
+            <button id="exit-lesson-btn" class="btn btn-outline">Exit to Dashboard</button>
           </div>
         </div>
       `;
       document.body.appendChild(modal);
 
       document.getElementById('resume-lesson-btn')?.addEventListener('click', () => this.toggleLessonPause());
+      document.getElementById('restart-lesson-btn')?.addEventListener('click', () => {
+        this.hidePauseModal();
+        typingEngine.retryLesson();
+      });
       document.getElementById('exit-lesson-btn')?.addEventListener('click', () => {
         this.hidePauseModal();
         this.navigateTo('dashboard');

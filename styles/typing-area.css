@@ -174,7 +174,18 @@
 }
 
 .char-newline-token {
-  opacity: 0.6;
+  display: inline-block;
+  opacity: 0.75;
+}
+
+.char-newline-token .char-current {
+  opacity: 1;
+  color: var(--accent-primary);
+  background: rgba(124, 92, 252, 0.32);
+  box-shadow: 0 0 12px var(--accent-glow);
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 800;
 }
 
 /* Character Token States */

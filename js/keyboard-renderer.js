@@ -130,6 +130,12 @@ export class KeyboardRenderer {
       keyboardWrapper.appendChild(rowEl);
     });
 
+    // Special key mappings for whitespace and newlines
+    this.charToCode.set('\n', 'Enter');
+    this.charToCode.set('\r', 'Enter');
+    this.charToCode.set('\t', 'Tab');
+    this.charToCode.set(' ', 'Space');
+
     this.container.appendChild(keyboardWrapper);
   }
 

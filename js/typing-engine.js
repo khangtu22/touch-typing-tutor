@@ -145,7 +145,8 @@ export class TypingEngine {
 
     this.currentRoundIdx = roundIdx;
     const rawText = this.lesson.rounds[roundIdx] || '';
-    this.currentText = this.lesson.isCodePreset ? rawText : rawText.replace(/[ \t]{2,}/g, ' ').trim();
+    const isCode = !!(this.lesson.isCodeLesson || this.lesson.isCodePreset);
+    this.currentText = isCode ? rawText : rawText.replace(/[ \t]{2,}/g, ' ').trim();
     this.charIndex = 0;
     this.charStates = new Array(this.currentText.length).fill(null);
     this.mistypedCharIndices = new Set();
@@ -261,6 +262,11 @@ export class TypingEngine {
   }
 
   handleKeyDown(e) {
+    // Ignore keyboard shortcuts with Command/Ctrl (e.g. Cmd+K, Cmd+R, Cmd+C, Ctrl+C)
+    if (e.metaKey || e.ctrlKey) {
+      return;
+    }
+
     // Always swallow default browser scrolling/navigation keys in typing contexts
     if (['Space', 'Backspace', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || [' ', 'Backspace', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault?.();
@@ -285,21 +291,16 @@ export class TypingEngine {
       return;
     }
 
-    // If the text for the round is already complete, ignore any trailing keystrokes
-    if (this.charIndex >= this.currentText.length) {
-      return;
-    }
-
     const state = store.getState();
     const isWordCorrectionMode = !!state.settings.wordCorrectionMode;
 
     // --- Backspace Handling ---
+    // In Word Correction Mode, Backspace is handled first so typists can correct
+    // mistakes even when positioned at the end of the text.
     if (e.key === 'Backspace' || e.code === 'Backspace') {
       if (!isWordCorrectionMode) return;
 
       if (this.charIndex > 0) {
-        // Correction mode can continue across word boundaries. This lets a
-        // typist keep moving after an error and come back to fix it later.
         this.charIndex -= 1;
         this.charStates[this.charIndex] = null;
         sound.playKeyClick(this.getCurrentExpectedChar() || ' ');
@@ -308,12 +309,24 @@ export class TypingEngine {
       return;
     }
 
+    // If the text for the round is already complete, ignore any further character keystrokes
+    if (this.charIndex >= this.currentText.length) {
+      return;
+    }
+
     const expectedChar = this.getCurrentExpectedChar();
     if (!expectedChar && this.charIndex >= this.currentText.length) {
       return;
     }
 
-    const typedKey = e.key;
+    // Map physical Enter to newline and Tab to tab character for code and multi-line text
+    let typedKey = e.key;
+    if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
+      typedKey = '\n';
+    } else if (e.key === 'Tab' || e.code === 'Tab') {
+      typedKey = '\t';
+    }
+
     if (typedKey.length !== 1) {
       return;
     }
@@ -355,6 +368,8 @@ export class TypingEngine {
 
         if (expectedChar === ' ') {
           sound.playSpace();
+        } else if (expectedChar === '\n') {
+          sound.playKeyClick('Enter');
         } else {
           sound.playKeyClick(expectedChar);
         }
@@ -365,7 +380,7 @@ export class TypingEngine {
 
         this.charIndex += 1;
 
-        if (this.charIndex < this.currentText.length && this.currentText[this.charIndex - 1] === ' ') {
+        if (this.charIndex < this.currentText.length && (this.currentText[this.charIndex - 1] === ' ' || this.currentText[this.charIndex - 1] === '\n')) {
           sound.playWordComplete();
         }
 
@@ -408,7 +423,64 @@ export class TypingEngine {
       // ═════════════════════════════════════════════════════════════
       const currentWordIdx = this.getWordIndexForChar(this.charIndex);
 
-      if (expectedChar === ' ') {
+      if (expectedChar === '\n') {
+        if (typedKey === '\n') {
+          this.totalCorrect += 1;
+          this.currentCombo += 1;
+          this.maxCombo = Math.max(this.maxCombo, this.currentCombo);
+          this.charStates[this.charIndex] = { status: 'correct', char: '\n' };
+          sound.playKeyClick('Enter');
+          sound.playWordComplete();
+
+          if ([10, 25, 50, 100, 150, 200].includes(this.currentCombo)) {
+            sound.playCombo(this.currentCombo);
+          }
+
+          this.charIndex += 1;
+          this.emitState();
+
+          if (this.charIndex >= this.currentText.length) {
+            this.finishRound();
+          }
+        } else {
+          this.totalErrors += 1;
+          this.currentCombo = 0;
+          this.keyStatsDelta[charKey].errors += 1;
+          this.mistypedCharIndices.add(this.charIndex);
+          if (currentWordIdx >= 0) this.mistypedWordIndices.add(currentWordIdx);
+          this.recordMistypedWord(this.charIndex);
+          this.charStates[this.charIndex] = {
+            status: 'incorrect',
+            typed: typedKey,
+            expected: expectedChar
+          };
+          sound.playError();
+
+          if (state.settings.suddenDeath) {
+            this.charIndex = 0;
+            this.charStates = new Array(this.currentText.length).fill(null);
+            this.mistypedCharIndices = new Set();
+            this.mistypedWordIndices = new Set();
+            if (this.onSuddenDeathFail) this.onSuddenDeathFail();
+            this.emitState();
+            return;
+          }
+
+          if (this.onErrorFeedback) {
+            this.onErrorFeedback({
+              expectedChar,
+              typedKey,
+              targetFinger: getFingerForKey(expectedChar)
+            });
+          }
+          this.charIndex += 1;
+          this.emitState();
+
+          if (this.charIndex >= this.currentText.length) {
+            this.finishRound();
+          }
+        }
+      } else if (expectedChar === ' ') {
         // A word boundary is still a normal character in correction mode.
         // Accepting it lets the user continue typing after an earlier error.
         if (typedKey === ' ') {
@@ -426,7 +498,7 @@ export class TypingEngine {
           this.charIndex += 1;
           this.emitState();
 
-          if (this.charIndex >= this.currentText.length && this.isAllTextCorrect()) {
+          if (this.charIndex >= this.currentText.length) {
             this.finishRound();
           }
         } else {
@@ -444,6 +516,16 @@ export class TypingEngine {
           };
           sound.playError();
 
+          if (state.settings.suddenDeath) {
+            this.charIndex = 0;
+            this.charStates = new Array(this.currentText.length).fill(null);
+            this.mistypedCharIndices = new Set();
+            this.mistypedWordIndices = new Set();
+            if (this.onSuddenDeathFail) this.onSuddenDeathFail();
+            this.emitState();
+            return;
+          }
+
           if (this.onErrorFeedback) {
             this.onErrorFeedback({
               expectedChar,
@@ -453,6 +535,10 @@ export class TypingEngine {
           }
           this.charIndex += 1;
           this.emitState();
+
+          if (this.charIndex >= this.currentText.length) {
+            this.finishRound();
+          }
         }
       } else {
         // Expected a non-space character (inside a word)
@@ -471,13 +557,10 @@ export class TypingEngine {
           this.emitState();
 
           if (this.charIndex >= this.currentText.length) {
-            if (this.isAllTextCorrect()) {
-              this.finishRound();
-            }
+            this.finishRound();
           }
         } else {
           // Mistyped key inside a word!
-          // "when type wrong it keep typing" -> record incorrect & advance charIndex!
           this.totalErrors += 1;
           this.currentCombo = 0;
           this.keyStatsDelta[charKey].errors += 1;
@@ -515,6 +598,10 @@ export class TypingEngine {
 
           this.charIndex += 1; // Keep typing!
           this.emitState();
+
+          if (this.charIndex >= this.currentText.length) {
+            this.finishRound();
+          }
         }
       }
     }

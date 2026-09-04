@@ -3,6 +3,8 @@
  * Spotlight modal for keyboard-first navigation, mode switching, themes, and actions.
  */
 
+import { sound } from './sound-engine.js';
+
 export class CommandPalette {
   constructor(uiManager, store) {
     this.ui = uiManager;
@@ -40,11 +42,10 @@ export class CommandPalette {
 
       // --- Sound Profiles ---
       { id: 'sound_cherry_blue', title: 'Sound: Cherry MX Blue (Clicky)', category: 'Audio', icon: '🔊', action: () => this.setSound('cherry_blue') },
-      { id: 'sound_cherry_brown', title: 'Sound: Cherry MX Brown (Tactile)', category: 'Audio', icon: '🔊', action: () => this.setSound('cherry_brown') },
-      { id: 'sound_cherry_red', title: 'Sound: Cherry MX Red (Linear)', category: 'Audio', icon: '🔊', action: () => this.setSound('cherry_red') },
-      { id: 'sound_thock', title: 'Sound: Lubed Linear Thock', category: 'Audio', icon: '🔊', action: () => this.setSound('thock') },
-      { id: 'sound_typewriter', title: 'Sound: Vintage Typewriter Bell', category: 'Audio', icon: '🔔', action: () => this.setSound('typewriter') },
-      { id: 'sound_topre', title: 'Sound: Electrostatic Topre', category: 'Audio', icon: '🔊', action: () => this.setSound('topre') }
+      { id: 'sound_gateron_brown', title: 'Sound: Gateron Brown (Warm Tactile)', category: 'Audio', icon: '🔊', action: () => this.setSound('gateron_brown') },
+      { id: 'sound_holy_panda', title: 'Sound: Holy Panda / Topre (Deep Thock)', category: 'Audio', icon: '🔊', action: () => this.setSound('holy_panda') },
+      { id: 'sound_typewriter', title: 'Sound: Vintage Typewriter (Mechanical Bell)', category: 'Audio', icon: '🔔', action: () => this.setSound('typewriter') },
+      { id: 'sound_bubble_pop', title: 'Sound: Bubble Wrap Pop (Playful Pitch)', category: 'Audio', icon: '🫧', action: () => this.setSound('bubble_pop') }
     ];
 
     this.filteredCommands = [...this.commands];
@@ -66,7 +67,9 @@ export class CommandPalette {
       ...prev,
       settings: { ...prev.settings, switchProfile }
     }));
-    this.ui.showToast(`Sound profile set to ${switchProfile}`, 'teal');
+    sound.setSwitchProfile(switchProfile);
+    const friendlyName = switchProfile.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    this.ui.showToast(`Sound profile set to ${friendlyName}`, 'teal');
   }
 
   injectModal() {
