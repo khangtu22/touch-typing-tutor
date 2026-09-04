@@ -51,10 +51,29 @@ body.focus-mode-active .typing-box-card {
   box-shadow: none;
 }
 
+body.focus-mode-active .typing-text-viewport {
+  height: 5.4em;
+}
+
 body.focus-mode-active .typing-text-display {
-  font-size: 28px;
+  font-size: inherit;
   text-align: center;
   line-height: 1.8;
+}
+
+body.focus-mode-active .char-current {
+  background: transparent;
+  box-shadow: none;
+}
+
+body.focus-mode-active .char-caret {
+  top: -2px;
+  bottom: auto;
+  left: -2px;
+  width: 2px;
+  height: calc(100% + 4px);
+  background: var(--reward-amber);
+  box-shadow: 0 0 8px rgba(255, 184, 107, 0.7);
 }
 
 body.focus-mode-active .hud-live-metrics {
@@ -1835,4 +1854,3 @@ body.focus-mode-active .hud-live-metrics {
   font-size: 12px;
   font-weight: 700;
 }
-

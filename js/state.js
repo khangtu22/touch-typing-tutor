@@ -8,6 +8,25 @@ import { MASTERED_STARS, PASSING_STARS, PERFECT_STARS } from './mastery.js';
 
 const STORAGE_KEY = 'typing_tutor_progress';
 
+/**
+ * Returns a stable local-calendar date key (YYYY-MM-DD).
+ * Date-only strings are preserved so imported/exported history does not
+ * shift a session into the previous day in a non-UTC timezone.
+ */
+export function getLocalDateKey(value = new Date()) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export const LEVEL_TITLES = [
   'Keyboard Novice',      // Lvl 1
   'Home Row Apprentice',  // Lvl 2
@@ -166,10 +185,13 @@ class StateStore {
     this.saveTimeout = null;
     this.state = this.loadState();
 
-    // Preserve the latest setting if the page is refreshed before the
-    // debounced persistence timer has fired.
+    // Preserve the latest session and progress if the page is refreshed or hidden
     if (typeof window !== 'undefined') {
       window.addEventListener('pagehide', () => this.flushPersist());
+      window.addEventListener('beforeunload', () => this.flushPersist());
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') this.flushPersist();
+      });
     }
   }
 
@@ -182,9 +204,41 @@ class StateStore {
       if (!raw) return JSON.parse(JSON.stringify(DEFAULT_STATE));
       const parsed = JSON.parse(raw);
       const parsedSettings = parsed.settings || {};
+
+      // Sanitize and normalize sessions array so historical dates and metrics are retained
+      const rawSessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+      const cleanSessions = rawSessions
+        .filter(s => s && typeof s === 'object')
+        .map(s => {
+          const rawDate = s.date || s.recordedAt || s.timestamp;
+          let isoDate;
+          try {
+            const d = new Date(rawDate);
+            isoDate = !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString();
+          } catch (e) {
+            isoDate = new Date().toISOString();
+          }
+          return {
+            date: isoDate,
+            lessonId: s.lessonId ?? 'practice',
+            lessonTitle: s.lessonTitle || (s.lessonId ? `Lesson ${s.lessonId}` : 'Practice Session'),
+            wpm: Math.max(0, Math.round(Number(s.wpm) || 0)),
+            accuracy: Math.max(0, Math.min(100, Math.round(Number(s.accuracy) || 100))),
+            durationSec: Math.max(0, Math.round(Number(s.durationSec) || 0)),
+            stars: Math.max(1, Math.min(3, Math.round(Number(s.stars) || 1))),
+            xpEarned: Math.max(0, Math.round(Number(s.xpEarned) || 0)),
+            wpmHistory: Array.isArray(s.wpmHistory) ? s.wpmHistory : [],
+            kind: s.kind || (Number.isInteger(s.lessonId) && s.lessonId >= 1 && s.lessonId <= 30 ? 'lesson' : 'practice'),
+            mastery: s.mastery || null,
+            inFocusMode: !!s.inFocusMode,
+            speedTestPreset: s.speedTestPreset || null
+          };
+        });
+
       const state = {
         ...DEFAULT_STATE,
         ...parsed,
+        sessions: cleanSessions,
         settings: {
           ...DEFAULT_STATE.settings,
           ...parsedSettings,
@@ -234,11 +288,11 @@ class StateStore {
   }
 
   persist() {
-    if (this.saveTimeout) clearTimeout(this.saveTimeout);
-    this.saveTimeout = setTimeout(() => {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
       this.saveTimeout = null;
-      this.writeToStorage();
-    }, 150);
+    }
+    this.writeToStorage();
   }
 
   writeToStorage() {
@@ -252,10 +306,10 @@ class StateStore {
   }
 
   flushPersist() {
-    if (!this.saveTimeout) return;
-
-    clearTimeout(this.saveTimeout);
-    this.saveTimeout = null;
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
     this.writeToStorage();
   }
 
@@ -283,9 +337,12 @@ class StateStore {
     wpmHistory = [],
     mastery = null,
     isPlacementTest = false,
-    placementRecommendation = null
+    placementRecommendation = null,
+    inFocusMode = false,
+    kind = null,
+    speedTestPreset = null
   }) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const recordedAt = new Date().toISOString();
     const isCurriculumLesson = Number.isInteger(lessonId) && lessonId >= 1 && lessonId <= 30;
     const sessionStars = Math.min(PERFECT_STARS, Math.max(1, Number(stars) || 1));
@@ -309,21 +366,24 @@ class StateStore {
 
     const attemptsDelta = Object.values(keyStatsDelta).reduce((sum, key) => sum + (key.attempts || 0), 0);
     const errorsDelta = Object.values(keyStatsDelta).reduce((sum, key) => sum + (key.errors || 0), 0);
+    const sessionKind = kind || (isPlacementTest ? 'placement' : isCurriculumLesson ? 'lesson' : 'practice');
     const newSession = {
       date: recordedAt,
       lessonId,
       lessonTitle: lessonTitle || `Lesson ${lessonId}`,
-      wpm: Math.round(wpm),
-      accuracy: Math.round(accuracy),
-      durationSec: Math.round(durationSec),
+      wpm: Math.max(0, Math.round(wpm)),
+      accuracy: Math.max(0, Math.min(100, Math.round(accuracy))),
+      durationSec: Math.max(0, Math.round(durationSec)),
       stars: sessionStars,
-      xpEarned,
-      wpmHistory: wpmHistory || [],
-      kind: isPlacementTest ? 'placement' : isCurriculumLesson ? 'lesson' : 'practice',
-      mastery: isCurriculumLesson ? sessionMastery : null
+      xpEarned: Math.max(0, Math.round(xpEarned || 0)),
+      wpmHistory: Array.isArray(wpmHistory) ? wpmHistory : [],
+      kind: sessionKind,
+      mastery: isCurriculumLesson ? sessionMastery : null,
+      inFocusMode: !!inFocusMode,
+      speedTestPreset: speedTestPreset || null
     };
 
-    const sessions = [newSession, ...(this.state.sessions || [])].slice(0, 200);
+    const sessions = [newSession, ...(this.state.sessions || [])].slice(0, 1000);
 
     const starsByLesson = { ...(this.state.starsByLesson || {}) };
     const lessonCompletion = { ...(this.state.lessonCompletion || {}) };
@@ -410,6 +470,10 @@ class StateStore {
       lastPracticeDate: today,
       practiceDatesHistory: streakResult.history
     }));
+
+    // A completed session is durable user data. Commit it immediately so a
+    // quick tab close or browser shutdown cannot lose the latest history row.
+    this.flushPersist();
   }
 
   calculateStreakOnPractice(todayDateStr) {
@@ -424,7 +488,7 @@ class StateStore {
     } else {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = getLocalDateKey(yesterday);
 
       if (lastDate === yesterdayStr) {
         currentStreak += 1;
@@ -438,7 +502,7 @@ class StateStore {
 
   // Record arcade mini-game score, wave, and award XP
   recordArcadeResult({ gameId, score = 0, wave = 1, bossDefeated = false, wpm = 0, accuracy = 100, xpEarned = 50 }) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const streakResult = this.calculateStreakOnPractice(today);
 
     this.update(prev => {
@@ -517,6 +581,36 @@ class StateStore {
     });
   }
 
+  // Delete a single session by date or index
+  deleteSession(sessionDateOrIndex) {
+    this.update(prev => {
+      let filtered;
+      if (typeof sessionDateOrIndex === 'number') {
+        filtered = prev.sessions.filter((_, idx) => idx !== sessionDateOrIndex);
+      } else {
+        filtered = prev.sessions.filter(s => s.date !== sessionDateOrIndex);
+      }
+      const allWpms = filtered.map(s => s.wpm);
+      const avgWpm = allWpms.length ? Math.round(allWpms.reduce((a, b) => a + b, 0) / allWpms.length) : 0;
+      return {
+        ...prev,
+        sessions: filtered,
+        averageWpm: avgWpm
+      };
+    });
+    this.flushPersist();
+  }
+
+  // Clear all session history while preserving progress/stars
+  clearSessionHistory() {
+    this.update(prev => ({
+      ...prev,
+      sessions: [],
+      averageWpm: 0
+    }));
+    this.flushPersist();
+  }
+
   // Export state to downloadable JSON string
   exportBackupJson() {
     return JSON.stringify({
@@ -565,7 +659,7 @@ class StateStore {
   }
 
   seedDemo() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const demoStars = { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3, 9: 2, 10: 2, 11: 3, 12: 2 };
     const demoCompletion = {};
     for (let i = 1; i <= 12; i++) {
@@ -589,6 +683,29 @@ class StateStore {
       };
     });
 
+    const now = Date.now();
+    const ONE_DAY = 86400000;
+    const practiceDates = [];
+    for (let i = 6; i >= 0; i--) {
+      practiceDates.push(getLocalDateKey(new Date(now - i * ONE_DAY)));
+    }
+
+    // Generate realistic multi-day session timeline across the last 7 days
+    const demoSessions = [
+      { date: new Date(now - 1000 * 60 * 15).toISOString(), lessonId: 12, lessonTitle: 'Top & Home Flow', wpm: 68, accuracy: 98, durationSec: 75, stars: 3, xpEarned: 85, kind: 'lesson' },
+      { date: new Date(now - 1000 * 60 * 60 * 2).toISOString(), lessonId: 'speed-test-60s', lessonTitle: 'Speed Test (60s)', wpm: 64, accuracy: 96, durationSec: 60, stars: 3, xpEarned: 70, kind: 'speedtest' },
+      { date: new Date(now - 1000 * 60 * 60 * 5).toISOString(), lessonId: 11, lessonTitle: 'Top + Home Combinations', wpm: 61, accuracy: 97, durationSec: 68, stars: 3, xpEarned: 80, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY - 1000 * 60 * 60 * 3).toISOString(), lessonId: 10, lessonTitle: 'Rhythm & Word Cadence', wpm: 58, accuracy: 95, durationSec: 72, stars: 2, xpEarned: 65, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY - 1000 * 60 * 60 * 7).toISOString(), lessonId: 'js-syntax', lessonTitle: 'Code Arena: JavaScript ES6+', wpm: 52, accuracy: 94, durationSec: 90, stars: 2, xpEarned: 60, kind: 'code' },
+      { date: new Date(now - ONE_DAY * 2 - 1000 * 60 * 60 * 4).toISOString(), lessonId: 9, lessonTitle: 'Bottom Row C & M Keys', wpm: 56, accuracy: 96, durationSec: 70, stars: 3, xpEarned: 75, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY * 2 - 1000 * 60 * 60 * 9).toISOString(), lessonId: 8, lessonTitle: 'Bottom Row Anchors', wpm: 53, accuracy: 93, durationSec: 65, stars: 2, xpEarned: 55, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY * 3 - 1000 * 60 * 60 * 2).toISOString(), lessonId: 7, lessonTitle: 'Top Row Reaches', wpm: 50, accuracy: 96, durationSec: 60, stars: 3, xpEarned: 70, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY * 3 - 1000 * 60 * 60 * 6).toISOString(), lessonId: 'quote-1', lessonTitle: 'Quote Vault: Seneca on Time', wpm: 48, accuracy: 98, durationSec: 85, stars: 3, xpEarned: 80, kind: 'quote' },
+      { date: new Date(now - ONE_DAY * 4 - 1000 * 60 * 60 * 5).toISOString(), lessonId: 6, lessonTitle: 'Index Finger Extensions', wpm: 47, accuracy: 94, durationSec: 65, stars: 2, xpEarned: 55, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY * 5 - 1000 * 60 * 60 * 3).toISOString(), lessonId: 5, lessonTitle: 'Middle & Ring Agility', wpm: 45, accuracy: 92, durationSec: 62, stars: 2, xpEarned: 50, kind: 'lesson' },
+      { date: new Date(now - ONE_DAY * 6 - 1000 * 60 * 60 * 4).toISOString(), lessonId: 4, lessonTitle: 'Home Row Cadence', wpm: 42, accuracy: 97, durationSec: 58, stars: 3, xpEarned: 65, kind: 'lesson' }
+    ];
+
     const demoState = {
       schemaVersion: DEFAULT_STATE.schemaVersion,
       onboardingComplete: true,
@@ -598,29 +715,26 @@ class StateStore {
       starsByLesson: demoStars,
       lessonCompletion: demoCompletion,
       currentLesson: 13,
-      dailyStreak: 5,
+      dailyStreak: 7,
       bestStreak: 7,
       lastPracticeDate: today,
-      practiceDatesHistory: [today],
+      practiceDatesHistory: practiceDates,
       achievementsUnlocked: {
-        'first_steps': Date.now() - 86400000 * 5,
-        'home_row_hero': Date.now() - 86400000 * 4,
-        'top_row_master': Date.now() - 86400000 * 2,
-        'centurion': Date.now() - 86400000 * 1,
-        'speed_demon': Date.now() - 86400000 * 1
+        'first_steps': now - ONE_DAY * 6,
+        'home_row_hero': now - ONE_DAY * 5,
+        'top_row_master': now - ONE_DAY * 3,
+        'centurion': now - ONE_DAY * 2,
+        'speed_demon': now - ONE_DAY
       },
       keyStats: demoKeyStats,
-      sessions: [
-        { date: new Date().toISOString(), lessonId: 12, lessonTitle: 'Top & Home Flow', wpm: 58, accuracy: 96, durationSec: 75, stars: 2, xpEarned: 65 },
-        { date: new Date(Date.now() - 3600000).toISOString(), lessonId: 11, lessonTitle: 'Top + Home Combinations', wpm: 55, accuracy: 98, durationSec: 68, stars: 3, xpEarned: 85 }
-      ],
+      sessions: demoSessions,
       totalKeystrokes: 6820,
       totalCorrect: 6450,
       totalErrors: 370,
       totalPracticeTimeSec: 1840,
-      bestWpm: 64,
+      bestWpm: 68,
       averageWpm: 54,
-      bestAccuracy: 99,
+      bestAccuracy: 98,
       placementTest: null,
       settings: {
         soundEnabled: true,

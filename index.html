@@ -18,13 +18,13 @@
   <link rel="stylesheet" href="styles/themes.css?v=2.3.0">
   <link rel="stylesheet" href="styles/keyboard.css?v=2.3.0">
   <link rel="stylesheet" href="styles/hand-guide.css?v=2.3.0">
-  <link rel="stylesheet" href="styles/typing-area.css?v=2.3.0">
+  <link rel="stylesheet" href="styles/typing-area.css?v=2.4.0">
   <link rel="stylesheet" href="styles/dashboard.css?v=2.3.2">
   <link rel="stylesheet" href="styles/custom-practice.css?v=2.3.0">
   <link rel="stylesheet" href="styles/racing.css?v=2.3.0">
   <link rel="stylesheet" href="styles/results.css?v=2.3.2">
-  <link rel="stylesheet" href="styles/components.css?v=2.3.0">
-  <link rel="stylesheet" href="styles/premium.css?v=3.0.0">
+  <link rel="stylesheet" href="styles/components.css?v=3.1.0">
+  <link rel="stylesheet" href="styles/premium.css?v=3.0.1">
   <link rel="stylesheet" href="styles/arcade.css?v=3.1.0">
 </head>
 <body class="theme-dark">
@@ -197,7 +197,9 @@
 
           <!-- Active Text Box -->
           <div class="typing-box-card">
-            <div id="typing-text-display" class="typing-text-display"></div>
+            <div class="typing-text-viewport" aria-live="off">
+              <div id="typing-text-display" class="typing-text-display"></div>
+            </div>
           </div>
 
           <!-- Mechanical Keyboard with Integrated Hand Overlay -->

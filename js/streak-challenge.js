@@ -5,16 +5,17 @@
  */
 
 import { getDailyChallengeLesson } from './curriculum.js';
+import { getLocalDateKey } from './state.js';
 
 export class StreakEngine {
   static getTodayString() {
-    return new Date().toISOString().split('T')[0];
+    return getLocalDateKey();
   }
 
   static getYesterdayString() {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    return getLocalDateKey(yesterday);
   }
 
   /**

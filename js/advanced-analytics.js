@@ -1,88 +1,44 @@
 /**
- * Advanced Analytics Dashboard
- * Canvas-based charts, session history table, finger heatmap trends, CSV export.
- * Zero external dependencies – pure vanilla JS + Canvas API.
+ * Advanced Analytics & Performance Intelligence Dashboard
+ * High-DPI Canvas Charts, Interactive Hover Crosshairs & Tooltips,
+ * Dual View Modes (Per-Session vs Daily Average), Velocity Scorecards,
+ * Biomechanical Finger Mastery, Problem Key Action Diagnostics, and CSV Export.
  *
- * Exported API:
- *   renderWpmTrendChart(canvas, sessions, period)
- *   renderAccuracyTrendChart(canvas, sessions, period)
- *   renderFingerHeatmapTable(container, keyStats, period, sessions)
- *   renderSessionHistoryTable(container, sessions, sortKey, sortDir)
- *   exportSessionsCSV(sessions)
- *   renderAdvancedAnalyticsDashboard(container, state)
+ * Pure Vanilla Web Standards & Zero External Dependencies.
  */
 
 import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js';
+import { getLocalDateKey, store } from './state.js';
+import { AnalyticsEngine } from './analytics.js';
+import { generateWeakKeysLesson } from './curriculum.js';
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Helpers & Time Utilities
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a Date representing midnight (local time) for the ISO date string
- * stored on each session.  Normalising to midnight makes grouping by calendar
- * day deterministic regardless of the time component.
- * @param {string} isoString
+ * Parses any date value into a valid Date object or fallback.
+ * @param {string|number|Date} val
  * @returns {Date}
  */
-function dayStart(isoString) {
-  const d = new Date(isoString);
+function safeDate(val) {
+  if (!val) return new Date();
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+/**
+ * Returns a midnight Date for local day grouping.
+ * @param {string|number|Date} val
+ * @returns {Date}
+ */
+function dayStart(val) {
+  const d = safeDate(val);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 /**
- * Filters a sessions array to those that fall within the given period window.
- * @param {Array}              sessions
- * @param {'7d'|'30d'|'all'}  period
- * @returns {Array}
- */
-function filterByPeriod(sessions, period) {
-  if (!sessions || sessions.length === 0) return [];
-  if (period === 'all') return sessions;
-
-  const days = period === '7d' ? 7 : 30;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  cutoff.setHours(0, 0, 0, 0);
-
-  return sessions.filter(s => new Date(s.date) >= cutoff);
-}
-
-/**
- * Groups sessions by calendar day and returns an array of
- * { label: 'Mon DD', ts: number, avg: number } objects sorted oldest-first.
- * @param {Array}              sessions
- * @param {'wpm'|'accuracy'}   metric
- * @returns {Array<{label: string, ts: number, avg: number}>}
- */
-function groupByDay(sessions, metric) {
-  const map = new Map();
-
-  for (const s of sessions) {
-    const d = dayStart(s.date);
-    const key = d.getTime();
-    if (!map.has(key)) {
-      map.set(key, { ts: key, values: [], label: fmtShortDate(d) });
-    }
-    const v = s[metric];
-    if (typeof v === 'number' && !isNaN(v)) {
-      map.get(key).values.push(v);
-    }
-  }
-
-  return Array.from(map.values())
-    .sort((a, b) => a.ts - b.ts)
-    .map(entry => ({
-      label: entry.label,
-      ts: entry.ts,
-      avg: entry.values.length
-        ? Math.round(entry.values.reduce((a, b) => a + b, 0) / entry.values.length)
-        : 0
-    }));
-}
-
-/**
- * Short month+day format: "Sep 1", "Jan 15" etc.
+ * Formats a short calendar date: "Sep 3", "Oct 12"
  * @param {Date} d
  * @returns {string}
  */
@@ -91,51 +47,73 @@ function fmtShortDate(d) {
 }
 
 /**
- * Full date-time format for the session table: "Jan 01, 2026 09:42"
- * @param {string} isoString
+ * Formats full date and time: "Sep 03, 2026 21:42"
+ * @param {string|Date} val
  * @returns {string}
  */
-function fmtDateTime(isoString) {
-  const d = new Date(isoString);
-  const date = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+function fmtDateTime(val) {
+  const d = safeDate(val);
+  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${date} ${hh}:${mm}`;
+  return `${dateStr} ${hh}:${mm}`;
 }
 
 /**
- * Duration formatter: 95 → "1m 35s"
+ * Relative time or friendly time for tooltips: "Today at 9:42 PM" / "Yesterday at 14:15"
+ * @param {string|Date} val
+ * @returns {string}
+ */
+function fmtRelativeTime(val) {
+  const d = safeDate(val);
+  const todayKey = getLocalDateKey();
+  const dKey = getLocalDateKey(d);
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yKey = getLocalDateKey(yesterday);
+
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  if (dKey === todayKey) return `Today at ${timeStr}`;
+  if (dKey === yKey) return `Yesterday at ${timeStr}`;
+  return `${fmtShortDate(d)} at ${timeStr}`;
+}
+
+/**
+ * Formats duration in seconds: 85 -> "1m 25s", 42 -> "42s"
  * @param {number} sec
  * @returns {string}
  */
 function fmtDuration(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  const s = Math.round(Number(sec) || 0);
+  const m = Math.floor(s / 60);
+  const remS = s % 60;
+  return m > 0 ? `${m}m ${remS}s` : `${remS}s`;
 }
 
 /**
- * Renders star glyphs: ★ for earned, ☆ for empty (max 3).
+ * HTML star symbols
  * @param {number} count
- * @returns {string} – HTML string
+ * @returns {string}
  */
 function starsHtml(count) {
-  const MAX = 3;
+  const total = 3;
   let out = '';
-  for (let i = 0; i < MAX; i++) {
+  for (let i = 0; i < total; i++) {
     const filled = i < count;
-    out += `<span style="color:${filled ? 'var(--reward-amber)' : 'var(--text-muted)'}">${filled ? '★' : '☆'}</span>`;
+    out += `<span style="color: ${filled ? '#FFB86B' : 'rgba(255,255,255,0.2)'}; font-size: 13px;">${filled ? '★' : '☆'}</span>`;
   }
   return out;
 }
 
 /**
- * Minimal HTML escape for untrusted string content injected via innerHTML.
+ * Escapes HTML strings safely.
  * @param {string} str
  * @returns {string}
  */
-function escapeHtmlStr(str) {
-  return String(str)
+function escapeHtml(str) {
+  return String(str || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -143,150 +121,343 @@ function escapeHtmlStr(str) {
 }
 
 /**
- * Wraps a CSV cell value in double-quotes, escaping any inner double-quotes.
+ * Escapes CSV values.
  * @param {*} value
  * @returns {string}
  */
 function csvCell(value) {
-  const str = String(value).replace(/"/g, '""');
+  const str = String(value ?? '').replace(/"/g, '""');
   return `"${str}"`;
 }
 
+/**
+ * Filters sessions array by time window and ensures oldest-to-newest order for plotting.
+ * @param {Array} sessions
+ * @param {'7d'|'30d'|'90d'|'all'} period
+ * @returns {Array}
+ */
+export function filterByPeriod(sessions = [], period = '7d') {
+  if (!Array.isArray(sessions) || sessions.length === 0) return [];
+
+  // Sort chronological (oldest to newest)
+  const sorted = [...sessions].sort((a, b) => safeDate(a.date).getTime() - safeDate(b.date).getTime());
+  if (period === 'all') return sorted;
+
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  cutoff.setHours(0, 0, 0, 0);
+
+  return sorted.filter(s => safeDate(s.date) >= cutoff);
+}
+
+/**
+ * Prepares chart plotting points depending on view mode ('session' vs 'day').
+ * @param {Array} sessions - Chronologically sorted sessions in the period
+ * @param {'session'|'day'} mode
+ * @param {'wpm'|'accuracy'} metric
+ * @param {'7d'|'30d'|'90d'|'all'} period
+ * @returns {Array<object>}
+ */
+function prepareChartData(sessions = [], mode = 'session', metric = 'wpm', period = '7d') {
+  if (!sessions || sessions.length === 0) return [];
+
+  if (mode === 'session') {
+    return sessions.map((s, idx) => {
+      const val = typeof s[metric] === 'number' ? s[metric] : (metric === 'wpm' ? 0 : 100);
+      const d = safeDate(s.date);
+      return {
+        idx,
+        val,
+        wpm: s.wpm || 0,
+        accuracy: s.accuracy || 100,
+        durationSec: s.durationSec || 0,
+        stars: s.stars || 1,
+        title: s.lessonTitle || `Lesson ${s.lessonId}`,
+        kind: s.kind || 'lesson',
+        date: d,
+        label: fmtShortDate(d),
+        timeLabel: fmtRelativeTime(d),
+        subLabel: `#${idx + 1}`
+      };
+    });
+  }
+
+  // mode === 'day' -> Group by calendar day
+  const dayMap = new Map();
+  sessions.forEach(s => {
+    const dKey = getLocalDateKey(s.date);
+    if (!dayMap.has(dKey)) {
+      dayMap.set(dKey, {
+        dateStr: dKey,
+        date: dayStart(s.date),
+        wpms: [],
+        accuracies: [],
+        sessionsCount: 0,
+        totalDuration: 0,
+        titles: []
+      });
+    }
+    const entry = dayMap.get(dKey);
+    entry.wpms.push(Number(s.wpm) || 0);
+    entry.accuracies.push(Number(s.accuracy) || 100);
+    entry.sessionsCount++;
+    entry.totalDuration += (Number(s.durationSec) || 0);
+    entry.titles.push(s.lessonTitle || `Lesson ${s.lessonId}`);
+  });
+
+  // For 7d and 30d views, build continuous calendar days so rest days are visible
+  const points = [];
+  if (period === '7d' || period === '30d') {
+    const totalDays = period === '7d' ? 7 : 30;
+    const today = new Date();
+    for (let i = totalDays - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dKey = getLocalDateKey(d);
+      const existing = dayMap.get(dKey);
+
+      if (existing) {
+        const avgWpm = Math.round(existing.wpms.reduce((a, b) => a + b, 0) / existing.wpms.length);
+        const avgAcc = Math.round(existing.accuracies.reduce((a, b) => a + b, 0) / existing.accuracies.length);
+        points.push({
+          idx: points.length,
+          val: metric === 'wpm' ? avgWpm : avgAcc,
+          wpm: avgWpm,
+          accuracy: avgAcc,
+          sessionsCount: existing.sessionsCount,
+          durationSec: existing.totalDuration,
+          date: d,
+          dateStr: dKey,
+          label: fmtShortDate(d),
+          timeLabel: `${fmtShortDate(d)} (${existing.sessionsCount} session${existing.sessionsCount > 1 ? 's' : ''})`,
+          hasActivity: true
+        });
+      } else {
+        // Inactive day point (only included in timeline if there is adjacent activity)
+        points.push({
+          idx: points.length,
+          val: null, // Gap / rest day
+          wpm: 0,
+          accuracy: 0,
+          sessionsCount: 0,
+          durationSec: 0,
+          date: d,
+          dateStr: dKey,
+          label: fmtShortDate(d),
+          timeLabel: `${fmtShortDate(d)} (Rest day)`,
+          hasActivity: false
+        });
+      }
+    }
+  } else {
+    // 90d or All -> Only active days sorted
+    Array.from(dayMap.values())
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .forEach((entry, idx) => {
+        const avgWpm = Math.round(entry.wpms.reduce((a, b) => a + b, 0) / entry.wpms.length);
+        const avgAcc = Math.round(entry.accuracies.reduce((a, b) => a + b, 0) / entry.accuracies.length);
+        points.push({
+          idx,
+          val: metric === 'wpm' ? avgWpm : avgAcc,
+          wpm: avgWpm,
+          accuracy: avgAcc,
+          sessionsCount: entry.sessionsCount,
+          durationSec: entry.totalDuration,
+          date: entry.date,
+          dateStr: entry.dateStr,
+          label: fmtShortDate(entry.date),
+          timeLabel: `${fmtShortDate(entry.date)} (${entry.sessionsCount} runs)`,
+          hasActivity: true
+        });
+      });
+  }
+
+  return points;
+}
+
 // ---------------------------------------------------------------------------
-// Canvas utilities
+// High-DPI Canvas Setup & Interactive Crosshair Engine
 // ---------------------------------------------------------------------------
 
 /**
- * DPI-aware canvas setup.  Sizes the canvas bitmap to match the CSS layout
- * dimensions multiplied by devicePixelRatio, then scales the 2D context so
- * that all drawing coordinates remain in CSS pixel units.
- *
+ * Initializes a crisp High-DPI Canvas context.
  * @param {HTMLCanvasElement} canvas
  * @returns {{ ctx: CanvasRenderingContext2D, W: number, H: number }}
  */
 function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  // Use the element's rendered width/height (set by CSS)
-  const W = canvas.clientWidth  || 600;
-  const H = canvas.clientHeight || 220;
+  const rect = canvas.getBoundingClientRect();
+  const W = Math.max(rect.width || canvas.clientWidth || 400, 280);
+  const H = Math.max(rect.height || canvas.clientHeight || 240, 180);
 
-  canvas.width  = Math.round(W * dpr);
+  canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
 
   const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
   ctx.scale(dpr, dpr);
 
   return { ctx, W, H };
 }
 
 /**
- * Draws a centred "No data" placeholder on the canvas.
+ * Draws an empty state card on canvas.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} W
  * @param {number} H
- * @param {string} [msg]
+ * @param {string} msg
  */
-function drawEmpty(ctx, W, H, msg = 'No data for this period') {
+function drawEmptyState(ctx, W, H, msg = 'No sessions recorded in this period') {
   ctx.clearRect(0, 0, W, H);
   ctx.save();
-  ctx.fillStyle = 'rgba(92,101,120,0.7)';
-  ctx.font = '13px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(154, 163, 178, 0.6)';
+  ctx.font = '500 13px Inter, -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(msg, W / 2, H / 2);
+  ctx.fillText(msg, W / 2, H / 2 - 10);
+  ctx.font = '11px Inter, -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(154, 163, 178, 0.4)';
+  ctx.fillText('Complete a typing session to see your live curve', W / 2, H / 2 + 12);
   ctx.restore();
 }
 
-// ---------------------------------------------------------------------------
-// Core chart renderer (shared engine for WPM and Accuracy charts)
-// ---------------------------------------------------------------------------
-
 /**
- * @typedef {Object} TrendChartOptions
- * @property {'wpm'|'accuracy'} metric
- * @property {string} lineColor        – solid line and dot colour
- * @property {string} gradientTop      – rgba() at the top of the fill gradient
- * @property {string} gradientBottom   – rgba() at the bottom (usually transparent)
- * @property {string} [yLabel]         – optional suffix for y-axis tick labels (e.g. '%')
- */
-
-/**
- * Renders a canvas trend chart: grid, gradient area fill, smooth Bézier line,
- * data-point circles, and labelled axes.
+ * Shared Core Chart Renderer supporting:
+ * - Bézier curve or stepped interpolation
+ * - Glowing underfill gradients
+ * - Target benchmark & Average dashed lines
+ * - Interactive hover crosshair & highlight dot
  *
- * @param {HTMLCanvasElement}  canvas
- * @param {Array}              sessions
- * @param {'7d'|'30d'|'all'}  period
- * @param {TrendChartOptions}  opts
+ * @param {HTMLCanvasElement} canvas
+ * @param {Array} points
+ * @param {object} opts
+ * @param {number|null} hoverIdx - Index of point currently hovered
  */
-function renderTrendChart(canvas, sessions, period, opts) {
+function renderCanvasChart(canvas, points, opts, hoverIdx = null) {
   const { ctx, W, H } = setupCanvas(canvas);
 
-  // ── Filter & group ──────────────────────────────────────────────────────
-  const filtered = filterByPeriod(sessions, period);
-  if (filtered.length === 0) { drawEmpty(ctx, W, H); return; }
+  const validPoints = points.filter(p => p.val !== null);
+  if (validPoints.length === 0) {
+    drawEmptyState(ctx, W, H);
+    return;
+  }
 
-  const points = groupByDay(filtered, opts.metric);
-  if (points.length === 0) { drawEmpty(ctx, W, H); return; }
-
-  // ── Layout constants ────────────────────────────────────────────────────
-  const PAD = { top: 24, right: 28, bottom: 44, left: 52 };
+  const PAD = { top: 28, right: 36, bottom: 44, left: 54 };
   const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top  - PAD.bottom;
+  const chartH = H - PAD.top - PAD.bottom;
 
-  // ── Value range ─────────────────────────────────────────────────────────
-  const vals   = points.map(p => p.avg);
-  const rawMin = Math.min(...vals);
-  const rawMax = Math.max(...vals);
-  const isAcc  = opts.metric === 'accuracy';
+  // Compute scale boundaries
+  const vals = validPoints.map(p => p.val);
+  const minObserved = Math.min(...vals);
+  const maxObserved = Math.max(...vals);
 
-  const maxVal = isAcc ? 100 : Math.max(rawMax + 10, 20);
-  const minVal = Math.max(0, rawMin - (isAcc ? 5 : 10));
-  const range  = maxVal - minVal || 1;
+  let minVal, maxVal;
+  if (opts.metric === 'accuracy') {
+    minVal = Math.max(0, Math.min(80, Math.floor((minObserved - 5) / 5) * 5));
+    maxVal = 100;
+  } else {
+    const targetWpm = opts.targetWpm || 40;
+    maxVal = Math.max(maxObserved + 10, targetWpm + 10, 30);
+    minVal = Math.max(0, Math.min(minObserved - 10, 0));
+  }
+  const range = maxVal - minVal || 1;
 
-  // ── Coordinate mappers ───────────────────────────────────────────────────
-  const xOf = idx =>
-    PAD.left + (points.length === 1 ? chartW / 2 : (idx / (points.length - 1)) * chartW);
-  const yOf = val =>
-    PAD.top + chartH - ((val - minVal) / range) * chartH;
+  // Coordinate mappers
+  const xOf = idx => {
+    if (points.length <= 1) return PAD.left + chartW / 2;
+    return PAD.left + (idx / (points.length - 1)) * chartW;
+  };
 
-  // ── Clear ────────────────────────────────────────────────────────────────
+  const yOf = val => {
+    if (val === null) return PAD.top + chartH;
+    const clamped = Math.min(maxVal, Math.max(minVal, val));
+    return PAD.top + chartH - ((clamped - minVal) / range) * chartH;
+  };
+
   ctx.clearRect(0, 0, W, H);
 
-  // ── Horizontal grid lines ─────────────────────────────────────────────────
-  const GRID_LINES = 4;
+  // 1. Horizontal Grid Lines & Y-Axis Labels
+  const GRID_STEPS = 4;
   ctx.save();
-  ctx.setLineDash([4, 4]);
-  for (let i = 0; i <= GRID_LINES; i++) {
-    const y = PAD.top + (chartH / GRID_LINES) * i;
-    // Baseline uses a slightly stronger stroke
-    ctx.strokeStyle = i === GRID_LINES
-      ? 'rgba(255,255,255,0.15)'
-      : 'rgba(255,255,255,0.07)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.font = '11px "JetBrains Mono", monospace';
+
+  for (let i = 0; i <= GRID_STEPS; i++) {
+    const y = PAD.top + (chartH / GRID_STEPS) * i;
+    const stepVal = Math.round(minVal + (range / GRID_STEPS) * (GRID_STEPS - i));
+
+    ctx.strokeStyle = i === GRID_STEPS ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
-    ctx.setLineDash(i === GRID_LINES ? [] : [4, 4]);
+    ctx.setLineDash(i === GRID_STEPS ? [] : [3, 4]);
+
     ctx.beginPath();
     ctx.moveTo(PAD.left, y);
     ctx.lineTo(PAD.left + chartW, y);
     ctx.stroke();
+
+    ctx.fillStyle = 'rgba(154, 163, 178, 0.7)';
+    ctx.fillText(`${stepVal}${opts.ySuffix || ''}`, PAD.left - 8, y);
   }
   ctx.restore();
 
-  // ── Y-axis labels ─────────────────────────────────────────────────────────
-  ctx.save();
-  ctx.fillStyle = 'rgba(154,163,178,0.8)';
-  ctx.font = '11px Inter, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  for (let i = 0; i <= GRID_LINES; i++) {
-    const val = Math.round(minVal + (range / GRID_LINES) * (GRID_LINES - i));
-    const y   = PAD.top + (chartH / GRID_LINES) * i;
-    ctx.fillText(`${val}${opts.yLabel || ''}`, PAD.left - 8, y);
-  }
-  ctx.restore();
+  // 2. Target Reference Line (if specified)
+  if (opts.targetVal && opts.targetVal >= minVal && opts.targetVal <= maxVal) {
+    const targetY = yOf(opts.targetVal);
+    ctx.save();
+    ctx.strokeStyle = opts.targetColor || 'rgba(255, 184, 107, 0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, targetY);
+    ctx.lineTo(PAD.left + chartW, targetY);
+    ctx.stroke();
 
-  // ── Gradient area fill (only when ≥ 2 points for a closed shape) ──────────
-  if (points.length > 1) {
+    ctx.fillStyle = opts.targetColor || 'rgba(255, 184, 107, 0.9)';
+    ctx.font = '600 10px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${opts.targetLabel || 'Target'}: ${opts.targetVal}${opts.ySuffix || ''}`, PAD.left + 8, targetY - 7);
+    ctx.restore();
+  }
+
+  // 3. Period Average Reference Line
+  if (validPoints.length > 1) {
+    const avgVal = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    const avgY = yOf(avgVal);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, avgY);
+    ctx.lineTo(PAD.left + chartW, avgY);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(154, 163, 178, 0.6)';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`avg ${avgVal}${opts.ySuffix || ''}`, PAD.left + chartW - 6, avgY - 6);
+    ctx.restore();
+  }
+
+  // Filter contiguous active segments (for day mode with gaps)
+  const segments = [];
+  let currentSegment = [];
+  points.forEach(p => {
+    if (p.val !== null) {
+      currentSegment.push(p);
+    } else if (currentSegment.length > 0) {
+      segments.push(currentSegment);
+      currentSegment = [];
+    }
+  });
+  if (currentSegment.length > 0) segments.push(currentSegment);
+
+  // 4. Gradient Area Fill
+  segments.forEach(seg => {
+    if (seg.length <= 1) return;
+
     const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + chartH);
     grad.addColorStop(0, opts.gradientTop);
     grad.addColorStop(1, opts.gradientBottom);
@@ -294,214 +465,371 @@ function renderTrendChart(canvas, sessions, period, opts) {
     ctx.save();
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.moveTo(xOf(0), yOf(points[0].avg));
+    ctx.moveTo(xOf(seg[0].idx), yOf(seg[0].val));
 
-    for (let i = 1; i < points.length; i++) {
-      const xc = (xOf(i - 1) + xOf(i)) / 2;
-      const yc = (yOf(points[i - 1].avg) + yOf(points[i].avg)) / 2;
-      ctx.quadraticCurveTo(xOf(i - 1), yOf(points[i - 1].avg), xc, yc);
+    for (let i = 1; i < seg.length; i++) {
+      const prevX = xOf(seg[i - 1].idx);
+      const prevY = yOf(seg[i - 1].val);
+      const currX = xOf(seg[i].idx);
+      const currY = yOf(seg[i].val);
+      const midX = (prevX + currX) / 2;
+      const midY = (prevY + currY) / 2;
+      ctx.quadraticCurveTo(prevX, prevY, midX, midY);
     }
-    // Close back down to the baseline
-    ctx.lineTo(xOf(points.length - 1), yOf(points[points.length - 1].avg));
-    ctx.lineTo(xOf(points.length - 1), PAD.top + chartH);
-    ctx.lineTo(xOf(0), PAD.top + chartH);
+    const lastP = seg[seg.length - 1];
+    ctx.lineTo(xOf(lastP.idx), yOf(lastP.val));
+    ctx.lineTo(xOf(lastP.idx), PAD.top + chartH);
+    ctx.lineTo(xOf(seg[0].idx), PAD.top + chartH);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
-  }
+  });
 
-  // ── Smooth Bézier line ────────────────────────────────────────────────────
-  ctx.save();
-  ctx.strokeStyle = opts.lineColor;
-  ctx.lineWidth   = 2.5;
-  ctx.lineJoin    = 'round';
-  ctx.lineCap     = 'round';
-  ctx.beginPath();
-
-  if (points.length === 1) {
-    // Single data point – render a small horizontal tick instead of a dot-line
-    ctx.moveTo(xOf(0) - 12, yOf(points[0].avg));
-    ctx.lineTo(xOf(0) + 12, yOf(points[0].avg));
-  } else {
-    ctx.moveTo(xOf(0), yOf(points[0].avg));
-    for (let i = 1; i < points.length; i++) {
-      const xc = (xOf(i - 1) + xOf(i)) / 2;
-      const yc = (yOf(points[i - 1].avg) + yOf(points[i].avg)) / 2;
-      ctx.quadraticCurveTo(xOf(i - 1), yOf(points[i - 1].avg), xc, yc);
-    }
-    ctx.lineTo(xOf(points.length - 1), yOf(points[points.length - 1].avg));
-  }
-  ctx.stroke();
-  ctx.restore();
-
-  // ── Data point circles ────────────────────────────────────────────────────
-  for (let i = 0; i < points.length; i++) {
-    const x = xOf(i);
-    const y = yOf(points[i].avg);
-
-    // Subtle glow ring
+  // 5. Smooth Curve Stroke
+  segments.forEach(seg => {
     ctx.save();
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = opts.lineColor;
+    ctx.strokeStyle = opts.lineColor;
+    ctx.lineWidth = 2.75;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.shadowColor = opts.lineColor;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
-    ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+
+    if (seg.length === 1) {
+      const px = xOf(seg[0].idx);
+      const py = yOf(seg[0].val);
+      ctx.moveTo(px - 14, py);
+      ctx.lineTo(px + 14, py);
+    } else {
+      ctx.moveTo(xOf(seg[0].idx), yOf(seg[0].val));
+      for (let i = 1; i < seg.length; i++) {
+        const prevX = xOf(seg[i - 1].idx);
+        const prevY = yOf(seg[i - 1].val);
+        const currX = xOf(seg[i].idx);
+        const currY = yOf(seg[i].val);
+        const midX = (prevX + currX) / 2;
+        const midY = (prevY + currY) / 2;
+        ctx.quadraticCurveTo(prevX, prevY, midX, midY);
+      }
+      const lastP = seg[seg.length - 1];
+      ctx.lineTo(xOf(lastP.idx), yOf(lastP.val));
+    }
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // 6. Data Point Circles
+  validPoints.forEach(p => {
+    const isHovered = hoverIdx === p.idx;
+    const x = xOf(p.idx);
+    const y = yOf(p.val);
+
+    // Glow Halo
+    ctx.save();
+    ctx.fillStyle = opts.lineColor;
+    ctx.globalAlpha = isHovered ? 0.45 : 0.2;
+    ctx.beginPath();
+    ctx.arc(x, y, isHovered ? 8.5 : 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // Solid filled dot with dark border
+    // Solid Node Dot
     ctx.save();
-    ctx.fillStyle   = opts.lineColor;
-    ctx.strokeStyle = '#151923';
-    ctx.lineWidth   = 1.5;
+    ctx.fillStyle = isHovered ? '#FFFFFF' : opts.lineColor;
+    ctx.strokeStyle = '#121620';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.arc(x, y, isHovered ? 5 : 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.restore();
+  });
+
+  // 7. Interactive Crosshair & Cursor Highlight
+  if (hoverIdx !== null) {
+    const hoverP = points.find(p => p.idx === hoverIdx);
+    if (hoverP && hoverP.val !== null) {
+      const hx = xOf(hoverP.idx);
+      const hy = yOf(hoverP.val);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(hx, PAD.top);
+      ctx.lineTo(hx, PAD.top + chartH);
+      ctx.stroke();
+      ctx.restore();
+
+      // Outer Pulsing Ring
+      ctx.save();
+      ctx.strokeStyle = opts.lineColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
-  // ── X-axis date labels ────────────────────────────────────────────────────
-  // Limit the number of visible labels to avoid crowding
-  const maxLabels = Math.min(points.length, 7);
-  const step = Math.max(1, Math.floor((points.length - 1) / Math.max(1, maxLabels - 1)));
-
+  // 8. X-Axis Date Labels
   ctx.save();
-  ctx.fillStyle    = 'rgba(154,163,178,0.8)';
-  ctx.font         = '10px Inter, sans-serif';
-  ctx.textAlign    = 'center';
+  ctx.fillStyle = 'rgba(154, 163, 178, 0.75)';
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
+  const maxLabels = Math.min(points.length, 8);
+  const step = Math.max(1, Math.floor((points.length - 1) / Math.max(1, maxLabels - 1)));
   const drawnX = new Set();
+
   for (let i = 0; i < points.length; i += step) {
     const x = Math.round(xOf(i));
     if (drawnX.has(x)) continue;
     drawnX.add(x);
     ctx.fillText(points[i].label, x, PAD.top + chartH + 9);
   }
-  // Always render the very last label
+
+  // Always draw last point label
   if (points.length > 1) {
-    const last = points.length - 1;
-    const x = Math.round(xOf(last));
+    const lastIdx = points.length - 1;
+    const x = Math.round(xOf(lastIdx));
     if (!drawnX.has(x)) {
-      ctx.fillText(points[last].label, x, PAD.top + chartH + 9);
+      ctx.fillText(points[lastIdx].label, x, PAD.top + chartH + 9);
     }
   }
   ctx.restore();
 }
 
-// ---------------------------------------------------------------------------
-// 1. renderWpmTrendChart
-// ---------------------------------------------------------------------------
-
 /**
- * Renders a WPM trend chart onto the given canvas using the Canvas 2D API.
- * Supports period filtering ('7d', '30d', 'all') and shows a graceful empty
- * state when no data is available.
- *
- * Colour: purple (#7C5CFC) line with rgba(124,92,252,0.4) → transparent fill.
- *
- * @param {HTMLCanvasElement}  canvas
- * @param {Array}              sessions  – state.sessions
- * @param {'7d'|'30d'|'all'}  period
+ * Attaches pointer/touch listeners to the canvas for interactive hover tooltips.
+ * @param {HTMLCanvasElement} canvas
+ * @param {HTMLElement} tooltipEl
+ * @param {Array} points
+ * @param {object} opts
  */
-export function renderWpmTrendChart(canvas, sessions, period) {
-  renderTrendChart(canvas, sessions, period, {
-    metric:         'wpm',
-    lineColor:      '#7C5CFC',
-    gradientTop:    'rgba(124,92,252,0.4)',
-    gradientBottom: 'rgba(124,92,252,0)',
-    yLabel:         ''
-  });
-}
+function attachChartInteractivity(canvas, tooltipEl, points, opts) {
+  if (!canvas || !tooltipEl || points.length === 0) return;
 
-// ---------------------------------------------------------------------------
-// 2. renderAccuracyTrendChart
-// ---------------------------------------------------------------------------
+  const PAD = { top: 28, right: 36, bottom: 44, left: 54 };
 
-/**
- * Renders an accuracy trend chart onto the given canvas.
- * Y-axis is capped at 100 %.  Colour: teal (#00D4AA).
- *
- * @param {HTMLCanvasElement}  canvas
- * @param {Array}              sessions
- * @param {'7d'|'30d'|'all'}  period
- */
-export function renderAccuracyTrendChart(canvas, sessions, period) {
-  renderTrendChart(canvas, sessions, period, {
-    metric:         'accuracy',
-    lineColor:      '#00D4AA',
-    gradientTop:    'rgba(0,212,170,0.35)',
-    gradientBottom: 'rgba(0,212,170,0)',
-    yLabel:         '%'
-  });
-}
+  const onPointerMove = e => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : null);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : null);
+    if (clientX === null) return;
 
-// ---------------------------------------------------------------------------
-// 3. renderFingerHeatmapTable
-// ---------------------------------------------------------------------------
+    const mouseX = clientX - rect.left;
+    const mouseY = clientY - rect.top;
 
-/**
- * Computes per-finger accuracy aggregates from a keyStats object.
- *
- * @param {Object} keyStats – state.keyStats  { [char]: { attempts, errors } }
- * @returns {Array<{finger: Object, accuracy: number, totalAttempts: number}>}
- */
-function computeFingerAccuracies(keyStats) {
-  // Initialise a bucket for every finger
-  const stats = {};
-  Object.values(FINGERS).forEach(f => {
-    stats[f.id] = { finger: f, totalAttempts: 0, totalErrors: 0 };
-  });
-
-  // Accumulate key-level data into finger buckets
-  Object.entries(keyStats || {}).forEach(([char, data]) => {
-    const fingerId = KEY_TO_FINGER[char] || KEY_TO_FINGER[char.toLowerCase()];
-    if (fingerId && stats[fingerId]) {
-      stats[fingerId].totalAttempts += (data.attempts || 0);
-      stats[fingerId].totalErrors   += (data.errors   || 0);
+    const chartW = rect.width - PAD.left - PAD.right;
+    if (mouseX < PAD.left - 10 || mouseX > rect.width - PAD.right + 10) {
+      tooltipEl.style.opacity = '0';
+      tooltipEl.style.pointerEvents = 'none';
+      renderCanvasChart(canvas, points, opts, null);
+      return;
     }
-  });
 
-  return Object.values(stats).map(entry => {
-    const { totalAttempts, totalErrors } = entry;
-    const accuracy = totalAttempts >= 5
-      ? Math.max(0, Math.min(100, Math.round(((totalAttempts - totalErrors) / totalAttempts) * 100)))
-      : 100; // Fresh baseline when fewer than 5 attempts
-    return { finger: entry.finger, accuracy, totalAttempts };
-  });
+    // Find nearest point
+    let nearest = points[0];
+    let minDiff = Infinity;
+
+    points.forEach(p => {
+      if (p.val === null) return;
+      const px = points.length <= 1
+        ? PAD.left + chartW / 2
+        : PAD.left + (p.idx / (points.length - 1)) * chartW;
+      const diff = Math.abs(mouseX - px);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = p;
+      }
+    });
+
+    if (!nearest) return;
+
+    // Redraw with highlight crosshair
+    renderCanvasChart(canvas, points, opts, nearest.idx);
+
+    // Populate Tooltip
+    const kindBadge = nearest.kind === 'code'
+      ? '<span class="aa-tag aa-tag-code">💻 Code</span>'
+      : nearest.kind === 'speedtest'
+        ? '<span class="aa-tag aa-tag-speed">⚡ Speed Test</span>'
+        : nearest.kind === 'quote'
+          ? '<span class="aa-tag aa-tag-quote">📜 Quote</span>'
+          : '<span class="aa-tag aa-tag-lesson">📖 Lesson</span>';
+
+    const wpmVal = nearest.wpm ?? nearest.val ?? 0;
+    const accVal = nearest.accuracy ?? 100;
+    const starsMarkup = nearest.stars ? starsHtml(nearest.stars) : '';
+
+    tooltipEl.innerHTML = `
+      <div class="aa-tip-header">
+        <span class="aa-tip-title">${escapeHtml(nearest.title || 'Practice Session')}</span>
+        ${kindBadge}
+      </div>
+      <div class="aa-tip-time">${nearest.timeLabel || fmtRelativeTime(nearest.date)}</div>
+      <div class="aa-tip-metrics">
+        <div class="aa-tip-metric">
+          <span class="aa-tip-val" style="color: #7C5CFC;">${wpmVal}</span>
+          <span class="aa-tip-lbl">WPM</span>
+        </div>
+        <div class="aa-tip-metric">
+          <span class="aa-tip-val" style="color: #00D4AA;">${accVal}%</span>
+          <span class="aa-tip-lbl">ACC</span>
+        </div>
+        ${nearest.durationSec ? `
+          <div class="aa-tip-metric">
+            <span class="aa-tip-val" style="color: var(--text-secondary);">${fmtDuration(nearest.durationSec)}</span>
+            <span class="aa-tip-lbl">TIME</span>
+          </div>
+        ` : ''}
+      </div>
+      ${starsMarkup ? `<div class="aa-tip-stars">${starsMarkup}</div>` : ''}
+    `;
+
+    // Positioning
+    const tipW = tooltipEl.offsetWidth || 180;
+    const tipH = tooltipEl.offsetHeight || 110;
+    let left = mouseX + 14;
+    let top = mouseY - tipH / 2;
+
+    if (left + tipW > rect.width - 10) left = mouseX - tipW - 14;
+    if (top < 10) top = 10;
+    if (top + tipH > rect.height - 10) top = rect.height - tipH - 10;
+
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${top}px`;
+    tooltipEl.style.opacity = '1';
+  };
+
+  const onPointerLeave = () => {
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.pointerEvents = 'none';
+    renderCanvasChart(canvas, points, opts, null);
+  };
+
+  canvas.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mouseleave', onPointerLeave);
+  canvas.addEventListener('touchmove', onPointerMove, { passive: true });
+  canvas.addEventListener('touchend', onPointerLeave);
+}
+
+// ---------------------------------------------------------------------------
+// Chart Wrappers
+// ---------------------------------------------------------------------------
+
+export function renderWpmTrendChart(canvas, tooltipEl, sessions = [], period = '7d', mode = 'session', targetWpm = 40) {
+  const filtered = filterByPeriod(sessions, period);
+  const points = prepareChartData(filtered, mode, 'wpm', period);
+
+  const opts = {
+    metric: 'wpm',
+    lineColor: '#7C5CFC',
+    gradientTop: 'rgba(124, 92, 252, 0.45)',
+    gradientBottom: 'rgba(124, 92, 252, 0.0)',
+    ySuffix: '',
+    targetVal: targetWpm,
+    targetLabel: 'Goal',
+    targetColor: 'rgba(255, 184, 107, 0.85)'
+  };
+
+  renderCanvasChart(canvas, points, opts);
+  if (tooltipEl) attachChartInteractivity(canvas, tooltipEl, points, opts);
+}
+
+export function renderAccuracyTrendChart(canvas, tooltipEl, sessions = [], period = '7d', mode = 'session') {
+  const filtered = filterByPeriod(sessions, period);
+  const points = prepareChartData(filtered, mode, 'accuracy', period);
+
+  const opts = {
+    metric: 'accuracy',
+    lineColor: '#00D4AA',
+    gradientTop: 'rgba(0, 212, 170, 0.4)',
+    gradientBottom: 'rgba(0, 212, 170, 0.0)',
+    ySuffix: '%',
+    targetVal: 95,
+    targetLabel: 'Target',
+    targetColor: 'rgba(0, 212, 170, 0.7)'
+  };
+
+  renderCanvasChart(canvas, points, opts);
+  if (tooltipEl) attachChartInteractivity(canvas, tooltipEl, points, opts);
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics: Weak Keys & 10-Finger Biomechanical Heatmap
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders the top problem keys with error stats and a 1-click adaptive drill button.
+ * @param {HTMLElement} container
+ * @param {object} keyStats
+ * @param {object} uiManager
+ */
+export function renderProblemKeysDiagnostic(container, keyStats = {}, uiManager = null) {
+  const weakKeys = AnalyticsEngine.getWeakKeys(keyStats, 5);
+
+  if (weakKeys.length === 0) {
+    container.innerHTML = `
+      <div class="aa-diag-clean">
+        <div style="font-size: 28px; margin-bottom: 6px;">✨</div>
+        <div style="font-size: 13.5px; font-weight: 700; color: var(--text-primary);">Zero Problem Keys Detected</div>
+        <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0;">All practiced keys currently maintain >= 94% touch typing accuracy.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = weakKeys.map(k => {
+    const fingerId = KEY_TO_FINGER[k.char] || KEY_TO_FINGER[k.char.toLowerCase()];
+    const fingerObj = Object.values(FINGERS).find(f => f.id === fingerId);
+    const fingerName = fingerObj ? fingerObj.name : 'Home Row';
+
+    return `
+      <div class="aa-weak-key-row">
+        <div class="aa-key-badge">${escapeHtml(k.char.toUpperCase())}</div>
+        <div class="aa-key-info">
+          <div class="aa-key-name">${fingerName}</div>
+          <div class="aa-key-meta">${k.attempts} strokes · ${k.errors} errors (${Math.round(k.errorRate * 100)}% err)</div>
+        </div>
+        <div class="aa-key-stat">
+          <span class="aa-key-acc" style="color: ${k.accuracy < 80 ? '#FF5C7A' : '#FFB86B'};">${k.accuracy}%</span>
+          <span class="aa-key-lat">${k.avgLatency}ms</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="aa-weak-keys-list">${rows}</div>
+    <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+      <button id="aa-launch-drill-btn" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12px;">
+        <span>⚡ Launch Targeted Weak Keys Drill</span>
+      </button>
+    </div>
+  `;
+
+  const drillBtn = container.querySelector('#aa-launch-drill-btn');
+  if (drillBtn && uiManager) {
+    drillBtn.addEventListener('click', () => {
+      const keysToDrill = weakKeys.map(k => k.char);
+      const lesson = generateWeakKeysLesson(keysToDrill);
+      uiManager.startLesson(lesson);
+    });
+  }
 }
 
 /**
- * Maps an accuracy percentage to its corresponding traffic-light colour.
- * < 80 %  → red   |  80–89 % → amber  |  90–96 % → teal  |  97 %+ → purple
- *
- * @param {number} acc
- * @returns {string} – hex colour
+ * Computes and renders the 10-finger muscle memory mastery progress bars.
+ * @param {HTMLElement} container
+ * @param {object} keyStats
  */
-function accuracyColor(acc) {
-  if (acc < 80) return '#FF5C7A'; // --error-coral
-  if (acc < 90) return '#FFB86B'; // --reward-amber
-  if (acc < 97) return '#00D4AA'; // --success-teal
-  return '#7C5CFC';               // --accent-primary
-}
-
-/**
- * Renders the 10-finger accuracy heatmap grid into `container`.
- * Bars animate in via a CSS width transition triggered on the next paint frame.
- *
- * @param {HTMLElement}        container
- * @param {Object}             keyStats   – state.keyStats
- * @param {'7d'|'30d'|'all'}  period
- * @param {Array}              sessions
- */
-export function renderFingerHeatmapTable(container, keyStats, period, sessions) {
-  // For '7d'/'30d' the global keyStats is used because per-session key deltas
-  // are not stored on the lightweight session objects in state.sessions.
-  // The period parameter is accepted for API consistency and future use.
-  const effectiveStats = keyStats || {};
-  const fingerData = computeFingerAccuracies(effectiveStats);
-
-  // Canonical left-to-right display order
+export function renderFingerHeatmapTable(container, keyStats = {}) {
+  const mastery = AnalyticsEngine.getFingerMastery(keyStats);
   const ORDER = [
     'left-pinky', 'left-ring', 'left-middle', 'left-index',
     'thumbs',
@@ -509,663 +837,673 @@ export function renderFingerHeatmapTable(container, keyStats, period, sessions) 
   ];
 
   const sorted = ORDER
-    .map(id => fingerData.find(f => f.finger.id === id))
+    .map(id => mastery.find(f => f.finger.id === id))
     .filter(Boolean);
 
-  // Render starting with bars at width:0 so the transition plays on mount
-  container.innerHTML = sorted.map(({ finger, accuracy, totalAttempts }) => {
-    const color  = accuracyColor(accuracy);
+  container.innerHTML = sorted.map(({ finger, accuracy, totalAttempts, totalErrors }) => {
+    const color = accuracy < 80 ? '#FF5C7A' : accuracy < 90 ? '#FFB86B' : accuracy < 97 ? '#00D4AA' : '#7C5CFC';
     const noData = totalAttempts < 5;
 
     return `
-      <div style="
-        display: grid;
-        grid-template-columns: 134px 1fr 52px;
-        align-items: center;
-        gap: 12px;
-        padding: 9px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-      ">
-        <!-- Finger name + colour dot -->
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: ${finger.color};
-            flex-shrink: 0;
-          "></span>
-          <span style="
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            white-space: nowrap;
-          ">${finger.name}</span>
+      <div class="aa-finger-row">
+        <div class="aa-finger-title-col">
+          <span class="aa-finger-dot" style="background: ${finger.color};"></span>
+          <span class="aa-finger-name">${finger.name}</span>
         </div>
-
-        <!-- Progress bar track -->
-        <div style="
-          position: relative;
-          height: 8px;
-          background: rgba(255,255,255,0.07);
-          border-radius: 999px;
-          overflow: hidden;
-        ">
-          <div class="aa-heatmap-bar" data-target="${noData ? 0 : accuracy}" style="
-            height: 100%;
-            width: 0%;
-            background: ${color};
-            border-radius: 999px;
-            transition: width 0.65s cubic-bezier(0.16,1,0.3,1);
-            will-change: width;
-          "></div>
+        <div class="aa-finger-bar-track">
+          <div class="aa-finger-bar-fill" data-target="${noData ? 0 : accuracy}" style="width: 0%; background: ${color};"></div>
         </div>
-
-        <!-- Accuracy label -->
-        <div style="
-          font-family: var(--font-mono);
-          font-size: 12px;
-          font-weight: 700;
-          color: ${noData ? 'var(--text-muted)' : color};
-          text-align: right;
-          white-space: nowrap;
-        ">${noData ? '—' : `${accuracy}%`}</div>
+        <div class="aa-finger-acc-val" style="color: ${noData ? 'var(--text-muted)' : color};">
+          ${noData ? '—' : `${accuracy}%`}
+        </div>
       </div>
     `;
   }).join('');
 
-  // Animate bars in on the next paint so the CSS transition from 0→target fires
   requestAnimationFrame(() => {
-    container.querySelectorAll('.aa-heatmap-bar').forEach(bar => {
+    container.querySelectorAll('.aa-finger-bar-fill').forEach(bar => {
       bar.style.width = `${bar.dataset.target}%`;
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-// 4. renderSessionHistoryTable
+// Searchable, Sortable, Paginated Session History Table
 // ---------------------------------------------------------------------------
 
 /**
- * Returns the inline CSS for a table header cell.
- * @param {boolean} isActive – whether this column is currently sorted
- * @returns {string}
- */
-function thStyle(isActive) {
-  return [
-    'padding: 10px 12px',
-    'text-align: left',
-    'font-size: 11px',
-    'font-weight: 700',
-    'text-transform: uppercase',
-    'letter-spacing: 0.06em',
-    `color: ${isActive ? 'var(--accent-primary)' : 'var(--text-muted)'}`,
-    'white-space: nowrap',
-    'user-select: none'
-  ].join('; ');
-}
-
-/**
- * Returns the inline CSS for a table body cell.
- * @returns {string}
- */
-function tdStyle() {
-  return [
-    'padding: 10px 12px',
-    'border-bottom: 1px solid rgba(255,255,255,0.04)',
-    'vertical-align: middle'
-  ].join('; ');
-}
-
-/**
- * Inline style for pagination buttons.
- * @param {boolean} disabled
- * @returns {string}
- */
-function pageBtnStyle(disabled) {
-  return [
-    'padding: 6px 14px',
-    'border-radius: var(--radius-sm, 6px)',
-    'font-size: 12px',
-    'font-weight: 600',
-    `color: ${disabled ? 'var(--text-muted)' : 'var(--text-primary)'}`,
-    `background: ${disabled ? 'rgba(255,255,255,0.02)' : 'var(--surface-2)'}`,
-    `border: 1px solid ${disabled ? 'rgba(255,255,255,0.05)' : 'var(--border-subtle)'}`,
-    `cursor: ${disabled ? 'not-allowed' : 'pointer'}`,
-    `opacity: ${disabled ? '0.4' : '1'}`,
-    'transition: all 0.15s ease',
-    'font-family: var(--font-sans)',
-    'display: inline-flex',
-    'align-items: center',
-    'gap: 4px'
-  ].join('; ');
-}
-
-/**
- * Renders a sortable and paginated session history table into `container`.
- * Displays 10 attempts per page with previous/next navigation and column sorting.
- *
+ * Renders the session history table with search, kind filter, column sorting, pagination, and deletion.
  * @param {HTMLElement} container
  * @param {Array}       sessions
- * @param {'date'|'wpm'|'accuracy'|'duration'|'stars'} [sortKey='date']
- * @param {'asc'|'desc'} [sortDir='desc']
- * @param {number}      [page=1]
- * @param {number}      [pageSize=10]
+ * @param {object}      tableState - { sortKey, sortDir, page, pageSize, search, kindFilter }
+ * @param {object}      uiManager
  */
-export function renderSessionHistoryTable(container, sessions, sortKey = 'date', sortDir = 'desc', page = 1, pageSize = 10) {
-  // ── Empty state ──────────────────────────────────────────────────────────
+export function renderSessionHistoryTable(container, sessions = [], tableState = {}, uiManager = null) {
+  const {
+    sortKey = 'date',
+    sortDir = 'desc',
+    page = 1,
+    pageSize = 10,
+    search = '',
+    kindFilter = 'all'
+  } = tableState;
+
   if (!sessions || sessions.length === 0) {
     container.innerHTML = `
-      <div style="
-        padding: 40px 24px;
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 14px;
-      ">Complete a lesson to see your history here</div>
+      <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); font-size: 13.5px;">
+        <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
+        <div>No practice sessions found yet. Complete a lesson to view your history.</div>
+      </div>
     `;
     return;
   }
 
-  // ── Sort ─────────────────────────────────────────────────────────────────
-  const sorted = [...sessions].sort((a, b) => {
+  // 1. Filter by Search Query & Kind
+  let filtered = [...sessions];
+  if (kindFilter !== 'all') {
+    filtered = filtered.filter(s => {
+      if (kindFilter === 'lesson') return s.kind === 'lesson' || Number.isInteger(s.lessonId);
+      if (kindFilter === 'speedtest') return s.kind === 'speedtest' || String(s.lessonId).includes('speed');
+      if (kindFilter === 'code') return s.kind === 'code';
+      if (kindFilter === 'quote') return s.kind === 'quote';
+      if (kindFilter === 'custom') return s.kind === 'custom' || s.kind === 'practice';
+      return true;
+    });
+  }
+
+  if (search.trim()) {
+    const q = search.toLowerCase().trim();
+    filtered = filtered.filter(s => (s.lessonTitle || `Lesson ${s.lessonId}`).toLowerCase().includes(q));
+  }
+
+  // 2. Sort
+  filtered.sort((a, b) => {
     let va, vb;
     switch (sortKey) {
-      case 'date':     va = new Date(a.date).getTime(); vb = new Date(b.date).getTime(); break;
-      case 'wpm':      va = a.wpm      || 0; vb = b.wpm      || 0; break;
-      case 'accuracy': va = a.accuracy || 0; vb = b.accuracy || 0; break;
-      case 'duration': va = a.durationSec || 0; vb = b.durationSec || 0; break;
-      case 'stars':    va = a.stars    || 0; vb = b.stars    || 0; break;
-      default:         va = 0;               vb = 0;
+      case 'date':
+        va = safeDate(a.date).getTime();
+        vb = safeDate(b.date).getTime();
+        break;
+      case 'wpm':
+        va = Number(a.wpm) || 0;
+        vb = Number(b.wpm) || 0;
+        break;
+      case 'accuracy':
+        va = Number(a.accuracy) || 0;
+        vb = Number(b.accuracy) || 0;
+        break;
+      case 'duration':
+        va = Number(a.durationSec) || 0;
+        vb = Number(b.durationSec) || 0;
+        break;
+      case 'stars':
+        va = Number(a.stars) || 0;
+        vb = Number(b.stars) || 0;
+        break;
+      default:
+        va = 0;
+        vb = 0;
     }
     return sortDir === 'asc' ? va - vb : vb - va;
   });
 
-  // ── Pagination calculations (10 items per page) ──────────────────────────
-  const totalCount = sorted.length;
+  // 3. Pagination
+  const totalCount = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalCount);
-  const pageItems = sorted.slice(startIndex, endIndex);
+  const pageItems = filtered.slice(startIndex, endIndex);
 
-  // ── Column definitions ───────────────────────────────────────────────────
+  // 4. Render Table HTML
   const COLS = [
-    { key: 'date',     label: 'Date' },
-    { key: 'lesson',   label: 'Lesson',   noSort: true },
-    { key: 'wpm',      label: 'WPM' },
+    { key: 'date', label: 'Date & Time' },
+    { key: 'lesson', label: 'Session / Activity', noSort: true },
+    { key: 'wpm', label: 'WPM' },
     { key: 'accuracy', label: 'Accuracy' },
     { key: 'duration', label: 'Duration' },
-    { key: 'stars',    label: 'Stars' }
+    { key: 'stars', label: 'Stars' },
+    { key: 'actions', label: '', noSort: true }
   ];
 
-  // ── Header ───────────────────────────────────────────────────────────────
-  const thCells = COLS.map(col => {
+  const thHeaders = COLS.map(col => {
     if (col.noSort) {
-      return `<th style="${thStyle(false)}">${col.label}</th>`;
+      return `<th class="aa-th ${col.key === 'actions' ? 'aa-th-actions' : ''}">${col.label}</th>`;
     }
     const isActive = sortKey === col.key;
-    const nextDir  = isActive && sortDir === 'desc' ? 'asc' : 'desc';
-    const arrow    = isActive ? (sortDir === 'desc' ? ' ↓' : ' ↑') : '';
-    return `<th data-sort-key="${col.key}" data-sort-dir="${nextDir}" style="${thStyle(isActive)}" title="Sort by ${col.label}">${col.label}${arrow}</th>`;
+    const nextDir = isActive && sortDir === 'desc' ? 'asc' : 'desc';
+    const arrow = isActive ? (sortDir === 'desc' ? ' ↓' : ' ↑') : '';
+    return `<th class="aa-th aa-th-sortable ${isActive ? 'aa-th-active' : ''}" data-sort="${col.key}" data-dir="${nextDir}" title="Sort by ${col.label}">${col.label}${arrow}</th>`;
   }).join('');
 
-  // ── Body rows ─────────────────────────────────────────────────────────────
-  const bodyRows = pageItems.map((s, idx) => {
-    const rowBg = idx % 2 === 0 ? 'background: rgba(255,255,255,0.015);' : '';
-    const accColor = s.accuracy >= 97
-      ? 'var(--success-teal)'
-      : s.accuracy >= 90
-        ? 'var(--text-primary)'
-        : 'var(--reward-amber)';
+  const rowsHtml = pageItems.map((s, idx) => {
+    const accColor = s.accuracy >= 97 ? '#00D4AA' : s.accuracy >= 90 ? 'var(--text-primary)' : '#FFB86B';
+    const kindTag = s.kind === 'code'
+      ? '<span class="aa-badge aa-badge-code">Code</span>'
+      : s.kind === 'speedtest'
+        ? '<span class="aa-badge aa-badge-speed">Speed</span>'
+        : s.kind === 'quote'
+          ? '<span class="aa-badge aa-badge-quote">Quote</span>'
+          : s.kind === 'placement'
+            ? '<span class="aa-badge aa-badge-placement">Test</span>'
+            : '<span class="aa-badge aa-badge-lesson">Curriculum</span>';
 
     return `
-      <tr style="${rowBg}">
-        <td style="${tdStyle()}">${fmtDateTime(s.date)}</td>
-        <td style="${tdStyle()} max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtmlStr(s.lessonTitle || `Lesson ${s.lessonId}`)}">
-          ${escapeHtmlStr(s.lessonTitle || `Lesson ${s.lessonId}`)}
+      <tr class="aa-tr">
+        <td class="aa-td" style="white-space: nowrap; color: var(--text-secondary); font-size: 12px;">${fmtDateTime(s.date)}</td>
+        <td class="aa-td" style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${kindTag}
+            <span class="aa-session-title" title="${escapeHtml(s.lessonTitle || `Lesson ${s.lessonId}`)}">
+              ${escapeHtml(s.lessonTitle || `Lesson ${s.lessonId}`)}
+            </span>
+          </div>
         </td>
-        <td style="${tdStyle()} font-family:var(--font-mono); color:var(--accent-primary); font-weight:700;">
-          ${s.wpm}
-        </td>
-        <td style="${tdStyle()} font-family:var(--font-mono); color:${accColor}; font-weight:700;">
-          ${s.accuracy}%
-        </td>
-        <td style="${tdStyle()} font-family:var(--font-mono); color:var(--text-secondary);">
-          ${fmtDuration(s.durationSec || 0)}
-        </td>
-        <td style="${tdStyle()} letter-spacing:2px;">
-          ${starsHtml(s.stars || 0)}
+        <td class="aa-td aa-td-mono" style="color: #7C5CFC; font-weight: 700;">${s.wpm || 0}</td>
+        <td class="aa-td aa-td-mono" style="color: ${accColor}; font-weight: 700;">${s.accuracy || 100}%</td>
+        <td class="aa-td aa-td-mono" style="color: var(--text-secondary); font-size: 12px;">${fmtDuration(s.durationSec || 0)}</td>
+        <td class="aa-td" style="white-space: nowrap;">${starsHtml(s.stars || 1)}</td>
+        <td class="aa-td aa-td-actions">
+          <button class="aa-del-btn" data-date="${s.date}" title="Delete session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </td>
       </tr>
     `;
   }).join('');
 
-  // ── Assemble HTML ─────────────────────────────────────────────────────────
   container.innerHTML = `
     <div style="overflow-x: auto; width: 100%;">
-      <table style="
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        color: var(--text-secondary);
-      ">
-        <thead>
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">${thCells}</tr>
-        </thead>
-        <tbody>${bodyRows}</tbody>
+      <table class="aa-table">
+        <thead><tr class="aa-thead-tr">${thHeaders}</tr></thead>
+        <tbody>${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="7" style="text-align: center; padding: 28px; color: var(--text-muted);">No matching sessions found.</td></tr>`}</tbody>
       </table>
     </div>
 
-    <!-- Pagination Bar (10 per page) -->
-    <div style="
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      font-size: 12px;
-      color: var(--text-muted);
-    ">
-      <div>
-        Showing <strong style="color:var(--text-primary); font-family:var(--font-mono);">${totalCount > 0 ? startIndex + 1 : 0}–${endIndex}</strong> of <strong style="color:var(--text-primary); font-family:var(--font-mono);">${totalCount}</strong> attempts
+    <!-- Pagination Bar -->
+    <div class="aa-pagination-bar">
+      <div class="aa-page-info">
+        Showing <strong style="color: var(--text-primary); font-family: var(--font-mono);">${totalCount > 0 ? startIndex + 1 : 0}–${endIndex}</strong> of <strong style="color: var(--text-primary); font-family: var(--font-mono);">${totalCount}</strong> sessions
       </div>
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <button class="aa-page-btn aa-page-prev" ${currentPage <= 1 ? 'disabled' : ''} style="${pageBtnStyle(currentPage <= 1)}" title="Previous 10 attempts">
-          ‹ Previous
-        </button>
-        <span style="font-family: var(--font-mono); padding: 0 8px; color: var(--text-secondary); font-weight: 600;">
-          Page ${currentPage} of ${totalPages}
-        </span>
-        <button class="aa-page-btn aa-page-next" ${currentPage >= totalPages ? 'disabled' : ''} style="${pageBtnStyle(currentPage >= totalPages)}" title="Next 10 attempts">
-          Next ›
-        </button>
+      <div class="aa-page-nav">
+        <button class="btn btn-secondary btn-sm aa-prev-btn" ${currentPage <= 1 ? 'disabled' : ''}>‹ Previous</button>
+        <span class="aa-page-count">Page ${currentPage} of ${totalPages}</span>
+        <button class="btn btn-secondary btn-sm aa-next-btn" ${currentPage >= totalPages ? 'disabled' : ''}>Next ›</button>
       </div>
     </div>
   `;
 
-  // ── Attach sort click handlers ────────────────────────────────────────────
-  container.querySelectorAll('th[data-sort-key]').forEach(th => {
-    th.style.cursor = 'pointer';
+  // Attach handlers
+  container.querySelectorAll('th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
-      renderSessionHistoryTable(container, sessions, th.dataset.sortKey, th.dataset.sortDir, 1, pageSize);
+      const nextState = {
+        ...tableState,
+        sortKey: th.dataset.sort,
+        sortDir: th.dataset.dir,
+        page: 1
+      };
+      renderSessionHistoryTable(container, sessions, nextState, uiManager);
     });
   });
 
-  // ── Attach pagination click handlers ──────────────────────────────────────
-  const prevBtn = container.querySelector('.aa-page-prev');
+  const prevBtn = container.querySelector('.aa-prev-btn');
   if (prevBtn && currentPage > 1) {
     prevBtn.addEventListener('click', () => {
-      renderSessionHistoryTable(container, sessions, sortKey, sortDir, currentPage - 1, pageSize);
+      renderSessionHistoryTable(container, sessions, { ...tableState, page: currentPage - 1 }, uiManager);
     });
   }
 
-  const nextBtn = container.querySelector('.aa-page-next');
+  const nextBtn = container.querySelector('.aa-next-btn');
   if (nextBtn && currentPage < totalPages) {
     nextBtn.addEventListener('click', () => {
-      renderSessionHistoryTable(container, sessions, sortKey, sortDir, currentPage + 1, pageSize);
+      renderSessionHistoryTable(container, sessions, { ...tableState, page: currentPage + 1 }, uiManager);
     });
   }
+
+  container.querySelectorAll('.aa-del-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const sessionDate = btn.dataset.date;
+      if (confirm('Delete this typing attempt from your history?')) {
+        store.deleteSession(sessionDate);
+        const updatedState = store.getState();
+        renderSessionHistoryTable(container, updatedState.sessions || [], tableState, uiManager);
+      }
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
-// 5. exportSessionsCSV
+// CSV Export
 // ---------------------------------------------------------------------------
 
-/**
- * Generates a CSV of all sessions and triggers a browser file download.
- *
- * Columns: Date, Lesson, WPM, Accuracy, Duration (sec), Stars, XP Earned, Kind
- * File name: keyflow-sessions-YYYY-MM-DD.csv
- *
- * @param {Array} sessions – state.sessions
- */
-export function exportSessionsCSV(sessions) {
+export function exportSessionsCSV(sessions = []) {
   if (!sessions || sessions.length === 0) {
-    console.warn('[advanced-analytics] exportSessionsCSV: nothing to export');
+    alert('No sessions available to export.');
     return;
   }
 
-  const HEADERS = ['Date', 'Lesson', 'WPM', 'Accuracy', 'Duration (sec)', 'Stars', 'XP Earned', 'Kind'];
+  const HEADERS = ['Date & Time', 'Lesson / Activity', 'WPM', 'Accuracy (%)', 'Duration (sec)', 'Stars', 'XP Earned', 'Category', 'Focus Mode'];
 
-  const csvRows = [
+  const rows = [
     HEADERS.join(','),
     ...sessions.map(s => [
       csvCell(fmtDateTime(s.date)),
       csvCell(s.lessonTitle || `Lesson ${s.lessonId}`),
-      s.wpm        || 0,
-      s.accuracy   || 0,
-      s.durationSec|| 0,
-      s.stars      || 0,
-      s.xpEarned   || 0,
-      csvCell(s.kind || 'lesson')
+      Number(s.wpm) || 0,
+      Number(s.accuracy) || 100,
+      Number(s.durationSec) || 0,
+      Number(s.stars) || 1,
+      Number(s.xpEarned) || 0,
+      csvCell(s.kind || 'lesson'),
+      s.inFocusMode ? 'Yes' : 'No'
     ].join(','))
   ];
 
-  const csv  = csvRows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const link  = document.createElement('a');
-  link.href     = url;
-  link.download = `keyflow-sessions-${today}.csv`;
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const todayKey = getLocalDateKey();
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `keyflow-sessions-${todayKey}.csv`;
   link.style.display = 'none';
 
   document.body.appendChild(link);
   link.click();
 
-  // Clean up the object URL after the download is triggered
   setTimeout(() => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, 150);
+  }, 200);
 }
 
 // ---------------------------------------------------------------------------
-// Shared inline-style helpers
-// ---------------------------------------------------------------------------
-
-/** Glassmorphism card wrapper style. */
-function cardStyle() {
-  return [
-    'background: var(--surface-1)',
-    'border: 1px solid var(--border-subtle)',
-    'border-radius: var(--radius-md)',
-    'padding: 22px 24px',
-    'box-shadow: var(--shadow-sm)',
-    'display: flex',
-    'flex-direction: column',
-    'gap: 16px'
-  ].join('; ');
-}
-
-/** Row that holds a card title on the left and an action/badge on the right. */
-function cardHeaderStyle() {
-  return [
-    'display: flex',
-    'align-items: center',
-    'justify-content: space-between',
-    'flex-wrap: wrap',
-    'gap: 8px'
-  ].join('; ');
-}
-
-/** Bold card section title. */
-function cardTitleStyle() {
-  return 'font-size: 15px; font-weight: 700; color: var(--text-primary);';
-}
-
-/**
- * Inline style for a period selector pill button.
- * @param {string} period  – '7d' | '30d' | 'all'
- * @param {string} active  – currently selected period
- * @returns {string}
- */
-function periodTabStyle(period, active) {
-  const on = period === active;
-  return [
-    'padding: 6px 16px',
-    'border-radius: var(--radius-full)',
-    `font-size: 13px`,
-    `font-weight: ${on ? '700' : '600'}`,
-    `color: ${on ? 'var(--text-primary)' : 'var(--text-muted)'}`,
-    `background: ${on ? 'var(--surface-3)' : 'transparent'}`,
-    `border: ${on ? '1px solid var(--border-light)' : '1px solid transparent'}`,
-    'cursor: pointer',
-    'transition: all 0.15s',
-    'white-space: nowrap'
-  ].join('; ');
-}
-
-// ---------------------------------------------------------------------------
-// 6. renderAdvancedAnalyticsDashboard
+// Main Dashboard Controller
 // ---------------------------------------------------------------------------
 
 /**
- * Renders the complete advanced analytics page into `container`.
- *
- * Structure:
- *   • Header with period tabs (7 Days / 30 Days / All Time)
- *   • Two chart cards side by side (WPM Trend + Accuracy Trend)
- *   • Finger heatmap card
- *   • Session history table card with CSV export button
- *
- * Period state is managed internally; switching tabs re-renders chart data
- * without destroying the outer HTML shell.
- *
- * A `container._aaCleanup()` function is exposed so the caller can remove the
- * resize listener when navigating away from this screen.
- *
- * @param {HTMLElement} container  – DOM node to render into
- * @param {Object}      state      – store.getState() snapshot
+ * Computes top-level scorecard metrics for the given period.
+ * @param {Array} sessions
+ * @param {string} period
+ * @returns {object}
  */
-export function renderAdvancedAnalyticsDashboard(container, state) {
-  /** @type {'7d'|'30d'|'all'} */
-  let activePeriod = '7d';
+function computeScorecardMetrics(sessions = [], period = '7d') {
+  const currentFiltered = filterByPeriod(sessions, period);
 
-  // ── Static shell ──────────────────────────────────────────────────────────
+  if (currentFiltered.length === 0) {
+    return {
+      avgWpm: 0,
+      peakWpm: 0,
+      avgAccuracy: 100,
+      totalRuns: 0,
+      totalMinutes: 0,
+      activeDays: 0,
+      totalDays: period === '7d' ? 7 : period === '30d' ? 30 : 90,
+      trendPct: 0
+    };
+  }
+
+  const wpms = currentFiltered.map(s => Number(s.wpm) || 0);
+  const accs = currentFiltered.map(s => Number(s.accuracy) || 100);
+  const totalSecs = currentFiltered.reduce((sum, s) => sum + (Number(s.durationSec) || 0), 0);
+
+  const avgWpm = Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length);
+  const peakWpm = Math.max(...wpms);
+  const avgAccuracy = Math.round(accs.reduce((a, b) => a + b, 0) / accs.length);
+  const totalMinutes = Math.round(totalSecs / 60);
+
+  // Active days count
+  const activeDaysSet = new Set(currentFiltered.map(s => getLocalDateKey(s.date)));
+  const activeDays = activeDaysSet.size;
+  const totalDays = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+
+  // Trend vs previous period
+  let trendPct = 0;
+  if (period !== 'all') {
+    const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+    const priorEnd = new Date();
+    priorEnd.setDate(priorEnd.getDate() - days);
+    priorEnd.setHours(0, 0, 0, 0);
+
+    const priorStart = new Date();
+    priorStart.setDate(priorStart.getDate() - days * 2);
+    priorStart.setHours(0, 0, 0, 0);
+
+    const priorSessions = sessions.filter(s => {
+      const d = safeDate(s.date);
+      return d >= priorStart && d < priorEnd;
+    });
+
+    if (priorSessions.length > 0) {
+      const priorWpms = priorSessions.map(s => Number(s.wpm) || 0);
+      const priorAvg = priorWpms.reduce((a, b) => a + b, 0) / priorWpms.length;
+      if (priorAvg > 0) {
+        trendPct = Math.round(((avgWpm - priorAvg) / priorAvg) * 100);
+      }
+    }
+  }
+
+  return {
+    avgWpm,
+    peakWpm,
+    avgAccuracy,
+    totalRuns: currentFiltered.length,
+    totalMinutes,
+    activeDays,
+    totalDays,
+    trendPct
+  };
+}
+
+/**
+ * Main function: Renders the complete Advanced Analytics Dashboard.
+ * @param {HTMLElement} container
+ * @param {object} state - store.getState()
+ * @param {object} uiManager
+ */
+export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManager = null) {
+  if (!container) return;
+
+  let activePeriod = '7d'; // '7d' | '30d' | '90d' | 'all'
+  let activeMode = 'session'; // 'session' | 'day'
+
+  const tableState = {
+    sortKey: 'date',
+    sortDir: 'desc',
+    page: 1,
+    pageSize: 10,
+    search: '',
+    kindFilter: 'all'
+  };
+
   container.innerHTML = `
-    <div id="aa-root" style="
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
-      width: 100%;
-      font-family: var(--font-sans);
-      color: var(--text-primary);
-    ">
-
-      <!-- Page header + period tabs -->
-      <div style="
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
-      ">
+    <div class="aa-dashboard-root">
+      <!-- Top Control Bar -->
+      <div class="aa-header-row">
         <div>
-          <h2 style="
-            font-size: 22px;
-            font-weight: 800;
-            letter-spacing: -0.01em;
-            color: var(--text-primary);
-            margin: 0 0 4px;
-          ">Advanced Analytics</h2>
-          <p style="
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin: 0;
-          ">Detailed trends, finger breakdown, and session history</p>
+          <h2 class="aa-main-title">Telemetry &amp; Chart Analysis</h2>
+          <p class="aa-main-sub">Real-time velocity curves, precision stability, and biomechanical diagnostics</p>
         </div>
 
-        <div id="aa-period-tabs" style="
-          display: flex;
-          gap: 4px;
-          background: var(--surface-2);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-full);
-          padding: 4px;
-        ">
-          ${['7d', '30d', 'all'].map(p => `
-            <button data-period="${p}" style="${periodTabStyle(p, activePeriod)}">
-              ${p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : 'All Time'}
+        <div class="aa-controls-group">
+          <!-- View Mode Toggle -->
+          <div class="aa-mode-toggle" id="aa-mode-toggle">
+            <button class="aa-mode-btn ${activeMode === 'session' ? 'active' : ''}" data-mode="session">Per Session</button>
+            <button class="aa-mode-btn ${activeMode === 'day' ? 'active' : ''}" data-mode="day">Daily Average</button>
+          </div>
+
+          <!-- Period Tabs -->
+          <div class="aa-period-tabs" id="aa-period-tabs">
+            <button class="aa-period-btn ${activePeriod === '7d' ? 'active' : ''}" data-period="7d">7 Days</button>
+            <button class="aa-period-btn ${activePeriod === '30d' ? 'active' : ''}" data-period="30d">30 Days</button>
+            <button class="aa-period-btn ${activePeriod === '90d' ? 'active' : ''}" data-period="90d">90 Days</button>
+            <button class="aa-period-btn ${activePeriod === 'all' ? 'active' : ''}" data-period="all">All Time</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Scorecard -->
+      <div id="aa-scorecard-slot" class="aa-scorecard-grid"></div>
+
+      <!-- Main Dual Chart Cards -->
+      <div class="aa-charts-grid">
+        <!-- WPM Velocity Trend Card -->
+        <div class="aa-chart-card">
+          <div class="aa-card-head">
+            <div class="aa-head-left">
+              <span class="aa-card-icon">⚡</span>
+              <div>
+                <h3 class="aa-card-title">WPM Velocity Curve</h3>
+                <span class="aa-card-sub">Typing speed progression over selected timeframe</span>
+              </div>
+            </div>
+            <div id="aa-wpm-meta" class="aa-card-meta"></div>
+          </div>
+          <div class="aa-canvas-box">
+            <canvas id="aa-wpm-canvas"></canvas>
+            <div id="aa-wpm-tooltip" class="aa-hover-tooltip"></div>
+          </div>
+        </div>
+
+        <!-- Accuracy & Consistency Trend Card -->
+        <div class="aa-chart-card">
+          <div class="aa-card-head">
+            <div class="aa-head-left">
+              <span class="aa-card-icon">🎯</span>
+              <div>
+                <h3 class="aa-card-title">Accuracy &amp; Rhythm Stability</h3>
+                <span class="aa-card-sub">Error rate minimization &amp; discipline trajectory</span>
+              </div>
+            </div>
+            <div id="aa-acc-meta" class="aa-card-meta"></div>
+          </div>
+          <div class="aa-canvas-box">
+            <canvas id="aa-acc-canvas"></canvas>
+            <div id="aa-acc-tooltip" class="aa-hover-tooltip"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Diagnostics Row: Weak Keys & 10-Finger Biomechanical Heatmap -->
+      <div class="aa-diagnostics-grid">
+        <!-- Problem Keys Card -->
+        <div class="aa-card">
+          <div class="aa-card-head">
+            <div class="aa-head-left">
+              <span class="aa-card-icon">⚠️</span>
+              <div>
+                <h3 class="aa-card-title">Problem Keys Diagnostic</h3>
+                <span class="aa-card-sub">Lowest accuracy keys costing you velocity</span>
+              </div>
+            </div>
+          </div>
+          <div id="aa-problem-keys-slot"></div>
+        </div>
+
+        <!-- 10-Finger Muscle Memory Card -->
+        <div class="aa-card">
+          <div class="aa-card-head">
+            <div class="aa-head-left">
+              <span class="aa-card-icon">🖐️</span>
+              <div>
+                <h3 class="aa-card-title">10-Finger Biomechanical Mastery</h3>
+                <span class="aa-card-sub">Individual finger accuracy ratings &amp; stroke balance</span>
+              </div>
+            </div>
+          </div>
+          <div id="aa-finger-heatmap-slot" class="aa-finger-heatmap-box"></div>
+        </div>
+      </div>
+
+      <!-- Session History Table Card -->
+      <div class="aa-card">
+        <div class="aa-card-head" style="flex-wrap: wrap; gap: 14px;">
+          <div class="aa-head-left">
+            <span class="aa-card-icon">📋</span>
+            <div>
+              <h3 class="aa-card-title">Detailed Session History</h3>
+              <span class="aa-card-sub">Log of all practice rounds, speed tests, and lessons</span>
+            </div>
+          </div>
+
+          <!-- Table Actions: Search, Filter, Export -->
+          <div class="aa-table-toolbar">
+            <input type="text" id="aa-history-search" class="aa-search-input" placeholder="Search lessons..." value="${escapeHtml(tableState.search)}">
+            <select id="aa-kind-filter" class="aa-select">
+              <option value="all">All Activities</option>
+              <option value="lesson">Curriculum Lessons</option>
+              <option value="code">Developer Code</option>
+              <option value="speedtest">Speed Tests</option>
+              <option value="quote">Quote Vault</option>
+              <option value="custom">Custom Practice</option>
+            </select>
+            <button id="aa-export-csv-btn" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+              <span>↓ Export CSV</span>
             </button>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- Charts row -->
-      <div style="
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 20px;
-      ">
-
-        <!-- WPM Trend card -->
-        <div style="${cardStyle()}">
-          <div style="${cardHeaderStyle()}">
-            <span style="${cardTitleStyle()}">⚡ WPM Trend</span>
-            <span id="aa-wpm-avg" style="font-size:11px; color:var(--text-muted);"></span>
-          </div>
-          <canvas id="aa-wpm-canvas" style="
-            display: block;
-            width: 100%;
-            height: 220px;
-            border-radius: var(--radius-sm);
-          "></canvas>
-        </div>
-
-        <!-- Accuracy Trend card -->
-        <div style="${cardStyle()}">
-          <div style="${cardHeaderStyle()}">
-            <span style="${cardTitleStyle()}">🎯 Accuracy Trend</span>
-            <span id="aa-acc-avg" style="font-size:11px; color:var(--text-muted);"></span>
-          </div>
-          <canvas id="aa-acc-canvas" style="
-            display: block;
-            width: 100%;
-            height: 220px;
-            border-radius: var(--radius-sm);
-          "></canvas>
-        </div>
-      </div>
-
-      <!-- Finger Heatmap card -->
-      <div style="${cardStyle()}">
-        <div style="${cardHeaderStyle()}">
-          <span style="${cardTitleStyle()}">🖐 Finger Accuracy Heatmap</span>
-          <!-- Legend -->
-          <div style="display:flex; gap:14px; flex-wrap:wrap;">
-            ${[
-              { color: '#FF5C7A', label: '< 80%'  },
-              { color: '#FFB86B', label: '80–89%' },
-              { color: '#00D4AA', label: '90–96%' },
-              { color: '#7C5CFC', label: '97%+'   }
-            ].map(l => `
-              <span style="display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text-muted);">
-                <span style="
-                  display: inline-block;
-                  width: 8px;
-                  height: 8px;
-                  border-radius: 50%;
-                  background: ${l.color};
-                "></span>
-                ${l.label}
-              </span>
-            `).join('')}
           </div>
         </div>
-        <div id="aa-heatmap-container" style="padding-top: 4px;"></div>
-      </div>
 
-      <!-- Session History card -->
-      <div style="${cardStyle()}">
-        <div style="${cardHeaderStyle()}">
-          <span style="${cardTitleStyle()}">📋 Session History</span>
-          <button id="aa-export-btn" style="
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 15px;
-            border-radius: var(--radius-full);
-            background: rgba(124,92,252,0.12);
-            border: 1px solid rgba(124,92,252,0.35);
-            color: var(--accent-primary);
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.15s;
-            font-family: var(--font-sans);
-          ">↓ Export CSV</button>
-        </div>
-        <div id="aa-history-container" style="padding-top: 4px;"></div>
+        <div id="aa-history-table-slot" style="margin-top: 10px;"></div>
       </div>
-
     </div>
   `;
 
-  // ── DOM references ────────────────────────────────────────────────────────
-  const wpmCanvas  = container.querySelector('#aa-wpm-canvas');
-  const accCanvas  = container.querySelector('#aa-acc-canvas');
-  const heatmapEl  = container.querySelector('#aa-heatmap-container');
-  const historyEl  = container.querySelector('#aa-history-container');
-  const exportBtn  = container.querySelector('#aa-export-btn');
-  const tabsEl     = container.querySelector('#aa-period-tabs');
-  const wpmAvgEl   = container.querySelector('#aa-wpm-avg');
-  const accAvgEl   = container.querySelector('#aa-acc-avg');
+  // DOM References
+  const scorecardSlot = container.querySelector('#aa-scorecard-slot');
+  const wpmCanvas = container.querySelector('#aa-wpm-canvas');
+  const wpmTooltip = container.querySelector('#aa-wpm-tooltip');
+  const wpmMeta = container.querySelector('#aa-wpm-meta');
+  const accCanvas = container.querySelector('#aa-acc-canvas');
+  const accTooltip = container.querySelector('#aa-acc-tooltip');
+  const accMeta = container.querySelector('#aa-acc-meta');
+  const problemKeysSlot = container.querySelector('#aa-problem-keys-slot');
+  const fingerSlot = container.querySelector('#aa-finger-heatmap-slot');
+  const historySlot = container.querySelector('#aa-history-table-slot');
+  const searchInput = container.querySelector('#aa-history-search');
+  const kindSelect = container.querySelector('#aa-kind-filter');
+  const exportBtn = container.querySelector('#aa-export-csv-btn');
+  const modeToggle = container.querySelector('#aa-mode-toggle');
+  const periodTabs = container.querySelector('#aa-period-tabs');
 
-  // ── Export handler ────────────────────────────────────────────────────────
-  exportBtn.addEventListener('click',       () => exportSessionsCSV(state.sessions));
-  exportBtn.addEventListener('mouseenter',  () => { exportBtn.style.background = 'rgba(124,92,252,0.22)'; });
-  exportBtn.addEventListener('mouseleave',  () => { exportBtn.style.background = 'rgba(124,92,252,0.12)'; });
+  // Render Function
+  function renderAll() {
+    const currentState = store.getState();
+    const sessions = currentState.sessions || [];
+    const targetWpm = currentState.targetWpm || currentState.settings?.goals?.dailyWpm || 40;
 
-  // ── Data render (called on load + period change) ──────────────────────────
-  function renderData() {
-    const sessions = state.sessions || [];
-    const filtered = filterByPeriod(sessions, activePeriod);
+    // 1. Scorecard
+    const metrics = computeScorecardMetrics(sessions, activePeriod);
+    const trendMarkup = metrics.trendPct !== 0
+      ? `<span class="aa-trend-pill ${metrics.trendPct > 0 ? 'up' : 'down'}">${metrics.trendPct > 0 ? '↑' : '↓'} ${Math.abs(metrics.trendPct)}% vs prev</span>`
+      : '';
 
-    // Update subtitle average badges
-    if (filtered.length > 0) {
-      const avgWpm = Math.round(filtered.reduce((s, x) => s + (x.wpm || 0), 0) / filtered.length);
-      const avgAcc = Math.round(filtered.reduce((s, x) => s + (x.accuracy || 0), 0) / filtered.length);
-      wpmAvgEl.textContent = `avg ${avgWpm} WPM`;
-      accAvgEl.textContent = `avg ${avgAcc}%`;
-    } else {
-      wpmAvgEl.textContent = '';
-      accAvgEl.textContent = '';
-    }
+    scorecardSlot.innerHTML = `
+      <div class="aa-stat-card">
+        <div class="aa-stat-head">
+          <span class="aa-stat-label">Period Avg Speed</span>
+          <span class="aa-stat-icon">⚡</span>
+        </div>
+        <div class="aa-stat-val" style="color: #7C5CFC;">${metrics.avgWpm} <span class="aa-stat-unit">WPM</span></div>
+        <div class="aa-stat-footer">${trendMarkup || `<span style="color: var(--text-muted); font-size: 11px;">Over ${activePeriod === 'all' ? 'all time' : activePeriod}</span>`}</div>
+      </div>
 
-    // Charts need layout dimensions from the browser; defer one frame
+      <div class="aa-stat-card">
+        <div class="aa-stat-head">
+          <span class="aa-stat-label">Peak Velocity</span>
+          <span class="aa-stat-icon">🚀</span>
+        </div>
+        <div class="aa-stat-val" style="color: var(--reward-amber);">${metrics.peakWpm} <span class="aa-stat-unit">WPM</span></div>
+        <div class="aa-stat-footer"><span style="color: var(--text-muted); font-size: 11px;">Best run in period</span></div>
+      </div>
+
+      <div class="aa-stat-card">
+        <div class="aa-stat-head">
+          <span class="aa-stat-label">Precision Stability</span>
+          <span class="aa-stat-icon">🎯</span>
+        </div>
+        <div class="aa-stat-val" style="color: #00D4AA;">${metrics.avgAccuracy}%</div>
+        <div class="aa-stat-footer"><span style="color: var(--text-muted); font-size: 11px;">Average accuracy rating</span></div>
+      </div>
+
+      <div class="aa-stat-card">
+        <div class="aa-stat-head">
+          <span class="aa-stat-label">Practice Volume</span>
+          <span class="aa-stat-icon">⏱️</span>
+        </div>
+        <div class="aa-stat-val" style="color: var(--text-primary);">${metrics.totalRuns} <span class="aa-stat-unit">runs</span></div>
+        <div class="aa-stat-footer"><span style="color: var(--text-muted); font-size: 11px;">${metrics.totalMinutes}m total practice time</span></div>
+      </div>
+
+      <div class="aa-stat-card">
+        <div class="aa-stat-head">
+          <span class="aa-stat-label">Consistency Rate</span>
+          <span class="aa-stat-icon">🔥</span>
+        </div>
+        <div class="aa-stat-val" style="color: #FF8E53;">${metrics.activeDays} <span class="aa-stat-unit">/ ${metrics.totalDays}d</span></div>
+        <div class="aa-stat-footer"><span style="color: var(--text-muted); font-size: 11px;">${Math.round((metrics.activeDays / (metrics.totalDays || 1)) * 100)}% active days</span></div>
+      </div>
+    `;
+
+    // 2. Meta Headers on Chart Cards
+    wpmMeta.innerHTML = `<span class="aa-pill-badge">${metrics.totalRuns} data points · avg ${metrics.avgWpm} WPM</span>`;
+    accMeta.innerHTML = `<span class="aa-pill-badge">avg ${metrics.avgAccuracy}% accuracy</span>`;
+
+    // 3. Canvas Charts (defer to next frame so container sizes are computed)
     requestAnimationFrame(() => {
-      renderWpmTrendChart(wpmCanvas,  sessions, activePeriod);
-      renderAccuracyTrendChart(accCanvas, sessions, activePeriod);
+      renderWpmTrendChart(wpmCanvas, wpmTooltip, sessions, activePeriod, activeMode, targetWpm);
+      renderAccuracyTrendChart(accCanvas, accTooltip, sessions, activePeriod, activeMode);
     });
 
-    // Heatmap (period arg is passed for API consistency)
-    renderFingerHeatmapTable(heatmapEl, state.keyStats || {}, activePeriod, sessions);
+    // 4. Diagnostics
+    renderProblemKeysDiagnostic(problemKeysSlot, currentState.keyStats || {}, uiManager);
+    renderFingerHeatmapTable(fingerSlot, currentState.keyStats || {});
 
-    // History table shows sessions paginated at 10 items per page
-    renderSessionHistoryTable(historyEl, sessions, 'date', 'desc', 1, 10);
+    // 5. History Table
+    renderSessionHistoryTable(historySlot, sessions, tableState, uiManager);
   }
 
-  // ── Period tab click ──────────────────────────────────────────────────────
-  tabsEl.addEventListener('click', e => {
-    const btn = e.target.closest('button[data-period]');
+  // Event Listeners for Controls
+  modeToggle.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-mode]');
     if (!btn) return;
-
-    activePeriod = btn.dataset.period;
-
-    // Re-style all tab buttons
-    tabsEl.querySelectorAll('button[data-period]').forEach(b => {
-      b.style.cssText = periodTabStyle(b.dataset.period, activePeriod);
-    });
-
-    renderData();
+    activeMode = btn.dataset.mode;
+    modeToggle.querySelectorAll('.aa-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === activeMode));
+    renderAll();
   });
 
-  // ── Initial paint ─────────────────────────────────────────────────────────
-  renderData();
+  periodTabs.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-period]');
+    if (!btn) return;
+    activePeriod = btn.dataset.period;
+    periodTabs.querySelectorAll('.aa-period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === activePeriod));
+    renderAll();
+  });
 
-  // ── Resize handler (debounced) ────────────────────────────────────────────
-  // Re-draws charts with correct DPI scaling when the window is resized.
-  let resizeTimer = null;
-  const onResize = () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      tableState.search = e.target.value;
+      tableState.page = 1;
+      const currentState = store.getState();
+      renderSessionHistoryTable(historySlot, currentState.sessions || [], tableState, uiManager);
+    });
+  }
+
+  if (kindSelect) {
+    kindSelect.addEventListener('change', e => {
+      tableState.kindFilter = e.target.value;
+      tableState.page = 1;
+      const currentState = store.getState();
+      renderSessionHistoryTable(historySlot, currentState.sessions || [], tableState, uiManager);
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const currentState = store.getState();
+      exportSessionsCSV(currentState.sessions || []);
+    });
+  }
+
+  // ResizeObserver on canvas wrappers for crisp Retina redraws
+  let ro = null;
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(() => {
+      const currentState = store.getState();
+      const sessions = currentState.sessions || [];
+      const targetWpm = currentState.targetWpm || 40;
       requestAnimationFrame(() => {
-        renderWpmTrendChart(wpmCanvas,  state.sessions || [], activePeriod);
-        renderAccuracyTrendChart(accCanvas, state.sessions || [], activePeriod);
+        renderWpmTrendChart(wpmCanvas, wpmTooltip, sessions, activePeriod, activeMode, targetWpm);
+        renderAccuracyTrendChart(accCanvas, accTooltip, sessions, activePeriod, activeMode);
       });
-    }, 120);
-  };
-  window.addEventListener('resize', onResize);
+    });
+    if (wpmCanvas.parentElement) ro.observe(wpmCanvas.parentElement);
+    if (accCanvas.parentElement) ro.observe(accCanvas.parentElement);
+  }
 
-  /**
-   * Call this when navigating away from the analytics screen to remove the
-   * resize listener and avoid memory leaks.
-   */
-  container._aaCleanup = () => window.removeEventListener('resize', onResize);
+  container._aaCleanup = () => {
+    if (ro) ro.disconnect();
+  };
+
+  // Initial render
+  renderAll();
 }

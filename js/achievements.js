@@ -5,6 +5,7 @@
 
 import { sound } from './sound-engine.js';
 import { AnalyticsEngine } from './analytics.js';
+import { getLocalDateKey } from './state.js';
 import { QUOTE_VAULT } from './premium-features.js';
 
 export const ACHIEVEMENTS = [
@@ -171,8 +172,8 @@ export const ACHIEVEMENTS = [
     icon: '⚙️',
     category: 'dedication',
     check: (state) => {
-      const today = new Date().toISOString().split('T')[0];
-      const todaySessions = (state.sessions || []).filter(s => s.date && s.date.startsWith(today));
+      const today = getLocalDateKey();
+      const todaySessions = (state.sessions || []).filter(s => getLocalDateKey(s.date || s.recordedAt) === today);
       return todaySessions.length >= 3;
     }
   },

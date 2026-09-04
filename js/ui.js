@@ -50,6 +50,12 @@ export class UIManager {
     this.activeQuoteCategory = null;
     this.activeQuoteDifficulty = null;
     this.isFocusModeActive = false;
+    this.resultsShortcutLockoutUntil = 0;
+    this.typingViewportState = {
+      text: null,
+      currentIndex: null,
+      windowStart: 0
+    };
 
     this.initElements();
     this.initEventListeners();
@@ -143,6 +149,11 @@ export class UIManager {
       // On the results / complete screen:
       // Enter advances to the next lesson; R retries the current lesson.
       if (this.activeScreen === 'results') {
+        // Discard residual mistypes and trailing keystrokes from the completed round
+        if (Date.now() < (this.resultsShortcutLockoutUntil || 0)) {
+          return;
+        }
+
         const target = e.target;
         const isInteractiveTarget = target?.closest?.(
           'input, textarea, select, [contenteditable="true"]'
@@ -157,6 +168,11 @@ export class UIManager {
           if (e.key.toLowerCase() === 'r') {
             e.preventDefault();
             document.getElementById('results-retry-btn')?.click();
+            return;
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            document.getElementById('results-dashboard-btn')?.click();
             return;
           }
         }
@@ -232,7 +248,13 @@ export class UIManager {
       this.showToast('💀 Sudden Death! Mistake made - round restarted!', 'coral');
     };
 
-    window.addEventListener('resize', () => this.checkMobileRestriction());
+    window.addEventListener('resize', () => {
+      this.checkMobileRestriction();
+      // Re-measure after a responsive reflow without animating an idle layout.
+      if (typingEngine.isActive && this.typingViewportState.text) {
+        this.updateTypingViewport(this.typingViewportState.text, typingEngine.charIndex);
+      }
+    });
   }
 
   subscribeToStore() {
@@ -1651,6 +1673,11 @@ export class UIManager {
   // ==========================================
   startLesson(lessonData) {
     this.currentLessonData = lessonData;
+    this.typingViewportState = {
+      text: null,
+      currentIndex: null,
+      windowStart: 0
+    };
     this.navigateTo('lesson');
 
     const state = store.getState();
@@ -1769,7 +1796,12 @@ export class UIManager {
 
   renderTypingText(text, currentIndex, charStates = [], mistypedCharIndices = new Set(), charToWord = [], wordCorrectionMode = false) {
     if (!text) {
-      if (this.typingTextDisplay) this.typingTextDisplay.innerHTML = '';
+      if (this.typingTextDisplay) {
+        this.typingTextDisplay.classList.remove('typing-window-animate');
+        this.typingTextDisplay.style.setProperty('--typing-window-translate', '0px');
+        this.typingTextDisplay.innerHTML = '';
+      }
+      this.typingViewportState = { text: null, currentIndex: null, windowStart: 0 };
       if (zenMode.isActive) zenMode.renderText('');
       return;
     }
@@ -1786,20 +1818,21 @@ export class UIManager {
       const isCharMistyped = mistypedCharIndices && mistypedCharIndices.has(i);
       const stateObj = charStates ? charStates[i] : null;
       const spaceClass = (isSpace || isTab || isNewline) ? ' char-space' : '';
+      const charIndexAttribute = `data-char-index="${i}"`;
 
       let charSpan = '';
       if (i < currentIndex) {
         if (stateObj && stateObj.status === 'incorrect') {
-          charSpan = `<span class="char-token char-incorrect${spaceClass}" data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-incorrect${spaceClass}" ${charIndexAttribute} data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}</span>`;
         } else if (isCharMistyped) {
-          charSpan = `<span class="char-token char-word-error${spaceClass}" title="Corrected character">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-word-error${spaceClass}" ${charIndexAttribute} title="Corrected character">${displayChar}</span>`;
         } else {
-          charSpan = `<span class="char-token char-correct${spaceClass}">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-correct${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
         }
       } else if (i === currentIndex) {
-        charSpan = `<span class="char-token char-current${spaceClass}"><span class="char-caret"></span>${displayChar}</span>`;
+        charSpan = `<span class="char-token char-current${spaceClass}" ${charIndexAttribute}><span class="char-caret"></span>${displayChar}</span>`;
       } else {
-        charSpan = `<span class="char-token char-upcoming${spaceClass}">${displayChar}</span>`;
+        charSpan = `<span class="char-token char-upcoming${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
       }
 
       if (isNewline) {
@@ -1823,6 +1856,7 @@ export class UIManager {
 
     if (this.typingTextDisplay) {
       this.typingTextDisplay.innerHTML = html;
+      this.updateTypingViewport(text, currentIndex);
     }
 
     if (zenMode.isActive) {
@@ -1835,6 +1869,42 @@ export class UIManager {
         author: this.currentLessonData?.author
       });
     }
+  }
+
+  /**
+   * Keep the active character inside a three-line window. The offset is
+   * intentionally based on the caret's actual rendered line instead of a
+   * character-count guess, so it remains correct at every viewport width and
+   * font size. It only animates when typing crosses the window boundary.
+   */
+  updateTypingViewport(text, currentIndex) {
+    const display = this.typingTextDisplay;
+    if (!display) return;
+
+    const boundedIndex = Math.min(Math.max(Number(currentIndex) || 0, 0), Math.max(0, text.length - 1));
+    const target = display.querySelector(`[data-char-index="${boundedIndex}"]`) || display.querySelector('[data-char-index]');
+    if (!target) return;
+
+    const computedStyle = window.getComputedStyle(display);
+    const lineHeight = parseFloat(computedStyle.lineHeight) || (parseFloat(computedStyle.fontSize) * 1.6) || 24;
+    const displayRect = display.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const currentLine = Math.max(0, Math.round((targetRect.top - displayRect.top) / lineHeight));
+    // Keep the active line in the middle of the three-line window once it
+    // reaches the lower half. The first two lines establish the viewport;
+    // entering line three scrolls immediately instead of letting the caret
+    // sit on the last visible line.
+    const windowStart = Math.max(0, currentLine - 1);
+    const previousState = this.typingViewportState;
+    const isSameText = previousState.text === text;
+    const movedToAnotherWindow = isSameText && previousState.windowStart !== windowStart;
+    const movedCaret = isSameText && previousState.currentIndex !== null && previousState.currentIndex !== currentIndex;
+
+    // Remove the transition before resetting a new round or recalculating a
+    // stable position. This prevents an idle render from making the text move.
+    display.classList.toggle('typing-window-animate', movedToAnotherWindow && movedCaret);
+    display.style.setProperty('--typing-window-translate', `${-windowStart * lineHeight}px`);
+    this.typingViewportState = { text, currentIndex, windowStart };
   }
 
   handleTypingError(data) {
@@ -1863,6 +1933,7 @@ export class UIManager {
 
   handleLessonFinished(summary) {
     this.currentSessionSummary = summary;
+    this.resultsShortcutLockoutUntil = Date.now() + 650; // Lockout hotkeys for 650ms to swallow trailing typing keystrokes
     ghostRacer.stopRace();
     document.body.classList.remove('blind-mode-active');
 
@@ -1939,6 +2010,13 @@ export class UIManager {
       summary.isMissedWordsDrill = true;
     }
 
+    let sessionKind = 'lesson';
+    if (summary.isPlacementTest) sessionKind = 'placement';
+    else if (summary.isSpeedTest) sessionKind = 'speedtest';
+    else if (summary.isCodeLesson) sessionKind = 'code';
+    else if (summary.isQuote) sessionKind = 'quote';
+    else if (this.currentLessonData?.isCustom) sessionKind = 'custom';
+
     store.recordSession({
       lessonId: summary.lessonId,
       lessonTitle: summary.lessonTitle,
@@ -1952,7 +2030,9 @@ export class UIManager {
       mastery: summary.mastery,
       isPlacementTest: summary.isPlacementTest,
       placementRecommendation: summary.placementRecommendation,
-      inFocusMode: !!this.isFocusModeActive
+      inFocusMode: !!this.isFocusModeActive,
+      kind: sessionKind,
+      speedTestPreset: summary.speedTestPreset || null
     });
 
     if (!summary.isPlacementTest && summary.lessonId === 'daily-challenge') {
@@ -2025,6 +2105,8 @@ export class UIManager {
   renderResults(summary) {
     const container = this.screens.results;
     if (!container) return;
+
+    this.resultsShortcutLockoutUntil = Date.now() + 650;
 
     const state = store.getState();
     const lvlInfo = getLevelProgress(state.xp);
@@ -2353,11 +2435,10 @@ export class UIManager {
 
     const state = store.getState();
     const lvlInfo = getLevelProgress(state.xp);
-    const fingerMastery = AnalyticsEngine.getFingerMastery(state.keyStats);
-    const totalMins = Math.round((state.totalPracticeTimeSec || 0) / 60);
 
     container.innerHTML = `
       <div class="profile-layout">
+        <!-- Hero Header -->
         <div class="profile-hero-card">
           <div class="avatar-circle">⌨️</div>
           <div class="profile-info">
@@ -2373,8 +2454,8 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- Certificate of Proficiency Action Banner -->
-        <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(124, 92, 252, 0.12)); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: var(--radius-md); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <!-- Official Diploma Action Banner -->
+        <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(124, 92, 252, 0.12)); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
           <div style="display: flex; align-items: center; gap: 16px;">
             <span style="font-size: 36px;">📜</span>
             <div>
@@ -2387,47 +2468,15 @@ export class UIManager {
           </button>
         </div>
 
-        <!-- Advanced Analytics Dashboard Slot (Canvas Trend Charts, Finger Trends, Session History, CSV Export) -->
+        <!-- Advanced Analytics Dashboard Slot (Scorecards, Dual Velocity Charts, Diagnostics, Session History) -->
         <div id="advanced-analytics-slot"></div>
 
-        <div class="lifetime-stats-grid">
-          <div class="stat-card">
-            <span class="stat-icon">⚡</span>
-            <span class="stat-number">${state.bestWpm || 0}</span>
-            <span class="stat-name">Best WPM</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">📈</span>
-            <span class="stat-number">${state.averageWpm || 0}</span>
-            <span class="stat-name">Average WPM</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">🎯</span>
-            <span class="stat-number">${state.bestAccuracy || 100}%</span>
-            <span class="stat-name">Best Accuracy</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">🔥</span>
-            <span class="stat-number">${state.dailyStreak} Days</span>
-            <span class="stat-name">Current Streak</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">⏱️</span>
-            <span class="stat-number">${totalMins}m</span>
-            <span class="stat-name">Practice Time</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">⌨️</span>
-            <span class="stat-number">${(state.totalKeystrokes || 0).toLocaleString()}</span>
-            <span class="stat-name">Total Keystrokes</span>
-          </div>
-        </div>
-
+        <!-- Physical Keyboard Accuracy Heatmap Card -->
         <div class="profile-section-card">
           <div class="card-header">
             <div>
-              <h3 class="card-title">Keyboard Accuracy Heatmap</h3>
-              <p class="card-subtitle">Visual accuracy performance breakdown per physical key</p>
+              <h3 class="card-title">Physical Keyboard Accuracy Heatmap</h3>
+              <p class="card-subtitle">Visual accuracy performance breakdown per physical keycap</p>
             </div>
             <div class="heatmap-legend">
               <span class="legend-item"><span class="legend-box untested"></span> Untested</span>
@@ -2446,30 +2495,7 @@ export class UIManager {
           <div id="profile-heatmap-container" class="profile-heatmap-container"></div>
         </div>
 
-        <div class="profile-section-card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">10-Finger Muscle Memory Mastery</h3>
-              <p class="card-subtitle">Independent accuracy rating per typing finger</p>
-            </div>
-          </div>
-          <div class="finger-mastery-grid">
-            ${fingerMastery.map(f => `
-              <div class="finger-mastery-item">
-                <div class="finger-mastery-head">
-                  <span class="finger-dot" style="background: ${f.finger.color}"></span>
-                  <span class="finger-title">${f.finger.name}</span>
-                  <span class="finger-acc">${f.accuracy}%</span>
-                </div>
-                <div class="finger-bar-track">
-                  <div class="finger-bar-fill" style="width: ${f.accuracy}%; background: ${f.finger.color}"></div>
-                </div>
-                <span class="finger-attempts">${f.totalAttempts} strokes</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
+        <!-- Milestone Achievements Card -->
         <div class="profile-section-card">
           <div class="card-header">
             <div>
@@ -2502,7 +2528,7 @@ export class UIManager {
     // Render Advanced Analytics
     const analyticsSlot = document.getElementById('advanced-analytics-slot');
     if (analyticsSlot) {
-      renderAdvancedAnalyticsDashboard(analyticsSlot, state);
+      renderAdvancedAnalyticsDashboard(analyticsSlot, state, this);
     }
 
     const heatmapContainer = document.getElementById('profile-heatmap-container');
@@ -2824,7 +2850,7 @@ export class UIManager {
           <div class="setting-row">
             <div>
               <label class="setting-label">Word Correction Mode (Backspace to Fix)</label>
-              <p class="setting-desc">Keep typing on mistakes. Requires deleting errors with Backspace before completing the word. Mistyped words are marked in yellow.</p>
+              <p class="setting-desc">Keep typing through mistakes. Wrong keys are red; use Backspace to correct them and corrected keys turn yellow.</p>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" id="setting-wordcorrection-toggle" ${settings.wordCorrectionMode ? 'checked' : ''}>
@@ -3441,4 +3467,3 @@ export class UIManager {
     }
   }
 }
-
