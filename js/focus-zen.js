@@ -899,7 +899,7 @@ class ZenModeManager {
       return;
     }
 
-    if (e.key === ' ' && e.target === this._overlay) {
+    if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || e.key === ' ') {
       e.preventDefault();
     }
 

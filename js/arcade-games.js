@@ -419,6 +419,10 @@ export class TypeInvadersGame {
   }
 
   handleKeyDown(e) {
+    if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
+      e.preventDefault();
+    }
+
     if (!this.state.running || this.state.paused) {
       if (e.key === 'Escape' && this.state.running) this.togglePause();
       return;
@@ -1046,6 +1050,10 @@ export class NitroSprintGame {
   }
 
   handleKeyDown(e) {
+    if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
+      e.preventDefault();
+    }
+
     if (!this.state.running) return;
     if (e.key === 'Escape') {
       this.quitGame();
@@ -1444,6 +1452,10 @@ export class MatrixRainGame {
   }
 
   handleKeyDown(e) {
+    if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
+      e.preventDefault();
+    }
+
     if (!this.state.running || this.state.paused) {
       if (e.key === 'Escape' && this.state.running) this.togglePause();
       return;
@@ -1914,6 +1926,10 @@ export class KeyBeatsGame {
   }
 
   handleKeyDown(e) {
+    if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code) || e.key === ' ') {
+      e.preventDefault();
+    }
+
     if (!this.state.running || this.state.paused) {
       if (e.key === 'Escape' && this.state.running) this.togglePause();
       return;

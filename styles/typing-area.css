@@ -179,6 +179,7 @@
 
 /* Character Token States */
 .char-token {
+  display: inline-block;
   position: relative;
   transition: color 0.08s ease, background 0.08s ease;
 }

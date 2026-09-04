@@ -147,20 +147,25 @@ export class UIManager {
       }
 
       // On the results / complete screen:
-      // Enter advances to the next lesson; R retries the current lesson.
+      // Enter or Space advances to the next lesson; R retries the current lesson; Esc goes to dashboard.
       if (this.activeScreen === 'results') {
-        // Discard residual mistypes and trailing keystrokes from the completed round
-        if (Date.now() < (this.resultsShortcutLockoutUntil || 0)) {
-          return;
-        }
-
         const target = e.target;
         const isInteractiveTarget = target?.closest?.(
           'input, textarea, select, [contenteditable="true"]'
         );
 
         if (!isInteractiveTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          if (e.key === 'Enter' || e.code === 'NumpadEnter') {
+          // Always prevent default browser scrolling (Space, Arrows, PageUp/Down, Backspace) on results screen
+          if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.code) || e.key === ' ') {
+            e.preventDefault();
+          }
+
+          // Discard residual mistypes and trailing keystrokes from the completed round
+          if (Date.now() < (this.resultsShortcutLockoutUntil || 0)) {
+            return;
+          }
+
+          if (e.key === 'Enter' || e.code === 'NumpadEnter' || e.key === ' ' || e.code === 'Space') {
             e.preventDefault();
             document.getElementById('results-next-btn')?.click();
             return;
@@ -176,9 +181,15 @@ export class UIManager {
             return;
           }
         }
+        return;
       }
 
       if (this.activeScreen === 'lesson') {
+        // Prevent default browser scrolling on typing screen
+        if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || e.key === ' ') {
+          e.preventDefault();
+        }
+
         if (typingEngine.isActive) {
           if (zenMode.isActive) return;
           if (this.keyboardRenderer) {
@@ -323,6 +334,7 @@ export class UIManager {
     }
 
     this.activeScreen = screenName;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
     Object.entries(this.screens).forEach(([name, el]) => {
       if (el) {

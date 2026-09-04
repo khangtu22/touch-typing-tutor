@@ -261,14 +261,23 @@ export class TypingEngine {
   }
 
   handleKeyDown(e) {
+    // Always swallow default browser scrolling/navigation keys in typing contexts
+    if (['Space', 'Backspace', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || [' ', 'Backspace', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault?.();
+    }
+
     if (!this.isActive || this.isPaused) return;
 
-    // Enter is a fast-forward only during the completed-round transition.
-    // During normal typing it remains an invalid character and cannot skip
-    // unfinished practice text.
-    if (this.roundTransitioning && (e.code === 'Enter' || e.key === 'Enter')) {
-      e.preventDefault?.();
-      this.advanceToNextRound();
+    // During round transition between rounds:
+    // Enter or Space immediately advances to the next round without waiting for the timer.
+    // All other trailing keystrokes are swallowed and discarded so they never register as errors on the finished text.
+    if (this.roundTransitioning) {
+      if (e.code === 'Enter' || e.key === 'Enter' || e.code === 'Space' || e.key === ' ') {
+        e.preventDefault?.();
+        this.advanceToNextRound();
+      } else {
+        e.preventDefault?.();
+      }
       return;
     }
 
@@ -276,8 +285,9 @@ export class TypingEngine {
       return;
     }
 
-    if (['Space', 'Backspace', 'Tab', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
-      e.preventDefault();
+    // If the text for the round is already complete, ignore any trailing keystrokes
+    if (this.charIndex >= this.currentText.length) {
+      return;
     }
 
     const state = store.getState();
