@@ -35,10 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.start();
 
   // 4. Initialize Wellness/Goals break timer if enabled
-  const state = store.getState();
-  if (state.settings?.wellness?.breakEnabled) {
-    goalsManager.startBreakTimer();
-  }
+  goalsManager.syncBreakTimer();
+  goalsManager.syncNotification();
 
   // 5. Developer Console Helpers
   window.resetTypingTutor = () => {

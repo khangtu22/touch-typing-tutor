@@ -76,10 +76,11 @@ export function getLevelFromXp(xp) {
 export function getLevelProgress(xp) {
   const currentLvl = getLevelFromXp(xp);
   const currentLvlXp = getXpForLevel(currentLvl);
-  const nextLvlXp = currentLvl >= 30 ? currentLvlXp + 5000 : getXpForLevel(currentLvl + 1);
-  const progressXp = xp - currentLvlXp;
-  const neededXp = nextLvlXp - currentLvlXp;
-  const pct = Math.min(100, Math.max(0, Math.round((progressXp / neededXp) * 100)));
+  const isMaxLevel = currentLvl >= 30;
+  const nextLvlXp = isMaxLevel ? null : getXpForLevel(currentLvl + 1);
+  const progressXp = Math.max(0, xp - currentLvlXp);
+  const neededXp = isMaxLevel ? 0 : nextLvlXp - currentLvlXp;
+  const pct = isMaxLevel ? 100 : Math.min(100, Math.max(0, Math.round((progressXp / neededXp) * 100)));
   const title = LEVEL_TITLES[currentLvl - 1] || 'Grandmaster Typist';
 
   return {
@@ -89,6 +90,7 @@ export function getLevelProgress(xp) {
     nextLvlXp,
     progressXp,
     neededXp,
+    isMaxLevel,
     pct
   };
 }
@@ -225,7 +227,7 @@ class StateStore {
             wpm: Math.max(0, Math.round(Number(s.wpm) || 0)),
             accuracy: Math.max(0, Math.min(100, Math.round(Number(s.accuracy) || 100))),
             durationSec: Math.max(0, Math.round(Number(s.durationSec) || 0)),
-            stars: Math.max(1, Math.min(3, Math.round(Number(s.stars) || 1))),
+            stars: Math.max(1, Math.min(PERFECT_STARS, Math.round(Number(s.stars) || 1))),
             xpEarned: Math.max(0, Math.round(Number(s.xpEarned) || 0)),
             wpmHistory: Array.isArray(s.wpmHistory) ? s.wpmHistory : [],
             kind: s.kind || (Number.isInteger(s.lessonId) && s.lessonId >= 1 && s.lessonId <= 30 ? 'lesson' : 'practice'),
@@ -625,18 +627,60 @@ class StateStore {
     try {
       const parsed = JSON.parse(jsonStr);
       const data = parsed.data || parsed;
-      if (typeof data !== 'object' || data === null) throw new Error('Invalid JSON structure');
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        throw new Error('Invalid JSON structure');
+      }
+
+      const arrayFields = [
+        'sessions', 'practiceDatesHistory', 'quotesPracticed',
+        'languagesPracticed', 'codeSnippetsPracticed'
+      ];
+      arrayFields.forEach(field => {
+        if (data[field] !== undefined && !Array.isArray(data[field])) {
+          throw new Error(`Invalid backup field: ${field} must be an array`);
+        }
+      });
+
+      const objectFields = [
+        'settings', 'dailyChallengeState', 'starsByLesson', 'lessonCompletion',
+        'achievementsUnlocked', 'keyStats', 'arcadeStats', 'speedTestBests'
+      ];
+      objectFields.forEach(field => {
+        if (data[field] !== undefined && (
+          data[field] === null || typeof data[field] !== 'object' || Array.isArray(data[field])
+        )) {
+          throw new Error(`Invalid backup field: ${field} must be an object`);
+        }
+      });
+
+      const xp = Number(data.xp ?? 0);
+      if (!Number.isFinite(xp) || xp < 0) throw new Error('Invalid backup field: xp');
+
+      const safeData = {
+        ...data,
+        xp: Math.round(xp),
+        sessions: (data.sessions || []).filter(s => s && typeof s === 'object' && !Array.isArray(s)),
+        practiceDatesHistory: (data.practiceDatesHistory || []).filter(value => typeof value === 'string')
+      };
 
       this.state = {
         ...DEFAULT_STATE,
-        ...data,
+        ...safeData,
         settings: {
           ...DEFAULT_STATE.settings,
-          ...(data.settings || {})
+          ...(safeData.settings || {}),
+          goals: {
+            ...DEFAULT_STATE.settings.goals,
+            ...(safeData.settings?.goals || {})
+          },
+          wellness: {
+            ...DEFAULT_STATE.settings.wellness,
+            ...(safeData.settings?.wellness || {})
+          }
         },
         dailyChallengeState: {
           ...DEFAULT_STATE.dailyChallengeState,
-          ...(data.dailyChallengeState || {})
+          ...(safeData.dailyChallengeState || {})
         }
       };
       this.state.schemaVersion = DEFAULT_STATE.schemaVersion;

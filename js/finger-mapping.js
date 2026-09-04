@@ -3,6 +3,10 @@
  * Defines the standard 10-finger touch typing positions, colors, and key associations.
  */
 
+import { getLayoutKeycaps } from './layouts.js';
+
+const LAYOUT_KEYCAP_CACHE = new Map();
+
 export const FINGERS = {
   LEFT_PINKY: {
     id: 'left-pinky',
@@ -165,8 +169,22 @@ export const KEY_TO_FINGER = {
 /**
  * Returns finger object for a character
  */
-export function getFingerForKey(char) {
+export function getFingerForKey(char, layoutId = 'qwerty') {
   if (!char) return null;
+
+  // For alternate layouts, resolve the character to the physical key position
+  // first. KeyboardEvent.code is physical, while KEY_TO_FINGER is QWERTY-only.
+  if (layoutId && layoutId !== 'qwerty') {
+    if (!LAYOUT_KEYCAP_CACHE.has(layoutId)) {
+      LAYOUT_KEYCAP_CACHE.set(layoutId, getLayoutKeycaps(layoutId).flat());
+    }
+    const keyDef = LAYOUT_KEYCAP_CACHE.get(layoutId)
+      .find(key => key.primary === char || key.shift === char);
+    if (keyDef?.finger) {
+      return Object.values(FINGERS).find(f => f.id === keyDef.finger) || null;
+    }
+  }
+
   const fingerId = KEY_TO_FINGER[char] || KEY_TO_FINGER[char.toLowerCase()];
   if (!fingerId) return FINGERS.RIGHT_INDEX; // Fallback
   return Object.values(FINGERS).find(f => f.id === fingerId) || null;
@@ -176,8 +194,8 @@ export function getFingerForKey(char) {
  * Returns which Shift key (Left or Right) should be used when typing a capital letter or shifted symbol.
  * Standard touch-typing rule: Use the opposite hand's Shift key.
  */
-export function getOppositeShift(char) {
-  const finger = getFingerForKey(char);
+export function getOppositeShift(char, layoutId = 'qwerty') {
+  const finger = getFingerForKey(char, layoutId);
   if (!finger) return null;
   if (finger.hand === 'left') {
     return 'ShiftRight'; // Use right shift for left hand keys

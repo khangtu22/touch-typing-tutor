@@ -731,7 +731,10 @@ class ZenModeManager {
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = (window.innerWidth) * dpr;
       canvas.height = (window.innerHeight) * dpr;
-      ctx.scale(dpr, dpr);
+      // Resizing a canvas resets its bitmap but not the drawing context's
+      // transform. Replace the transform so repeated window resizes do not
+      // compound the DPR scale and move particles off-screen.
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
 

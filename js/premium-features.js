@@ -2,7 +2,7 @@
  * premium-features.js
  * ---------------------------------------------------------------------------
  * Data and utilities that power KeyFlow's premium content:
- *   • QUOTE_VAULT        – 60+ categorised, difficulty-tagged public-domain quotes
+ *   • QUOTE_VAULT        – 60+ categorised, difficulty-tagged quotations
  *   • MULTI_LANG_WORDS   – Common word/sentence lists for EN, ES, FR, DE, IT, PT
  *   • getQuoteOfTheDay() – Deterministic daily quote picker (date-seeded)
  *   • getQuotesByFilter()– Filter QUOTE_VAULT by category and/or difficulty

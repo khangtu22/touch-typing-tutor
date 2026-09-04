@@ -124,29 +124,45 @@ export function createPlacementLesson() {
 
 export class CustomPracticeManager {
   /**
-   * Chunks arbitrary raw text into cleanly formatted 1-5 round mini lessons
+   * Chunks arbitrary raw text into short, complete practice rounds.
+   *
+   * Text is normalized for prose, while code keeps indentation and line
+   * breaks. Long lines are split as well, so a pasted paragraph can never
+   * become one unbounded round or be silently discarded.
    */
-  static createLessonFromText(title, rawText) {
-    const cleanText = rawText.trim().replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/[ \t]{2,}/g, ' ');
-    if (!cleanText) return null;
+  static createLessonFromText(title, rawText, options = {}) {
+    const isCode = !!options.isCode;
+    const normalizedText = String(rawText ?? '').replace(/\r\n?/g, '\n');
+    if (!normalizedText.trim()) return null;
+    const sourceText = isCode ? normalizedText : normalizedText.trim();
+    const cleanText = isCode
+      ? sourceText
+      : sourceText
+        .replace(/\t/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n+/g, ' ')
+        .trim();
+    if (!cleanText.trim()) return null;
 
-    // Split by double newline or line blocks of ~120 chars
-    let rounds = [];
-    const lines = cleanText.split('\n').map(l => l.trim().replace(/[ \t]{2,}/g, ' ')).filter(l => l.length > 0);
+    const maxRoundLength = 130;
+    const rounds = [];
+    let remaining = cleanText;
 
-    let currentChunk = '';
-    lines.forEach(line => {
-      if (currentChunk.length + line.length < 130) {
-        currentChunk = currentChunk ? `${currentChunk} ${line}` : line;
-      } else {
-        if (currentChunk) rounds.push(currentChunk);
-        currentChunk = line;
-      }
-    });
-    if (currentChunk) rounds.push(currentChunk);
+    while (remaining.length > maxRoundLength) {
+      // Prefer a natural boundary, but fall back to an exact character split
+      // for URLs, identifiers, or other unbroken input.
+      const newlineBreak = isCode ? remaining.lastIndexOf('\n', maxRoundLength) : -1;
+      const spaceBreak = isCode ? -1 : remaining.lastIndexOf(' ', maxRoundLength);
+      const preferredBreak = Math.max(newlineBreak, spaceBreak);
+      const breakAt = preferredBreak > Math.floor(maxRoundLength * 0.5)
+        ? preferredBreak + 1
+        : maxRoundLength;
 
-    if (rounds.length === 0) rounds = [cleanText.slice(0, 200)];
-    rounds = rounds.map(r => r.replace(/[ \t]{2,}/g, ' ').trim()).slice(0, 6); // Max 6 rounds
+      rounds.push(remaining.slice(0, breakAt));
+      remaining = remaining.slice(breakAt);
+    }
+
+    if (remaining.length > 0) rounds.push(remaining);
 
     return {
       id: `custom-${Date.now()}`,
@@ -158,6 +174,8 @@ export class CustomPracticeManager {
       keys: ['all'],
       targetFingerIds: [],
       rounds,
+      isCustom: false,
+      isCodeLesson: isCode,
       accuracyTarget: 93,
       wpmTarget: 35,
       xpReward: 50

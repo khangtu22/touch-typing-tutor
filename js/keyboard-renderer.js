@@ -21,6 +21,7 @@ export class KeyboardRenderer {
     this.charToCode = new Map();
     this.currentTargetChar = '';
     this.currentShiftNeeded = null;
+    this.virtualShiftActive = false;
 
     this.render();
   }
@@ -43,6 +44,7 @@ export class KeyboardRenderer {
     this.container.innerHTML = '';
     this.keyElements.clear();
     this.charToCode.clear();
+    this.virtualShiftActive = false;
 
     if (this.blindMode) {
       this.container.classList.add('keyboard-blind-mode');
@@ -60,10 +62,21 @@ export class KeyboardRenderer {
       rowEl.className = `keyboard-row row-${rowIdx + 1}`;
 
       row.forEach(keyDef => {
-        const keyEl = document.createElement('div');
+        const keyEl = document.createElement('button');
+        keyEl.type = 'button';
         keyEl.className = `keycap key-${keyDef.width.replace('.', '_')} finger-${keyDef.finger}`;
         keyEl.dataset.code = keyDef.code;
         keyEl.dataset.finger = keyDef.finger;
+        keyEl.tabIndex = this.options.interactive ? 0 : -1;
+        keyEl.setAttribute(
+          'aria-label',
+          keyDef.isSpecial
+            ? (keyDef.label || keyDef.primary || keyDef.code)
+            : `${keyDef.primary}${keyDef.shift ? `, Shift ${keyDef.shift}` : ''}`
+        );
+
+        const isShiftKey = keyDef.code === 'ShiftLeft' || keyDef.code === 'ShiftRight';
+        if (isShiftKey) keyEl.setAttribute('aria-pressed', 'false');
 
         const fingerObj = Object.values(FINGERS).find(f => f.id === keyDef.finger);
         if (fingerObj) {
@@ -103,15 +116,34 @@ export class KeyboardRenderer {
         keyEl.appendChild(innerEl);
 
         if (this.options.interactive) {
-          keyEl.addEventListener('pointerdown', () => {
+          const activate = () => {
             keyEl.classList.add('key-pressed');
-            if (this.options.onKeyClick) {
-              const char = keyDef.primary || keyDef.label;
-              this.options.onKeyClick(char, keyDef.code);
+            setTimeout(() => keyEl.classList.remove('key-pressed'), 120);
+
+            if (isShiftKey) {
+              this.setVirtualShiftActive(!this.virtualShiftActive);
+              return;
             }
-          });
+
+            if (this.options.onKeyClick) {
+              const shiftActive = this.virtualShiftActive;
+              const char = shiftActive && keyDef.shift
+                ? keyDef.shift
+                : keyDef.primary || keyDef.label;
+              this.options.onKeyClick(char, keyDef.code, { shiftKey: shiftActive });
+              if (shiftActive) this.setVirtualShiftActive(false);
+            }
+          };
+
+          keyEl.addEventListener('pointerdown', activate);
           keyEl.addEventListener('pointerup', () => keyEl.classList.remove('key-pressed'));
           keyEl.addEventListener('pointerleave', () => keyEl.classList.remove('key-pressed'));
+          keyEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              activate();
+            }
+          });
         }
 
         rowEl.appendChild(keyEl);
@@ -137,6 +169,17 @@ export class KeyboardRenderer {
     this.charToCode.set(' ', 'Space');
 
     this.container.appendChild(keyboardWrapper);
+  }
+
+  setVirtualShiftActive(active) {
+    this.virtualShiftActive = !!active;
+    ['ShiftLeft', 'ShiftRight'].forEach(code => {
+      const shiftEl = this.keyElements.get(code);
+      if (shiftEl) {
+        shiftEl.classList.toggle('key-modifier-active', this.virtualShiftActive);
+        shiftEl.setAttribute('aria-pressed', String(this.virtualShiftActive));
+      }
+    });
   }
 
   highlightTarget(char, shiftNeeded = null) {

@@ -120,7 +120,15 @@ export class UIManager {
   }
 
   initEventListeners() {
-    if (this.navBrand) this.navBrand.addEventListener('click', () => this.navigateTo('dashboard'));
+    if (this.navBrand) {
+      this.navBrand.addEventListener('click', () => this.navigateTo('dashboard'));
+      this.navBrand.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.navigateTo('dashboard');
+        }
+      });
+    }
     if (this.navDashboardBtn) this.navDashboardBtn.addEventListener('click', () => this.navigateTo('dashboard'));
     if (this.navCodeBtn) this.navCodeBtn.addEventListener('click', () => this.navigateTo('code'));
     if (this.navSpeedtestBtn) this.navSpeedtestBtn.addEventListener('click', () => this.navigateTo('speedtest'));
@@ -347,6 +355,7 @@ export class UIManager {
 
   navigateTo(screenName) {
     if (this.activeScreen === 'lesson' && screenName !== 'lesson') {
+      goalsManager.setPracticeActive(false);
       typingEngine.destroy();
       ghostRacer.stopRace();
     }
@@ -360,14 +369,22 @@ export class UIManager {
       }
     });
 
-    if (this.navDashboardBtn) this.navDashboardBtn.classList.toggle('nav-btn-active', screenName === 'dashboard');
-    if (this.navCodeBtn) this.navCodeBtn.classList.toggle('nav-btn-active', screenName === 'code');
-    if (this.navSpeedtestBtn) this.navSpeedtestBtn.classList.toggle('nav-btn-active', screenName === 'speedtest');
-    if (this.navArcadeBtn) this.navArcadeBtn.classList.toggle('nav-btn-active', screenName === 'arcade');
-    if (this.navCustomBtn) this.navCustomBtn.classList.toggle('nav-btn-active', screenName === 'custom');
-    if (this.navQuotesBtn) this.navQuotesBtn.classList.toggle('nav-btn-active', screenName === 'quotes');
-    if (this.navProfileBtn) this.navProfileBtn.classList.toggle('nav-btn-active', screenName === 'profile');
-    if (this.navSettingsBtn) this.navSettingsBtn.classList.toggle('nav-btn-active', screenName === 'settings');
+    [
+      [this.navDashboardBtn, 'dashboard'],
+      [this.navCodeBtn, 'code'],
+      [this.navSpeedtestBtn, 'speedtest'],
+      [this.navArcadeBtn, 'arcade'],
+      [this.navCustomBtn, 'custom'],
+      [this.navQuotesBtn, 'quotes'],
+      [this.navProfileBtn, 'profile'],
+      [this.navSettingsBtn, 'settings']
+    ].forEach(([button, target]) => {
+      if (!button) return;
+      const isCurrent = screenName === target;
+      button.classList.toggle('nav-btn-active', isCurrent);
+      if (isCurrent) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
 
     if (screenName === 'dashboard') this.renderDashboard();
     if (screenName === 'code') this.renderCodeArena();
@@ -1145,7 +1162,7 @@ export class UIManager {
         const id = card.dataset.presetId;
         const preset = CODE_PRESETS.find(p => p.id === id);
         if (preset) {
-          const lesson = CustomPracticeManager.createLessonFromText(preset.title, preset.code);
+          const lesson = CustomPracticeManager.createLessonFromText(preset.title, preset.code, { isCode: true });
           this.startLesson(lesson);
         }
       });
@@ -1167,6 +1184,7 @@ export class UIManager {
         return;
       }
       const lesson = CustomPracticeManager.createLessonFromText('Custom Practice Passage', val);
+      if (lesson) lesson.isCustom = true;
       this.startLesson(lesson);
     });
 
@@ -1257,7 +1275,7 @@ export class UIManager {
         <div class="quote-vault-header">
           <div>
             <h2 class="section-title">Quote Vault &amp; Classic Passages</h2>
-            <p class="section-subtitle">Practice touch typing with 60+ curated public-domain literature, philosophy, code, and science excerpts</p>
+            <p class="section-subtitle">Practice touch typing with 60+ curated literature, philosophy, code, and science quotations</p>
           </div>
           <div class="quote-vault-header-actions">
             <span class="badge badge-accent">${practicedList.length} Quotes Practiced</span>
@@ -1269,23 +1287,23 @@ export class UIManager {
 
         <div style="display: flex; flex-direction: column; gap: 10px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
           <!-- Category Filter -->
-          <div class="quote-filters">
+          <div class="quote-filters" role="group" aria-label="Quote category">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 6px; align-self: center;">Category:</span>
-            <button class="quote-filter-btn ${!this.activeQuoteCategory ? 'filter-active' : ''}" data-cat="all">All (${QUOTE_VAULT.length})</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'motivation' ? 'filter-active' : ''}" data-cat="motivation">⚡ Motivation</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'literature' ? 'filter-active' : ''}" data-cat="literature">📚 Literature</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'programming' ? 'filter-active' : ''}" data-cat="programming">💻 Programming</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'science' ? 'filter-active' : ''}" data-cat="science">🔬 Science</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'philosophy' ? 'filter-active' : ''}" data-cat="philosophy">🏛️ Philosophy</button>
+            <button class="quote-filter-btn ${!this.activeQuoteCategory ? 'filter-active' : ''}" aria-pressed="${!this.activeQuoteCategory}" data-cat="all">All (${QUOTE_VAULT.length})</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'motivation' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'motivation'}" data-cat="motivation">⚡ Motivation</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'literature' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'literature'}" data-cat="literature">📚 Literature</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'programming' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'programming'}" data-cat="programming">💻 Programming</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'science' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'science'}" data-cat="science">🔬 Science</button>
+            <button class="quote-filter-btn ${this.activeQuoteCategory === 'philosophy' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'philosophy'}" data-cat="philosophy">🏛️ Philosophy</button>
           </div>
 
           <!-- Difficulty Filter -->
-          <div class="quote-filters">
+          <div class="quote-filters" role="group" aria-label="Quote length">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 6px; align-self: center;">Length:</span>
-            <button class="quote-filter-btn ${!this.activeQuoteDifficulty ? 'filter-active' : ''}" data-diff="all">All Lengths</button>
-            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'short' ? 'filter-active' : ''}" data-diff="short">⚡ Short (&lt;80)</button>
-            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'medium' ? 'filter-active' : ''}" data-diff="medium">📖 Medium (80-200)</button>
-            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'long' ? 'filter-active' : ''}" data-diff="long">📜 Long (200+)</button>
+            <button class="quote-filter-btn ${!this.activeQuoteDifficulty ? 'filter-active' : ''}" aria-pressed="${!this.activeQuoteDifficulty}" data-diff="all">All Lengths</button>
+            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'short' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'short'}" data-diff="short">⚡ Short (&lt;80)</button>
+            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'medium' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'medium'}" data-diff="medium">📖 Medium (80-200)</button>
+            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'long' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'long'}" data-diff="long">📜 Long (200+)</button>
           </div>
         </div>
 
@@ -1703,6 +1721,7 @@ export class UIManager {
   // ==========================================
   startLesson(lessonData) {
     this.currentLessonData = lessonData;
+    goalsManager.setPracticeActive(true);
     this.typingViewportState = {
       text: null,
       currentIndex: null,
@@ -1720,9 +1739,14 @@ export class UIManager {
         interactive: true,
         layoutId: state.settings.layout || 'qwerty',
         blindMode: state.settings.blindMode,
-        onKeyClick: (char, code) => {
+        onKeyClick: (char, code, eventData = {}) => {
           if (typingEngine.isActive) {
-            typingEngine.handleKeyDown({ key: char, code, preventDefault: () => {} });
+            typingEngine.handleKeyDown({
+              key: char,
+              code,
+              shiftKey: !!eventData.shiftKey,
+              preventDefault: () => {}
+            });
           }
         }
       });
@@ -1963,6 +1987,7 @@ export class UIManager {
 
   handleLessonFinished(summary) {
     this.currentSessionSummary = summary;
+    goalsManager.setPracticeActive(false);
     this.resultsShortcutLockoutUntil = Date.now() + 650; // Lockout hotkeys for 650ms to swallow trailing typing keystrokes
     ghostRacer.stopRace();
     document.body.classList.remove('blind-mode-active');
@@ -2045,6 +2070,7 @@ export class UIManager {
     else if (summary.isSpeedTest) sessionKind = 'speedtest';
     else if (summary.isCodeLesson) sessionKind = 'code';
     else if (summary.isQuote) sessionKind = 'quote';
+    else if (this.currentLessonData?.isZen) sessionKind = 'zen';
     else if (this.currentLessonData?.isCustom) sessionKind = 'custom';
 
     store.recordSession({
@@ -2089,9 +2115,11 @@ export class UIManager {
   toggleLessonPause() {
     if (typingEngine.isPaused) {
       typingEngine.resume();
+      goalsManager.setPracticeActive(true);
       this.hidePauseModal();
     } else {
       typingEngine.pause();
+      goalsManager.setPracticeActive(false);
       this.showPauseModal();
     }
   }
@@ -2331,7 +2359,7 @@ export class UIManager {
         <div class="results-xp-card">
           <div class="xp-row">
             <span><strong>Level ${lvlInfo.currentLvl}</strong> • ${lvlInfo.title}</span>
-            <span>${state.xp.toLocaleString()} / ${lvlInfo.nextLvlXp.toLocaleString()} XP</span>
+            <span>${lvlInfo.isMaxLevel ? `${state.xp.toLocaleString()} XP · Max level reached` : `${state.xp.toLocaleString()} / ${lvlInfo.nextLvlXp.toLocaleString()} XP`}</span>
           </div>
           <div class="xp-bar-track">
             <div class="xp-bar-fill" style="width: ${lvlInfo.pct}%"></div>
@@ -2485,7 +2513,7 @@ export class UIManager {
             <div class="profile-xp-bar-track">
               <div class="profile-xp-bar-fill" style="width: ${lvlInfo.pct}%"></div>
             </div>
-            <span class="profile-xp-sub">${state.xp.toLocaleString()} Total XP (${lvlInfo.progressXp} / ${lvlInfo.neededXp} to Level ${lvlInfo.currentLvl + 1})</span>
+            <span class="profile-xp-sub">${state.xp.toLocaleString()} Total XP (${lvlInfo.isMaxLevel ? 'Max level reached' : `${lvlInfo.progressXp} / ${lvlInfo.neededXp} to Level ${lvlInfo.currentLvl + 1}`})</span>
           </div>
         </div>
 
@@ -3060,7 +3088,7 @@ export class UIManager {
       const enabled = e.target.checked;
       if (enabled) {
         const granted = await goalsManager.requestNotificationPermission();
-        if (!granted) {
+        if (granted !== 'granted') {
           e.target.checked = false;
           this.showToast('Notification permission was not granted by your browser.', 'amber');
           return;
@@ -3077,6 +3105,8 @@ export class UIManager {
         const hour = store.getState().settings?.goals?.notificationHour || 20;
         goalsManager.scheduleNotification(hour);
         this.showToast('🔔 Daily reminder notifications activated!', 'teal');
+      } else {
+        goalsManager.cancelNotification();
       }
     });
 
@@ -3115,11 +3145,9 @@ export class UIManager {
           wellness: { ...(prev.settings.wellness || {}), breakEnabled: enabled }
         }
       }));
+      goalsManager.syncBreakTimer();
       if (enabled) {
-        goalsManager.startBreakTimer();
         this.showToast('🧘 Ergonomic break reminders enabled.', 'teal');
-      } else {
-        goalsManager.stopBreakTimer();
       }
     });
 
@@ -3131,6 +3159,7 @@ export class UIManager {
           wellness: { ...(prev.settings.wellness || {}), eyeCareEnabled: e.target.checked }
         }
       }));
+      goalsManager.syncBreakTimer();
     });
 
     document.getElementById('setting-focus-shortcut-toggle')?.addEventListener('change', (e) => {
@@ -3416,8 +3445,18 @@ export class UIManager {
       exitBadge = document.createElement('div');
       exitBadge.id = 'focus-exit-badge';
       exitBadge.className = 'focus-mode-exit-badge';
+      exitBadge.setAttribute('role', 'button');
+      exitBadge.setAttribute('tabindex', '0');
+      exitBadge.setAttribute('aria-label', 'Exit Focus Mode');
       exitBadge.innerHTML = `<span>Focus Mode Active</span> <span class="kbd">Esc</span>`;
-      exitBadge.addEventListener('click', () => this.exitFocusMode());
+      const exitFocusMode = () => this.exitFocusMode();
+      exitBadge.addEventListener('click', exitFocusMode);
+      exitBadge.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          exitFocusMode();
+        }
+      });
       document.body.appendChild(exitBadge);
     }
 
@@ -3436,10 +3475,14 @@ export class UIManager {
     if (!popup) {
       popup = document.createElement('div');
       popup.id = 'shortcuts-popup';
+      popup.setAttribute('role', 'dialog');
+      popup.setAttribute('aria-modal', 'true');
+      popup.setAttribute('aria-labelledby', 'shortcuts-dialog-title');
+      const previouslyFocused = document.activeElement;
       popup.innerHTML = `
         <div class="shortcuts-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary);">⌨️ Keyboard Shortcuts</h3>
+            <h3 id="shortcuts-dialog-title" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary);">⌨️ Keyboard Shortcuts</h3>
             <button id="shortcuts-close-btn" class="btn btn-sm" style="font-size: 16px; padding: 4px 8px; cursor: pointer; color: var(--text-secondary);">✕</button>
           </div>
           <table class="shortcuts-table">
@@ -3493,12 +3536,35 @@ export class UIManager {
       `;
       document.body.appendChild(popup);
 
-      const close = () => popup.remove();
+      const close = () => {
+        popup.remove();
+        previouslyFocused?.focus?.();
+      };
       popup.addEventListener('click', (e) => {
         if (e.target === popup) close();
       });
+      popup.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          close();
+          return;
+        }
+        if (e.key !== 'Tab') return;
+        const focusable = [...popup.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')];
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      });
       document.getElementById('shortcuts-close-btn')?.addEventListener('click', close);
       document.getElementById('shortcuts-done-btn')?.addEventListener('click', close);
+      document.getElementById('shortcuts-close-btn')?.focus();
     }
   }
 }

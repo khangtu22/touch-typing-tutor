@@ -703,6 +703,28 @@ input:checked + .toggle-slider:before {
   color: var(--text-primary);
   padding: 6px 12px;
   font-size: 13px;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .settings-group-card {
+    min-width: 0;
+    padding-inline: 16px;
+  }
+
+  .setting-row {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .setting-row > div:first-child {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .setting-row .select-input {
+    width: 100% !important;
+  }
 }
 
 /* Backup & Restore Controls */
@@ -1471,6 +1493,7 @@ input:checked + .toggle-slider:before {
 .aa-badge-code, .aa-tag-code { background: rgba(17, 138, 178, 0.15); color: #4EA8DE; border: 1px solid rgba(17, 138, 178, 0.35); }
 .aa-badge-speed, .aa-tag-speed { background: rgba(255, 184, 107, 0.15); color: #FFB86B; border: 1px solid rgba(255, 184, 107, 0.35); }
 .aa-badge-quote, .aa-tag-quote { background: rgba(6, 214, 160, 0.15); color: #06D6A0; border: 1px solid rgba(6, 214, 160, 0.35); }
+.aa-badge-zen, .aa-tag-zen { background: rgba(72, 187, 120, 0.15); color: #68D391; border: 1px solid rgba(72, 187, 120, 0.35); }
 .aa-badge-placement { background: rgba(255, 107, 139, 0.15); color: #FF6B8B; border: 1px solid rgba(255, 107, 139, 0.35); }
 
 .aa-td-actions {
@@ -1520,4 +1543,3 @@ input:checked + .toggle-slider:before {
   color: var(--text-secondary);
   padding: 0 4px;
 }
-

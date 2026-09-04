@@ -98,7 +98,7 @@ function fmtDuration(sec) {
  * @returns {string}
  */
 function starsHtml(count) {
-  const total = 3;
+  const total = 5;
   let out = '';
   for (let i = 0; i < total; i++) {
     const filled = i < count;
@@ -660,6 +660,8 @@ function attachChartInteractivity(canvas, tooltipEl, points, opts) {
         ? '<span class="aa-tag aa-tag-speed">⚡ Speed Test</span>'
         : nearest.kind === 'quote'
           ? '<span class="aa-tag aa-tag-quote">📜 Quote</span>'
+          : nearest.kind === 'zen'
+            ? '<span class="aa-tag aa-tag-zen">🧘 Zen</span>'
           : '<span class="aa-tag aa-tag-lesson">📖 Lesson</span>';
 
     const wpmVal = nearest.wpm ?? nearest.val ?? 0;
@@ -906,6 +908,7 @@ export function renderSessionHistoryTable(container, sessions = [], tableState =
       if (kindFilter === 'speedtest') return s.kind === 'speedtest' || String(s.lessonId).includes('speed');
       if (kindFilter === 'code') return s.kind === 'code';
       if (kindFilter === 'quote') return s.kind === 'quote';
+      if (kindFilter === 'zen') return s.kind === 'zen';
       if (kindFilter === 'custom') return s.kind === 'custom' || s.kind === 'practice';
       return true;
     });
@@ -984,6 +987,8 @@ export function renderSessionHistoryTable(container, sessions = [], tableState =
         ? '<span class="aa-badge aa-badge-speed">Speed</span>'
         : s.kind === 'quote'
           ? '<span class="aa-badge aa-badge-quote">Quote</span>'
+          : s.kind === 'zen'
+            ? '<span class="aa-badge aa-badge-zen">Zen</span>'
           : s.kind === 'placement'
             ? '<span class="aa-badge aa-badge-placement">Test</span>'
             : '<span class="aa-badge aa-badge-lesson">Curriculum</span>';
@@ -1227,17 +1232,17 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
 
         <div class="aa-controls-group">
           <!-- View Mode Toggle -->
-          <div class="aa-mode-toggle" id="aa-mode-toggle">
-            <button class="aa-mode-btn ${activeMode === 'session' ? 'active' : ''}" data-mode="session">Per Session</button>
-            <button class="aa-mode-btn ${activeMode === 'day' ? 'active' : ''}" data-mode="day">Daily Average</button>
+          <div class="aa-mode-toggle" id="aa-mode-toggle" role="group" aria-label="Analytics view mode">
+            <button class="aa-mode-btn ${activeMode === 'session' ? 'active' : ''}" aria-pressed="${activeMode === 'session'}" data-mode="session">Per Session</button>
+            <button class="aa-mode-btn ${activeMode === 'day' ? 'active' : ''}" aria-pressed="${activeMode === 'day'}" data-mode="day">Daily Average</button>
           </div>
 
           <!-- Period Tabs -->
-          <div class="aa-period-tabs" id="aa-period-tabs">
-            <button class="aa-period-btn ${activePeriod === '7d' ? 'active' : ''}" data-period="7d">7 Days</button>
-            <button class="aa-period-btn ${activePeriod === '30d' ? 'active' : ''}" data-period="30d">30 Days</button>
-            <button class="aa-period-btn ${activePeriod === '90d' ? 'active' : ''}" data-period="90d">90 Days</button>
-            <button class="aa-period-btn ${activePeriod === 'all' ? 'active' : ''}" data-period="all">All Time</button>
+          <div class="aa-period-tabs" id="aa-period-tabs" role="group" aria-label="Analytics time period">
+            <button class="aa-period-btn ${activePeriod === '7d' ? 'active' : ''}" aria-pressed="${activePeriod === '7d'}" data-period="7d">7 Days</button>
+            <button class="aa-period-btn ${activePeriod === '30d' ? 'active' : ''}" aria-pressed="${activePeriod === '30d'}" data-period="30d">30 Days</button>
+            <button class="aa-period-btn ${activePeriod === '90d' ? 'active' : ''}" aria-pressed="${activePeriod === '90d'}" data-period="90d">90 Days</button>
+            <button class="aa-period-btn ${activePeriod === 'all' ? 'active' : ''}" aria-pressed="${activePeriod === 'all'}" data-period="all">All Time</button>
           </div>
         </div>
       </div>
@@ -1335,6 +1340,7 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
               <option value="code">Developer Code</option>
               <option value="speedtest">Speed Tests</option>
               <option value="quote">Quote Vault</option>
+              <option value="zen">Zen Mode</option>
               <option value="custom">Custom Practice</option>
             </select>
             <button id="aa-export-csv-btn" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
@@ -1447,7 +1453,11 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
     const btn = e.target.closest('button[data-mode]');
     if (!btn) return;
     activeMode = btn.dataset.mode;
-    modeToggle.querySelectorAll('.aa-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === activeMode));
+    modeToggle.querySelectorAll('.aa-mode-btn').forEach(b => {
+      const isActive = b.dataset.mode === activeMode;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
+    });
     renderAll();
   });
 
@@ -1455,7 +1465,11 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
     const btn = e.target.closest('button[data-period]');
     if (!btn) return;
     activePeriod = btn.dataset.period;
-    periodTabs.querySelectorAll('.aa-period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === activePeriod));
+    periodTabs.querySelectorAll('.aa-period-btn').forEach(b => {
+      const isActive = b.dataset.period === activePeriod;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
+    });
     renderAll();
   });
 

@@ -162,12 +162,18 @@ export class TypingEngine {
 
   getCurrentTargetFinger() {
     const char = this.getCurrentExpectedChar();
-    return getFingerForKey(char);
+    return this.getTargetFingerForChar(char);
   }
 
   getOppositeShiftNeeded() {
     const char = this.getCurrentExpectedChar();
-    return isShiftRequired(char) ? getOppositeShift(char) : null;
+    const layoutId = store.getState().settings?.layout || 'qwerty';
+    return isShiftRequired(char) ? getOppositeShift(char, layoutId) : null;
+  }
+
+  getTargetFingerForChar(char) {
+    const layoutId = store.getState().settings?.layout || 'qwerty';
+    return getFingerForKey(char, layoutId);
   }
 
   getWordIndexForChar(charIdx) {
@@ -411,7 +417,7 @@ export class TypingEngine {
           this.onErrorFeedback({
             expectedChar,
             typedKey,
-            targetFinger: getFingerForKey(expectedChar)
+            targetFinger: this.getTargetFingerForChar(expectedChar)
           });
         }
 
@@ -470,7 +476,7 @@ export class TypingEngine {
             this.onErrorFeedback({
               expectedChar,
               typedKey,
-              targetFinger: getFingerForKey(expectedChar)
+              targetFinger: this.getTargetFingerForChar(expectedChar)
             });
           }
           this.charIndex += 1;
@@ -530,7 +536,7 @@ export class TypingEngine {
             this.onErrorFeedback({
               expectedChar,
               typedKey,
-              targetFinger: getFingerForKey(expectedChar)
+              targetFinger: this.getTargetFingerForChar(expectedChar)
             });
           }
           this.charIndex += 1;
@@ -592,7 +598,7 @@ export class TypingEngine {
             this.onErrorFeedback({
               expectedChar,
               typedKey,
-              targetFinger: getFingerForKey(expectedChar)
+              targetFinger: this.getTargetFingerForChar(expectedChar)
             });
           }
 

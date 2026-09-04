@@ -145,6 +145,12 @@ input, select {
   user-select: none;
 }
 
+.nav-brand:focus-visible,
+.focus-mode-exit-badge:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
 .brand-icon {
   font-size: 22px;
   display: flex;
@@ -261,6 +267,62 @@ input, select {
   background: var(--surface-3);
   color: var(--text-primary);
   border: 1px solid var(--border-light);
+}
+
+/* Keep the full navigation usable on smaller laptops without allowing the
+   header to widen the document and hide controls behind overflow clipping. */
+@media (max-width: 1280px) {
+  .app-header {
+    padding-inline: 18px;
+    gap: 12px;
+  }
+
+  .nav-center-stats {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .header-xp-container {
+    min-width: 110px;
+  }
+
+  .nav-actions {
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .nav-btn {
+    padding-inline: 9px;
+    gap: 5px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .app-header {
+    flex-wrap: wrap;
+  }
+
+  .nav-brand {
+    flex: 0 0 auto;
+  }
+
+  .nav-center-stats {
+    margin-left: auto;
+  }
+
+  .nav-actions {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .nav-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
 }
 
 /* Screen Wrapper */

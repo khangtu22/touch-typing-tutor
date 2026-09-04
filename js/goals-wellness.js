@@ -89,8 +89,17 @@ class GoalsManager {
     /** @type {number|null} setInterval handle for break checking */
     this.breakTimerInterval = null;
 
-    /** @type {number} timestamp (ms) when the last break was shown / dismissed */
-    this.lastBreakTime = Date.now();
+    /** @type {boolean} whether the user is actively in a typing lesson */
+    this.practiceActive = false;
+
+    /** @type {number} active typing time accumulated since the last reminder */
+    this.activeTypingSinceBreakMs = 0;
+
+    /** @type {number} timestamp (ms) used to accumulate active typing time */
+    this.lastActivityCheckAt = Date.now();
+
+    /** @type {'break'|'eyecare'} next reminder when both are enabled */
+    this.nextWellnessType = 'break';
 
     /** @type {number|null} setTimeout handle for the daily notification */
     this._notifTimeout = null;
@@ -133,8 +142,9 @@ class GoalsManager {
       0
     );
 
-    // -- This week's lesson & practice completions --------------------------
-    // All completed sessions recorded since the start of the current local week
+    // -- This week's curriculum lesson completions --------------------------
+    // Count unique curriculum lessons, not speed tests, quotes, code snippets,
+    // custom passages, or repeated attempts at the same lesson.
     const weekSessions = sessions.filter(s => {
       const rawDate = s.date || s.recordedAt;
       if (!rawDate) return false;
@@ -142,7 +152,14 @@ class GoalsManager {
       return !isNaN(d.getTime()) && d >= weekStart;
     });
 
-    const weekLessons = weekSessions.length;
+    const weekLessons = new Set(
+      weekSessions
+        .filter(s => {
+          const lessonId = Number(s.lessonId);
+          return s.kind === 'lesson' && Number.isInteger(lessonId) && lessonId >= 1 && lessonId <= 30;
+        })
+        .map(s => Number(s.lessonId))
+    ).size;
 
     // -- Build ring data ----------------------------------------------------
     const targetMin = Number(goals.dailyMinutes) || DEFAULT_GOALS.dailyMinutes;
@@ -184,6 +201,30 @@ class GoalsManager {
   // -------------------------------------------------------------------------
 
   /**
+   * Starts or stops wellness polling based on the currently enabled options.
+   */
+  syncBreakTimer() {
+    const wellness = { ...DEFAULT_WELLNESS, ...(store.getState().settings?.wellness || {}) };
+    if (wellness.breakEnabled || wellness.eyeCareEnabled) {
+      this.startBreakTimer();
+    } else {
+      this.stopBreakTimer();
+    }
+  }
+
+  /**
+   * Freezes or resumes the active-time clock used by break reminders.
+   */
+  setPracticeActive(active) {
+    const now = Date.now();
+    if (this.practiceActive) {
+      this.activeTypingSinceBreakMs += Math.max(0, now - this.lastActivityCheckAt);
+    }
+    this.practiceActive = !!active;
+    this.lastActivityCheckAt = now;
+  }
+
+  /**
    * Starts the background interval that polls whether a break or eye-care
    * reminder is due.  Safe to call multiple times — will not double-start.
    */
@@ -192,7 +233,8 @@ class GoalsManager {
 
     // Check every 60 seconds to keep overhead negligible.
     this.breakTimerInterval = setInterval(() => this.checkBreak(), 60_000);
-    this.lastBreakTime = Date.now();
+    this.activeTypingSinceBreakMs = 0;
+    this.lastActivityCheckAt = Date.now();
     console.log('[GoalsManager] Break timer started.');
   }
 
@@ -203,6 +245,8 @@ class GoalsManager {
     if (this.breakTimerInterval !== null) {
       clearInterval(this.breakTimerInterval);
       this.breakTimerInterval = null;
+      this.activeTypingSinceBreakMs = 0;
+      this.lastActivityCheckAt = Date.now();
       console.log('[GoalsManager] Break timer stopped.');
     }
   }
@@ -216,14 +260,23 @@ class GoalsManager {
     const wellness = { ...DEFAULT_WELLNESS, ...(state.settings?.wellness || {}) };
 
     if (!wellness.breakEnabled && !wellness.eyeCareEnabled) return;
+    if (!this.practiceActive) return;
 
-    const elapsedMin = (Date.now() - this.lastBreakTime) / 60_000;
+    const now = Date.now();
+    this.activeTypingSinceBreakMs += Math.max(0, now - this.lastActivityCheckAt);
+    this.lastActivityCheckAt = now;
+    const elapsedMin = this.activeTypingSinceBreakMs / 60_000;
 
     if (elapsedMin >= wellness.breakInterval) {
-      // Alternate between stretch break and eye care if both are on.
-      const type = wellness.eyeCareEnabled ? 'eyecare' : 'break';
+      const bothEnabled = wellness.breakEnabled && wellness.eyeCareEnabled;
+      const type = bothEnabled
+        ? this.nextWellnessType
+        : wellness.eyeCareEnabled ? 'eyecare' : 'break';
       this.showBreakOverlay(type);
-      this.lastBreakTime = Date.now();
+      this.activeTypingSinceBreakMs = 0;
+      if (bothEnabled) {
+        this.nextWellnessType = type === 'break' ? 'eyecare' : 'break';
+      }
     }
   }
 
@@ -387,6 +440,7 @@ class GoalsManager {
     const dismiss = () => {
       clearInterval(countdownInterval);
       clearTimeout(autoDismissTimeout);
+      document.removeEventListener('keydown', onKey);
       overlay.style.animation = 'breakOverlayFadeOut 0.3s ease forwards';
       setTimeout(() => overlay.remove(), 320);
     };
@@ -420,7 +474,6 @@ class GoalsManager {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         dismiss();
-        document.removeEventListener('keydown', onKey);
       }
     };
     document.addEventListener('keydown', onKey);
@@ -429,6 +482,22 @@ class GoalsManager {
   // -------------------------------------------------------------------------
   // Browser Notifications
   // -------------------------------------------------------------------------
+
+  cancelNotification() {
+    if (this._notifTimeout !== null) {
+      clearTimeout(this._notifTimeout);
+      this._notifTimeout = null;
+    }
+  }
+
+  syncNotification() {
+    const goals = store.getState().settings?.goals || {};
+    if (goals.notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      this.scheduleNotification(Number(goals.notificationHour) || DEFAULT_GOALS.notificationHour);
+    } else if (!goals.notificationsEnabled) {
+      this.cancelNotification();
+    }
+  }
 
   /**
    * Requests the browser Notification permission from the user.
@@ -452,10 +521,9 @@ class GoalsManager {
    * @param {number} hour - Hour of day in 24-hour format (0-23).
    */
   scheduleNotification(hour) {
-    if (this._notifTimeout !== null) {
-      clearTimeout(this._notifTimeout);
-      this._notifTimeout = null;
-    }
+    this.cancelNotification();
+
+    if (!store.getState().settings?.goals?.notificationsEnabled) return;
 
     const now    = new Date();
     const target = new Date();
@@ -495,6 +563,7 @@ class GoalsManager {
    */
   sendGoalReminder(progress) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!store.getState().settings?.goals?.notificationsEnabled) return;
 
     const todayMin  = progress?.todayMinutes ?? 0;
     const goalMin   = progress?.goals?.dailyMinutes ?? DEFAULT_GOALS.dailyMinutes;

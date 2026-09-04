@@ -51,6 +51,35 @@ export const LAYOUTS = {
   }
 };
 
+// KeyboardEvent.code identifies the physical US keyboard position, regardless
+// of the character produced by the selected operating-system layout. Keep
+// these positions separate from the legends in LAYOUTS so alternate layouts
+// can guide the correct physical key and finger.
+const PHYSICAL_CODES = [
+  ['Backquote', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal'],
+  ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'BracketLeft', 'BracketRight', 'Backslash'],
+  ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon', 'Quote'],
+  ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Comma', 'Period', 'Slash']
+];
+
+const STANDARD_SHIFT_LEGENDS = [
+  ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+'],
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '|'],
+  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"'],
+  ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?']
+];
+
+// Dvorak changes the shifted legend on punctuation positions as well as the
+// unshifted legend. The other supported layouts use the standard US symbols.
+const SHIFT_LEGENDS = {
+  dvorak: [
+    ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '{', '}'],
+    ['"', '<', '>', 'P', 'Y', 'F', 'G', 'C', 'R', 'L', '?', '+', '|'],
+    ['A', 'O', 'E', 'U', 'I', 'D', 'H', 'T', 'N', 'S', '_'],
+    [':', 'Q', 'J', 'K', 'X', 'B', 'M', 'W', 'V', 'Z']
+  ]
+};
+
 /**
  * Returns physical key definition rows tailored to the selected layout
  */
@@ -69,13 +98,13 @@ export function getLayoutKeycaps(layoutId = 'qwerty') {
     ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky']
   ];
 
-  const shiftSymbolsRow1 = ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+'];
+  const shiftLegends = SHIFT_LEGENDS[layout.id] || STANDARD_SHIFT_LEGENDS;
 
   // Row 1
   const r1 = layout.rows[0].map((char, i) => ({
-    code: i === 0 ? 'Backquote' : i === 11 ? 'Minus' : i === 12 ? 'Equal' : `Digit${char}`,
+    code: PHYSICAL_CODES[0][i],
     primary: char,
-    shift: shiftSymbolsRow1[i] || char,
+    shift: shiftLegends[0][i] || char,
     width: '1u',
     finger: rowFingerMap[0][i]
   }));
@@ -84,17 +113,8 @@ export function getLayoutKeycaps(layoutId = 'qwerty') {
   // Row 2
   const r2 = [{ code: 'Tab', label: 'Tab', primary: '\t', width: '1.5u', finger: 'left-pinky', isSpecial: true }];
   layout.rows[1].forEach((char, i) => {
-    let code = `Key${char.toUpperCase()}`;
-    let shift = char.toUpperCase();
-    if (char === '[') { code = 'BracketLeft'; shift = '{'; }
-    else if (char === ']') { code = 'BracketRight'; shift = '}'; }
-    else if (char === '\\') { code = 'Backslash'; shift = '|'; }
-    else if (char === ';') { code = 'Semicolon'; shift = ':'; }
-    else if (char === "'") { code = 'Quote'; shift = '"'; }
-    else if (char === ',') { code = 'Comma'; shift = '<'; }
-    else if (char === '.') { code = 'Period'; shift = '>'; }
-    else if (char === '/') { code = 'Slash'; shift = '?'; }
-    else if (char === '=') { code = 'Equal'; shift = '+'; }
+    const code = PHYSICAL_CODES[1][i];
+    const shift = shiftLegends[1][i] || char.toUpperCase();
 
     r2.push({
       code,
@@ -108,11 +128,8 @@ export function getLayoutKeycaps(layoutId = 'qwerty') {
   // Row 3
   const r3 = [{ code: 'CapsLock', label: 'Caps', width: '1.75u', finger: 'left-pinky', isSpecial: true }];
   layout.rows[2].forEach((char, i) => {
-    let code = `Key${char.toUpperCase()}`;
-    let shift = char.toUpperCase();
-    if (char === ';') { code = 'Semicolon'; shift = ':'; }
-    else if (char === "'") { code = 'Quote'; shift = '"'; }
-    else if (char === '-') { code = 'Minus'; shift = '_'; }
+    const code = PHYSICAL_CODES[2][i];
+    const shift = shiftLegends[2][i] || char.toUpperCase();
 
     // Homing nubs (Index fingers on home row)
     const hasNub = (i === 3 || i === 6);
@@ -131,12 +148,8 @@ export function getLayoutKeycaps(layoutId = 'qwerty') {
   // Row 4
   const r4 = [{ code: 'ShiftLeft', label: 'Shift', width: '2.25u', finger: 'left-pinky', isSpecial: true }];
   layout.rows[3].forEach((char, i) => {
-    let code = `Key${char.toUpperCase()}`;
-    let shift = char.toUpperCase();
-    if (char === ',') { code = 'Comma'; shift = '<'; }
-    else if (char === '.') { code = 'Period'; shift = '>'; }
-    else if (char === '/') { code = 'Slash'; shift = '?'; }
-    else if (char === ';') { code = 'Semicolon'; shift = ':'; }
+    const code = PHYSICAL_CODES[3][i];
+    const shift = shiftLegends[3][i] || char.toUpperCase();
 
     r4.push({
       code,

@@ -33,6 +33,12 @@
 .keycap {
   position: relative;
   height: 52px;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: center;
   border-radius: 8px;
   background: #191E2C;
   box-shadow: 0 4px 0 #0C0F17, 0 5px 6px rgba(0, 0, 0, 0.4);
@@ -129,6 +135,13 @@
   transform: translateY(3px);
   box-shadow: 0 1px 0 #0C0F17, 0 2px 4px rgba(0, 0, 0, 0.4);
   background: #252D42;
+}
+
+.keycap.key-modifier-active {
+  transform: translateY(2px);
+  background: var(--finger-light, rgba(124, 92, 252, 0.18));
+  border-color: var(--finger-color, var(--accent-primary));
+  box-shadow: 0 2px 0 #0C0F17, 0 0 14px var(--finger-glow, var(--accent-glow));
 }
 
 /* Target Key Highlight (matches finger color) */
