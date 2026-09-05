@@ -366,7 +366,39 @@
 
 .results-title { font-size: 30px; line-height: 1.15; }
 .results-subtitle { max-width: 700px; font-size: 13px; }
-.results-stars-row { display: none; }
+.results-stars-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.results-stars-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.results-stars-row .result-star {
+  font-size: 23px;
+  line-height: 1;
+}
+
+.results-stars-row .result-star.star-awarded {
+  transform: none;
+}
+
+.results-stars-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.results-stars-label strong {
+  color: var(--reward-amber);
+  font-family: var(--font-mono);
+}
 
 .results-metrics-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));

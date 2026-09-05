@@ -3481,6 +3481,16 @@ export class UIManager {
         : isSpeedTest
           ? (summary.isNewPB ? 'New personal best' : 'Benchmark complete')
           : `${mastery.stars}/5 mastery stars`;
+      const displayedStars = Math.min(5, Math.max(0, Number(mastery.stars) || 0));
+      const starLabel = isSpeedTest ? 'performance stars' : 'mastery stars';
+      const resultStarsHtml = !summary.isPlacementTest ? `
+        <div class="results-stars-row" role="img" aria-label="${displayedStars} out of 5 ${starLabel}">
+          <span class="results-stars-icons" aria-hidden="true">
+            ${[1, 2, 3, 4, 5].map(star => `<span class="result-star ${displayedStars >= star ? 'star-awarded' : ''}">${displayedStars >= star ? '★' : '☆'}</span>`).join('')}
+          </span>
+          <span class="results-stars-label"><strong>${displayedStars}/5</strong> ${starLabel}</span>
+        </div>
+      ` : '';
 
       let sparklineHtml = '';
       try {
@@ -3499,6 +3509,7 @@ export class UIManager {
             </div>
             <h2 class="results-title">${resultTitle}</h2>
             <p class="results-subtitle">${resultSubtitle}</p>
+            ${resultStarsHtml}
 
             <div class="results-metrics-grid">
               <div class="result-metric-card">
