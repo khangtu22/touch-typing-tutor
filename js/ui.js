@@ -5,7 +5,7 @@
  * Focus Mode, Zen Mode, Quote Vault, Goal Rings, Theme Studio, Advanced Analytics.
  */
 
-import { store, getLevelProgress } from './state.js';
+import { store, getLevelProgress, getLocalDateKey } from './state.js';
 import { CURRICULUM, CURRICULUM_LEVELS, generateWeakKeysLesson, generateWeakFingerLesson } from './curriculum.js';
 import { typingEngine } from './typing-engine.js';
 import { KeyboardRenderer } from './keyboard-renderer.js';
@@ -60,6 +60,8 @@ export class UIManager {
       currentIndex: null,
       windowStart: 0
     };
+    this.dashboardStageFilter = 'all'; // 'all' | '1' | '2' | '3' | '4' | '5'
+    this.dashboardSearchQuery = '';
 
     this.initElements();
     this.initEventListeners();
@@ -199,6 +201,41 @@ export class UIManager {
         }
       }
 
+      // Dashboard screen quick search shortcut '/' and search escape / enter
+      if (this.activeScreen === 'dashboard') {
+        const isInteractive = e.target?.closest?.('input, textarea, select');
+        if (e.key === '/' && !isInteractive && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const searchInput = document.getElementById('roadmap-search-input');
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
+          return;
+        }
+        if (e.key === 'Escape') {
+          const searchInput = document.getElementById('roadmap-search-input');
+          if (searchInput && document.activeElement === searchInput) {
+            e.preventDefault();
+            if (searchInput.value) {
+              searchInput.value = '';
+              this.dashboardSearchQuery = '';
+              this.applyDashboardFilters();
+            }
+            searchInput.blur();
+            return;
+          }
+        }
+        if (e.key === 'Enter' && !isInteractive && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          const heroBtn = document.getElementById('hero-start-btn');
+          if (heroBtn && document.activeElement !== heroBtn) {
+            e.preventDefault();
+            heroBtn.click();
+            return;
+          }
+        }
+      }
+
       // On the results / complete screen:
       // Enter or Space advances to the next lesson; R retries the current lesson; Esc goes to dashboard.
       if (this.activeScreen === 'results') {
@@ -275,6 +312,14 @@ export class UIManager {
           case 'z':
             e.preventDefault();
             this.launchZenMode();
+            break;
+          case 't':
+            e.preventDefault();
+            this.navigateTo('speedtest');
+            break;
+          case 'c':
+            e.preventDefault();
+            this.navigateTo('code');
             break;
           case 'f': {
             const state = store.getState();
@@ -672,6 +717,162 @@ export class UIManager {
     return null;
   }
 
+  getWeeklyConsistencyData(state) {
+    const today = new Date();
+    const todayKey = getLocalDateKey(today);
+    const historySet = new Set(state.practiceDatesHistory || []);
+    if (state.lastPracticeDate === todayKey) {
+      historySet.add(todayKey);
+    }
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const days = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateKey = getLocalDateKey(d);
+      const isToday = (dateKey === todayKey);
+      const isPracticed = historySet.has(dateKey);
+
+      days.push({
+        dateKey,
+        dayName: dayNames[d.getDay()],
+        dayNum: d.getDate(),
+        isToday,
+        isPracticed
+      });
+    }
+
+    const activeDaysCount = days.filter(d => d.isPracticed).length;
+    const practicedToday = historySet.has(todayKey);
+
+    return {
+      days,
+      activeDaysCount,
+      practicedToday
+    };
+  }
+
+  applyDashboardFilters() {
+    const container = this.screens.dashboard;
+    if (!container) return;
+
+    const query = (this.dashboardSearchQuery || '').trim().toLowerCase();
+    const stageFilter = this.dashboardStageFilter || 'all';
+
+    let totalVisibleLessons = 0;
+    const levelCards = container.querySelectorAll('.level-group-card');
+
+    levelCards.forEach(levelCard => {
+      const levelId = levelCard.dataset.level;
+      const isLevelMatch = stageFilter === 'all' || stageFilter === String(levelId);
+
+      if (!isLevelMatch) {
+        levelCard.style.display = 'none';
+        return;
+      }
+
+      const lessonCards = levelCard.querySelectorAll('.lesson-node-card');
+      let visibleInLevel = 0;
+
+      lessonCards.forEach(card => {
+        const lessonId = parseInt(card.dataset.lessonId, 10);
+        const lesson = CURRICULUM.find(l => l.id === lessonId);
+
+        if (!lesson) {
+          card.style.display = 'none';
+          return;
+        }
+
+        let isMatch = true;
+        if (query) {
+          const matchTitle = lesson.title.toLowerCase().includes(query);
+          const matchSubtitle = (lesson.subtitle || '').toLowerCase().includes(query);
+          const matchFocus = (lesson.skillFocus || '').toLowerCase().includes(query);
+          const matchKeys = lesson.keys.some(k => k.toLowerCase().includes(query) || (query === 'space' && k === ' '));
+          const matchLevel = (lesson.levelTitle || '').toLowerCase().includes(query);
+          const matchNum = String(lesson.id) === query || `lesson ${lesson.id}`.includes(query) || `l${lesson.id}` === query;
+
+          isMatch = matchTitle || matchSubtitle || matchFocus || matchKeys || matchLevel || matchNum;
+        }
+
+        if (isMatch) {
+          card.style.display = '';
+          visibleInLevel++;
+          totalVisibleLessons++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      if (visibleInLevel === 0) {
+        levelCard.style.display = 'none';
+      } else {
+        levelCard.style.display = '';
+      }
+    });
+
+    const statusEl = document.getElementById('roadmap-filter-status');
+    if (statusEl) {
+      if (totalVisibleLessons === 0) {
+        statusEl.textContent = 'No lessons found matching your filters';
+      } else if (stageFilter !== 'all' || query) {
+        statusEl.textContent = `Showing ${totalVisibleLessons} of ${CURRICULUM.length} lessons`;
+      } else {
+        statusEl.textContent = `Showing all ${CURRICULUM.length} lessons across ${CURRICULUM_LEVELS.length} stages`;
+      }
+    }
+
+    const emptyState = document.getElementById('roadmap-empty-state');
+    if (emptyState) {
+      emptyState.style.display = totalVisibleLessons === 0 ? 'flex' : 'none';
+    }
+
+    const clearBtn = document.getElementById('roadmap-search-clear');
+    if (clearBtn) {
+      clearBtn.style.display = query ? 'flex' : 'none';
+    }
+  }
+
+  jumpToCurrentRoadmapLesson() {
+    const state = store.getState();
+    const currentLessonId = Math.min(CURRICULUM.length, Math.max(1, state.currentLesson || 1));
+    const currentLessonObj = CURRICULUM.find(l => l.id === currentLessonId) || CURRICULUM[0];
+
+    if (this.dashboardStageFilter !== 'all' && this.dashboardStageFilter !== String(currentLessonObj.level)) {
+      this.dashboardStageFilter = 'all';
+      const container = this.screens.dashboard;
+      if (container) {
+        container.querySelectorAll('.stage-tab').forEach(tab => {
+          const isAll = tab.dataset.stage === 'all';
+          tab.classList.toggle('active', isAll);
+          tab.setAttribute('aria-selected', isAll ? 'true' : 'false');
+        });
+      }
+    }
+
+    if (this.dashboardSearchQuery) {
+      this.dashboardSearchQuery = '';
+      const input = document.getElementById('roadmap-search-input');
+      if (input) input.value = '';
+    }
+
+    this.applyDashboardFilters();
+
+    const targetCard = document.querySelector(`.lesson-node-card[data-lesson-id="${currentLessonId}"]`);
+    if (targetCard) {
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetCard.classList.remove('node-highlight-pulse');
+      void targetCard.offsetWidth;
+      targetCard.classList.add('node-highlight-pulse');
+      setTimeout(() => {
+        targetCard.classList.remove('node-highlight-pulse');
+      }, 1500);
+      targetCard.focus?.();
+    }
+  }
+
   renderDashboard() {
     const container = this.screens.dashboard;
     if (!container) return;
@@ -705,9 +906,19 @@ export class UIManager {
 
     // Quote of the Day
     const qotd = getQuoteOfTheDay();
+    const qotdEstSec = estimateTypingTimeSec(qotd.text);
 
-    // Goal Progress
+    // Goal Progress & Weekly Consistency
     const goalProgress = goalsManager.getGoalProgress(state);
+    const weeklyData = this.getWeeklyConsistencyData(state);
+
+    const ctaLabel = currentLessonMastery.isMastered
+      ? 'Keep Sharp'
+      : currentLessonMastery.isPassed
+        ? 'Master This Lesson'
+        : currentLessonMastery.isAttempted
+          ? 'Resume Practice'
+          : 'Start Lesson';
 
     container.innerHTML = `
       <div class="dashboard-layout">
@@ -715,52 +926,164 @@ export class UIManager {
         <div class="hero-lesson-card">
           <div class="hero-content">
             <div class="hero-badge-row">
-              <span class="badge badge-accent">${currentLessonObj.levelTitle}</span>
+              <span class="badge badge-accent">${escapeHtml(currentLessonObj.levelTitle)}</span>
               <span class="hero-lesson-number">Lesson ${currentLessonObj.id} of ${CURRICULUM.length}</span>
+              ${currentLessonMastery.isMastered ? `
+                <span class="hero-status-pill status-mastered">✦ Mastered (${currentLessonMastery.bestStars}/5 ★)</span>
+              ` : currentLessonMastery.isAttempted ? `
+                <span class="hero-status-pill status-attempted">↻ In Progress (${currentLessonMastery.bestStars}/5 ★)</span>
+              ` : `
+                <span class="hero-status-pill status-new">● Up Next</span>
+              `}
             </div>
-            <h2 class="hero-title">${currentLessonObj.title}</h2>
-            <p class="hero-subtitle">${currentLessonObj.subtitle}</p>
-            <p class="hero-focus"><span>Focus</span> ${currentLessonObj.skillFocus}</p>
-            <div class="hero-keys-preview">
-              <span class="keys-label">Targets:</span>
-              <span class="target-pill">${currentLessonObj.accuracyTarget}% accuracy</span>
-              <span class="target-pill">${currentLessonObj.wpmTarget} WPM</span>
-              <span class="target-pill">~${currentLessonObj.estimatedMinutes} min</span>
+            <h2 class="hero-title">${escapeHtml(currentLessonObj.title)}</h2>
+            <p class="hero-subtitle">${escapeHtml(currentLessonObj.subtitle)}</p>
+            <p class="hero-focus"><span>Focus</span> ${escapeHtml(currentLessonObj.skillFocus)}</p>
+            
+            <div class="hero-metrics-strip">
+              <div class="hero-targets-preview">
+                <span class="target-pill">≥${currentLessonObj.accuracyTarget}% accuracy</span>
+                <span class="target-pill">${currentLessonObj.wpmTarget} WPM target</span>
+                <span class="target-pill">~${currentLessonObj.estimatedMinutes} min</span>
+                ${currentLessonCompletion ? `
+                  <span class="target-pill target-pill-best">🏆 Best: ${currentLessonCompletion.bestWpm || 0} WPM · ${currentLessonCompletion.bestAccuracy || 0}%</span>
+                ` : ''}
+              </div>
+              ${!currentLessonObj.keys.includes('all') && currentLessonObj.keys.length > 0 ? `
+                <div class="hero-keycaps-row" aria-label="Key targets">
+                  <span class="hero-keycaps-label">Keys:</span>
+                  <div class="hero-keycaps-list">
+                    ${currentLessonObj.keys.map(k => `<kbd class="hero-kbd">${escapeHtml(k === ' ' ? '␣ Space' : k.toUpperCase())}</kbd>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
             </div>
           </div>
-          <div class="hero-action" style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+
+          <div class="hero-action">
             <button id="hero-start-btn" class="btn btn-primary btn-hero">
-              <span>${currentLessonMastery.isMastered ? 'Keep Sharp' : currentLessonMastery.isPassed ? 'Master This Lesson' : currentLessonMastery.isAttempted ? 'Practice Again' : 'Continue Lesson'}</span>
+              <span>${ctaLabel}</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </button>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
-              <button id="dashboard-weakness-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(0, 212, 170, 0.4); color: var(--text-primary); font-size: 11.5px;">
-                <span>🎯 Keybr AI Drill</span>
-              </button>
-              <button id="dashboard-speedtest-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(255, 184, 107, 0.4); color: var(--text-primary); font-size: 11.5px;">
-                <span>⚡ Speed Test</span>
-              </button>
-              <button id="dashboard-code-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(88, 166, 255, 0.4); color: var(--text-primary); font-size: 11.5px;">
-                <span>💻 Code Arena</span>
-              </button>
-              <button id="dashboard-zen-btn" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 4px; border-color: rgba(124, 92, 252, 0.4); color: var(--text-primary); font-size: 11.5px;">
-                <span>🧘 Zen</span>
-                <span style="font-size: 10px; opacity: 0.6; font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 1px 3px; border-radius: 3px;">Z</span>
-              </button>
-            </div>
+            <span class="hero-cta-hint">Press <kbd class="inline-kbd">Enter</kbd> to launch</span>
           </div>
         </div>
 
-        <!-- Goals Progress Rings Section (if enabled or default) -->
-        <div class="goals-rings-section" style="background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 18px;">🎯</span>
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--text-primary);">Daily Goals &amp; Activity</h3>
-            </div>
-            <button id="configure-goals-btn" class="btn btn-sm" style="font-size: 11px; color: var(--text-secondary); cursor: pointer; text-decoration: underline;">Configure Goals →</button>
+        <!-- Quick Practice Modes Hub -->
+        <div class="quick-modes-hub" aria-label="Quick Practice Modes">
+          <div class="quick-modes-title-row">
+            <span class="quick-modes-label">QUICK MODES</span>
+            <span class="quick-modes-sub">Jump straight into specialized training arenas</span>
           </div>
-          <div id="dashboard-goal-rings-container"></div>
+          <div class="quick-modes-grid">
+            <button id="dashboard-speedtest-btn" class="quick-mode-card mode-speedtest" title="Benchmark Speed Test (15s, 30s, 60s, Passages)">
+              <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">⚡</span></div>
+              <div class="quick-mode-meta">
+                <span class="quick-mode-name">Speed Test</span>
+                <span class="quick-mode-desc">15s, 30s, 60s benchmark</span>
+              </div>
+              <span class="quick-mode-tag">Benchmark</span>
+            </button>
+
+            <button id="dashboard-quotes-btn" class="quick-mode-card mode-quotes" title="Quote Vault (95 Curated Passages)">
+              <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">📜</span></div>
+              <div class="quick-mode-meta">
+                <span class="quick-mode-name">Quote Vault</span>
+                <span class="quick-mode-desc">95 curated passages</span>
+              </div>
+              <span class="quick-mode-tag">Classic</span>
+            </button>
+
+            <button id="dashboard-code-btn" class="quick-mode-card mode-code" title="Code Arena (JavaScript, Python, Rust, Go)">
+              <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">💻</span></div>
+              <div class="quick-mode-meta">
+                <span class="quick-mode-name">Code Arena</span>
+                <span class="quick-mode-desc">JS, Python, TS, Rust &amp; Go</span>
+              </div>
+              <span class="quick-mode-tag">Syntax</span>
+            </button>
+
+            <button id="dashboard-arcade-btn" class="quick-mode-card mode-arcade" title="Arcade Hub (Word Fall, Racer, Matrix)">
+              <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">🎮</span></div>
+              <div class="quick-mode-meta">
+                <span class="quick-mode-name">Arcade Hub</span>
+                <span class="quick-mode-desc">Word Fall, Racer, Matrix</span>
+              </div>
+              <span class="quick-mode-tag">Games</span>
+            </button>
+
+            <button id="dashboard-weakness-btn" class="quick-mode-card mode-weakness" title="Keybr AI Conditioning">
+              <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">🎯</span></div>
+              <div class="quick-mode-meta">
+                <span class="quick-mode-name">Keybr AI Drill</span>
+                <span class="quick-mode-desc">Target weakest keys</span>
+              </div>
+              <span class="quick-mode-tag">Adaptive</span>
+            </button>
+
+            <button id="dashboard-zen-btn" class="quick-mode-card mode-zen" title="Zen Focus Mode (Press Z)">
+              <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">🧘</span></div>
+              <div class="quick-mode-meta">
+                <span class="quick-mode-name">Zen Flow</span>
+                <span class="quick-mode-desc">Distraction-free typing</span>
+              </div>
+              <span class="quick-mode-shortcut">Z</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Daily Goals & Weekly Habit Consistency Panel -->
+        <div class="daily-activity-panel">
+          <div class="daily-activity-header">
+            <div class="daily-activity-title-group">
+              <span class="panel-icon">🎯</span>
+              <div>
+                <h3 class="daily-activity-title">Daily Goals &amp; Activity</h3>
+                <span class="daily-activity-subtitle">Track your typing volume, rings, and weekly consistency</span>
+              </div>
+            </div>
+            <div class="daily-activity-actions">
+              <div class="streak-status-badge">
+                <span class="streak-flame">🔥</span>
+                <span class="streak-count"><strong>${state.dailyStreak}</strong> day streak</span>
+                <span class="streak-divider">·</span>
+                <span class="streak-best">Best: ${state.bestStreak || state.dailyStreak || 0}d</span>
+              </div>
+              <button id="configure-goals-btn" class="btn btn-outline btn-sm">Configure Goals →</button>
+            </div>
+          </div>
+          <div class="daily-activity-body">
+            <div class="goals-rings-container">
+              <div id="dashboard-goal-rings-container"></div>
+            </div>
+            <div class="consistency-column">
+              <div class="weekly-consistency-widget">
+                <div class="consistency-header">
+                  <div class="consistency-title-group">
+                    <span class="consistency-icon">📅</span>
+                    <span class="consistency-title">Weekly Habit</span>
+                  </div>
+                  <span class="consistency-count-badge ${weeklyData.activeDaysCount >= 5 ? 'streak-strong' : ''}">${weeklyData.activeDaysCount}/7 Active Days</span>
+                </div>
+                <div class="consistency-days-row" role="group" aria-label="Last 7 days practice record">
+                  ${weeklyData.days.map(d => `
+                    <div class="consistency-day ${d.isToday ? 'is-today' : ''} ${d.isPracticed ? 'is-practiced' : 'is-missed'}" title="${d.dayName} (${d.dateKey}): ${d.isPracticed ? 'Practiced' : d.isToday ? 'Ready for today' : 'No practice recorded'}">
+                      <span class="day-name">${d.dayName}</span>
+                      <div class="day-bubble">${d.isPracticed ? '✓' : d.isToday ? '●' : '·'}</div>
+                      <span class="day-num">${d.dayNum}</span>
+                    </div>
+                  `).join('')}
+                </div>
+                <p class="consistency-status-caption">
+                  ${weeklyData.practicedToday 
+                    ? '✓ Today\'s practice is logged! Your streak is secured.' 
+                    : state.dailyStreak > 0 
+                      ? `🔥 Practice any lesson or mode today to maintain your ${state.dailyStreak}-day streak!` 
+                      : '⚡ Practice any lesson or mode today to kick off a new daily streak!'}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Dashboard Widgets Grid -->
@@ -783,7 +1106,7 @@ export class UIManager {
                   ${adaptiveFocusKeys.map(key => `<span>${escapeHtml(key)}</span>`).join('')}
                 </div>
               ` : ''}
-              <span class="adaptive-focus-detail">${coach2 ? `Custom 5-Minute Targeted Conditioning` : escapeHtml(adaptiveFocus.detail)}</span>
+              <span class="adaptive-focus-detail">${coach2 ? 'Custom 5-Minute Targeted Conditioning' : escapeHtml(adaptiveFocus.detail)}</span>
             </div>
             <div class="widget-footer">
               <button id="adaptive-focus-btn" class="btn btn-primary btn-sm">${coach2 ? 'Launch 5-Min Drill →' : escapeHtml(adaptiveFocus.actionLabel) + ' →'}</button>
@@ -800,9 +1123,21 @@ export class UIManager {
               <span class="quote-category-badge quote-cat-${qotd.category}">${qotd.category}</span>
             </div>
             <blockquote class="quote-of-day-text">“${escapeHtml(qotd.text)}”</blockquote>
-            <span class="quote-of-day-author">— ${escapeHtml(qotd.author)}</span>
-            <div class="widget-footer">
+            <div class="quote-of-day-meta-row">
+              <span class="quote-of-day-author">— ${escapeHtml(qotd.author)}${qotd.source ? `, <em>${escapeHtml(qotd.source)}</em>` : ''}</span>
+              <span class="quote-of-day-estimate">⏱️ ~${qotdEstSec}s</span>
+            </div>
+            <div class="widget-footer quote-widget-footer">
               <button id="qotd-practice-btn" class="btn btn-secondary btn-sm">Practice Quote →</button>
+              <div class="quote-secondary-actions">
+                <button id="dashboard-qotd-zen-btn" class="btn btn-outline btn-sm" title="Practice in Zen Mode">
+                  <span>🧘 Zen</span>
+                </button>
+                <button id="dashboard-qotd-speak-btn" class="btn btn-outline btn-sm quote-tool-btn" data-quote-id="${qotd.id}" data-action="listen" title="Listen with Text-to-Speech">
+                  <span aria-hidden="true">${this.speakingQuoteId === qotd.id ? '⏹️' : '🔊'}</span>
+                  <span>${this.speakingQuoteId === qotd.id ? 'Stop' : 'Listen'}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -815,7 +1150,7 @@ export class UIManager {
               </div>
               <span class="badge badge-amber">+50 Bonus XP</span>
             </div>
-            <p class="widget-desc">${dailyChallenge.lesson.title}</p>
+            <p class="widget-desc">${escapeHtml(dailyChallenge.lesson.title)}</p>
             <div class="widget-footer">
               ${dailyChallenge.isCompleted ? `
                 <span class="completed-tag">✓ Completed Today (${dailyChallenge.bestWpm} WPM)</span>
@@ -825,19 +1160,23 @@ export class UIManager {
             </div>
           </div>
 
-          <!-- Quick Stats Widget -->
+          <!-- Quick Stats Performance Widget -->
           <div class="widget-card stats-overview-widget">
             <div class="widget-header">
               <div class="widget-title-group">
                 <span class="widget-icon">📊</span>
                 <h3 class="widget-title">Performance</h3>
               </div>
-              <span class="badge badge-teal">${passedCount}/30 Passed</span>
+              <span class="badge badge-teal">${passedCount}/${CURRICULUM.length} Passed</span>
             </div>
             <div class="stats-mini-grid">
               <div class="stat-mini-item">
                 <span class="stat-mini-val">${state.bestWpm || 0}</span>
                 <span class="stat-mini-lbl">Best WPM</span>
+              </div>
+              <div class="stat-mini-item">
+                <span class="stat-mini-val">${state.averageWpm || 0}</span>
+                <span class="stat-mini-lbl">Avg WPM</span>
               </div>
               <div class="stat-mini-item">
                 <span class="stat-mini-val">${masteredCount}</span>
@@ -847,6 +1186,11 @@ export class UIManager {
                 <span class="stat-mini-val">${state.dailyStreak} 🔥</span>
                 <span class="stat-mini-lbl">Day Streak</span>
               </div>
+            </div>
+            <div class="widget-footer">
+              <button id="dashboard-analytics-btn" class="btn btn-outline btn-sm" style="width: 100%; justify-content: center;">
+                <span>Detailed Analytics &amp; Heatmap →</span>
+              </button>
             </div>
           </div>
 
@@ -862,8 +1206,8 @@ export class UIManager {
             ${nextReview ? `
               <div class="mastery-queue-body">
                 <span class="mastery-queue-kicker">${nextReview.mastery.isPassed ? 'Polish for 4 stars' : 'Pass the core targets'}</span>
-                <h4 class="mastery-queue-title">${nextReview.lesson.title}</h4>
-                <p class="widget-desc">${nextReview.completion?.nextGoal || `Build toward ${nextReview.lesson.accuracyTarget}% accuracy and ${nextReview.lesson.wpmTarget} WPM.`}</p>
+                <h4 class="mastery-queue-title">${escapeHtml(nextReview.lesson.title)}</h4>
+                <p class="widget-desc">${escapeHtml(nextReview.completion?.nextGoal || `Build toward ${nextReview.lesson.accuracyTarget}% accuracy and ${nextReview.lesson.wpmTarget} WPM.`)}</p>
               </div>
               <div class="widget-footer">
                 <button id="mastery-review-btn" class="btn btn-secondary btn-sm">Review Lesson ${nextReview.lesson.id} →</button>
@@ -896,16 +1240,49 @@ export class UIManager {
           <div class="section-header">
             <div>
               <h2 class="section-title">Curriculum Roadmap</h2>
-              <p class="section-subtitle">A guided path from first anchors to job-ready typing fluency</p>
+              <p class="section-subtitle">A guided 30-lesson path from first anchors to professional typing fluency</p>
             </div>
-            <div class="roadmap-overview">
-              <strong>${masteredCount}/${CURRICULUM.length}</strong>
-              <span>lessons mastered</span>
-              <div class="roadmap-overview-track"><span style="width: ${roadmapProgressPct}%"></span></div>
+            <div class="roadmap-header-actions">
+              <button id="roadmap-jump-current-btn" class="btn btn-secondary btn-sm" title="Jump to active lesson">
+                <span class="jump-icon">⚡</span> Jump to Up Next (L${currentLessonId})
+              </button>
+              <div class="roadmap-overview">
+                <strong>${masteredCount}/${CURRICULUM.length}</strong>
+                <span>mastered</span>
+                <div class="roadmap-overview-track"><span style="width: ${roadmapProgressPct}%"></span></div>
+              </div>
             </div>
           </div>
 
-          <div class="levels-container">
+          <!-- Roadmap Controls: Stage Filter Tabs & Search -->
+          <div class="roadmap-controls-bar">
+            <div class="roadmap-stage-tabs" role="tablist" aria-label="Curriculum Stages">
+              <button class="stage-tab ${this.dashboardStageFilter === 'all' ? 'active' : ''}" data-stage="all" role="tab" aria-selected="${this.dashboardStageFilter === 'all'}">
+                All Stages (30)
+              </button>
+              ${CURRICULUM_LEVELS.map(lvl => {
+                const lvlLessons = CURRICULUM.filter(l => l.level === lvl.id);
+                const isSelected = this.dashboardStageFilter === String(lvl.id);
+                return `
+                  <button class="stage-tab ${isSelected ? 'active' : ''}" data-stage="${lvl.id}" role="tab" aria-selected="${isSelected}">
+                    Stage ${lvl.id}: ${escapeHtml(lvl.title)} (${lvlLessons.length})
+                  </button>
+                `;
+              }).join('')}
+            </div>
+
+            <div class="roadmap-search-wrap">
+              <span class="search-icon" aria-hidden="true">🔍</span>
+              <input type="search" id="roadmap-search-input" class="roadmap-search-input" placeholder="Search lessons, skills, or keys (Press '/' to search)..." aria-label="Search curriculum lessons" value="${escapeHtml(this.dashboardSearchQuery || '')}" />
+              <button id="roadmap-search-clear" class="search-clear-btn" aria-label="Clear search" style="${this.dashboardSearchQuery ? '' : 'display: none;'}">✕</button>
+            </div>
+          </div>
+
+          <div id="roadmap-filter-status" class="roadmap-filter-status">
+            Showing all ${CURRICULUM.length} lessons across ${CURRICULUM_LEVELS.length} stages
+          </div>
+
+          <div class="levels-container" id="roadmap-levels-container">
             ${CURRICULUM_LEVELS.map(level => {
               const levelLessons = CURRICULUM.filter(l => l.level === level.id);
               const levelMastered = levelLessons.filter(l => getLessonMastery(state.lessonCompletion?.[l.id], state.starsByLesson?.[l.id]).isMastered).length;
@@ -925,7 +1302,7 @@ export class UIManager {
                       <span class="level-icon">${level.icon}</span>
                       <div>
                         <div class="level-kicker">Stage ${level.id} of ${CURRICULUM_LEVELS.length}</div>
-                        <h3 class="level-group-title">${level.title}</h3>
+                        <h3 class="level-group-title">${escapeHtml(level.title)}</h3>
                       </div>
                     </div>
                     <div class="level-progress-summary">
@@ -933,10 +1310,10 @@ export class UIManager {
                       <span>${levelMastered === levelLessons.length ? 'Mastered' : 'Mastery'}</span>
                     </div>
                   </div>
-                  <p class="level-group-description">${level.description}</p>
+                  <p class="level-group-description">${escapeHtml(level.description)}</p>
                   <div class="level-skill-row">
-                    <span class="level-milestone">Milestone: ${level.milestone}</span>
-                    <div class="level-skill-pills">${level.skills.map(skill => `<span>${skill}</span>`).join('')}</div>
+                    <span class="level-milestone">Milestone: ${escapeHtml(level.milestone)}</span>
+                    <div class="level-skill-pills">${level.skills.map(skill => `<span>${escapeHtml(skill)}</span>`).join('')}</div>
                   </div>
                   <div class="level-progress-track"><span style="width: ${levelProgressPct}%"></span></div>
                   <div class="lessons-grid">
@@ -946,9 +1323,6 @@ export class UIManager {
                       const isUnlocked = lesson.id <= currentLessonId || mastery.isAttempted;
                       const isCurrent = lesson.id === currentLessonId;
                       const stars = mastery.bestStars;
-                      const keyPreview = lesson.keys.includes('all')
-                        ? 'Full keyboard'
-                        : lesson.keys.map(k => k === ' ' ? 'Space' : k.toUpperCase()).join(' ');
                       const statusLabel = mastery.isMastered
                         ? 'Mastered'
                         : mastery.isPassed
@@ -965,7 +1339,7 @@ export class UIManager {
                         <div class="lesson-node-card ${isCurrent ? 'node-current' : ''} ${mastery.isMastered ? 'node-mastered' : ''} ${mastery.isAttempted && !mastery.isMastered ? 'node-needs-review' : ''} ${isUnlocked ? 'node-unlocked' : 'node-locked'}"
                              role="${isUnlocked ? 'button' : 'article'}"
                              tabindex="${isUnlocked ? '0' : '-1'}"
-                             aria-label="Lesson ${lesson.id}: ${lesson.title}. ${statusLabel}."
+                             aria-label="Lesson ${lesson.id}: ${escapeHtml(lesson.title)}. ${statusLabel}."
                              data-lesson-id="${lesson.id}">
                           <div class="node-header">
                             <span class="node-num">${String(lesson.id).padStart(2, '0')}</span>
@@ -974,9 +1348,17 @@ export class UIManager {
                               ${[1, 2, 3, 4, 5].map(star => `<span class="star-icon ${stars >= star ? 'star-filled' : ''}">★</span>`).join('')}
                             </div>
                           </div>
-                          <h4 class="node-title">${lesson.title}</h4>
-                          <p class="node-focus">${lesson.skillFocus}</p>
-                          <p class="node-keys">${keyPreview}</p>
+                          <h4 class="node-title">${escapeHtml(lesson.title)}</h4>
+                          <p class="node-focus">${escapeHtml(lesson.skillFocus)}</p>
+                          <div class="node-keys">
+                            ${lesson.keys.includes('all') ? `
+                              <span class="node-keys-all">Full keyboard</span>
+                            ` : `
+                              <div class="micro-keycaps-list">
+                                ${lesson.keys.map(k => `<kbd class="micro-keycap">${escapeHtml(k === ' ' ? '␣' : k.toUpperCase())}</kbd>`).join('')}
+                              </div>
+                            `}
+                          </div>
                           <div class="node-targets">
                             <span>≥${lesson.accuracyTarget}% acc</span>
                             <span>${lesson.wpmTarget} WPM</span>
@@ -990,6 +1372,13 @@ export class UIManager {
                 </div>
               `;
             }).join('')}
+
+            <div id="roadmap-empty-state" class="roadmap-empty-state" style="display: none;">
+              <span class="empty-icon" aria-hidden="true">🔍</span>
+              <h4 class="empty-title">No lessons match your search</h4>
+              <p class="empty-desc">We couldn't find any lessons matching your filters. Try searching for specific keys (e.g. 'e', 'r') or keywords (e.g. 'home row', 'speed').</p>
+              <button id="roadmap-empty-reset-btn" class="btn btn-secondary btn-sm">Reset Filters</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1001,11 +1390,15 @@ export class UIManager {
       renderGoalRings(goalRingsSlot, goalProgress);
     }
 
+    // Event listeners
     document.getElementById('configure-goals-btn')?.addEventListener('click', () => this.navigateTo('settings'));
     document.getElementById('dashboard-zen-btn')?.addEventListener('click', () => this.launchZenMode());
     document.getElementById('dashboard-weakness-btn')?.addEventListener('click', () => this.startWeaknessDrill());
     document.getElementById('dashboard-speedtest-btn')?.addEventListener('click', () => this.navigateTo('speedtest'));
     document.getElementById('dashboard-code-btn')?.addEventListener('click', () => this.navigateTo('code'));
+    document.getElementById('dashboard-quotes-btn')?.addEventListener('click', () => this.navigateTo('quotes'));
+    document.getElementById('dashboard-arcade-btn')?.addEventListener('click', () => this.navigateTo('arcade'));
+    document.getElementById('dashboard-analytics-btn')?.addEventListener('click', () => this.navigateTo('profile'));
     document.getElementById('hero-start-btn')?.addEventListener('click', () => this.startLesson(currentLessonObj));
     document.getElementById('daily-challenge-btn')?.addEventListener('click', () => this.startLesson(dailyChallenge.lesson));
     document.getElementById('mastery-review-btn')?.addEventListener('click', () => {
@@ -1016,6 +1409,12 @@ export class UIManager {
     });
     document.getElementById('qotd-practice-btn')?.addEventListener('click', () => {
       this.startQuotePractice(qotd);
+    });
+    document.getElementById('dashboard-qotd-zen-btn')?.addEventListener('click', () => {
+      this.startQuotePractice(qotd, { zen: true });
+    });
+    document.getElementById('dashboard-qotd-speak-btn')?.addEventListener('click', () => {
+      this.speakQuote(qotd.id, qotd.text);
     });
     document.getElementById('adaptive-focus-btn')?.addEventListener('click', () => {
       if (coach2?.lesson) {
@@ -1029,6 +1428,54 @@ export class UIManager {
       } else {
         this.startLesson(currentLessonObj);
       }
+    });
+
+    // Roadmap interactions
+    document.getElementById('roadmap-jump-current-btn')?.addEventListener('click', () => {
+      this.jumpToCurrentRoadmapLesson();
+    });
+
+    // Stage tabs
+    container.querySelectorAll('.stage-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const stage = tab.dataset.stage;
+        this.dashboardStageFilter = stage;
+        container.querySelectorAll('.stage-tab').forEach(t => {
+          const isActive = t === tab;
+          t.classList.toggle('active', isActive);
+          t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        this.applyDashboardFilters();
+      });
+    });
+
+    // Search input
+    const searchInput = document.getElementById('roadmap-search-input');
+    const clearBtn = document.getElementById('roadmap-search-clear');
+    searchInput?.addEventListener('input', e => {
+      this.dashboardSearchQuery = e.target.value;
+      this.applyDashboardFilters();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        this.dashboardSearchQuery = '';
+        this.applyDashboardFilters();
+        searchInput.focus();
+      }
+    });
+
+    document.getElementById('roadmap-empty-reset-btn')?.addEventListener('click', () => {
+      this.dashboardStageFilter = 'all';
+      this.dashboardSearchQuery = '';
+      if (searchInput) searchInput.value = '';
+      container.querySelectorAll('.stage-tab').forEach(t => {
+        const isAll = t.dataset.stage === 'all';
+        t.classList.toggle('active', isAll);
+        t.setAttribute('aria-selected', isAll ? 'true' : 'false');
+      });
+      this.applyDashboardFilters();
     });
 
     container.querySelectorAll('.lesson-node-card.node-unlocked').forEach(node => {
@@ -1046,6 +1493,9 @@ export class UIManager {
         }
       });
     });
+
+    // Apply any active filters
+    this.applyDashboardFilters();
   }
 
   // ==========================================
@@ -1378,23 +1828,36 @@ export class UIManager {
 
   updateSpeechButtons() {
     const container = this.screens.quotes;
-    if (!container) return;
-    container.querySelectorAll('.quote-tool-btn[data-action="listen"]').forEach(btn => {
-      const qId = parseInt(btn.dataset.quoteId, 10);
-      const isCurrent = this.speakingQuoteId === qId;
-      btn.classList.toggle('is-speaking', isCurrent);
-      btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
-      btn.innerHTML = isCurrent
-        ? '<span aria-hidden="true">⏹️</span> <span>Stop</span>'
-        : '<span aria-hidden="true">🔊</span> <span>Listen</span>';
-    });
+    if (container) {
+      container.querySelectorAll('.quote-tool-btn[data-action="listen"]').forEach(btn => {
+        const qId = parseInt(btn.dataset.quoteId, 10);
+        const isCurrent = this.speakingQuoteId === qId;
+        btn.classList.toggle('is-speaking', isCurrent);
+        btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+        btn.innerHTML = isCurrent
+          ? '<span aria-hidden="true">⏹️</span> <span>Stop</span>'
+          : '<span aria-hidden="true">🔊</span> <span>Listen</span>';
+      });
 
-    const qotdListenBtn = container.querySelector('#qotd-listen-btn');
-    if (qotdListenBtn) {
-      const qId = parseInt(qotdListenBtn.dataset.quoteId, 10);
+      const qotdListenBtn = container.querySelector('#qotd-listen-btn');
+      if (qotdListenBtn) {
+        const qId = parseInt(qotdListenBtn.dataset.quoteId, 10);
+        const isCurrent = this.speakingQuoteId === qId;
+        qotdListenBtn.classList.toggle('is-speaking', isCurrent);
+        qotdListenBtn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+        qotdListenBtn.innerHTML = isCurrent
+          ? '<span aria-hidden="true">⏹️</span> <span>Stop</span>'
+          : '<span aria-hidden="true">🔊</span> <span>Listen</span>';
+      }
+    }
+
+    const dashQotdBtn = document.getElementById('dashboard-qotd-speak-btn');
+    if (dashQotdBtn) {
+      const qId = parseInt(dashQotdBtn.dataset.quoteId, 10);
       const isCurrent = this.speakingQuoteId === qId;
-      qotdListenBtn.classList.toggle('is-speaking', isCurrent);
-      qotdListenBtn.innerHTML = isCurrent
+      dashQotdBtn.classList.toggle('is-speaking', isCurrent);
+      dashQotdBtn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+      dashQotdBtn.innerHTML = isCurrent
         ? '<span aria-hidden="true">⏹️</span> <span>Stop</span>'
         : '<span aria-hidden="true">🔊</span> <span>Listen</span>';
     }
@@ -2272,7 +2735,7 @@ export class UIManager {
             <span>Start ${selectedPreset.label}</span>
             <span aria-hidden="true">→</span>
           </button>
-        </div>
+        </section>
 
         <section class="speedtest-records" aria-labelledby="speedtest-records-title">
           <div class="speedtest-section-heading">
@@ -2995,12 +3458,19 @@ export class UIManager {
 
     const hasMissedWords = summary.mistypedWords && summary.mistypedWords.length > 0;
     const isCertEligible = summary.wpm >= 50 || summary.stars >= 3 || (state.bestWpm && state.bestWpm >= 50);
+    const paceSampleCount = Array.isArray(summary.wpmHistory) ? summary.wpmHistory.length : 0;
+    const resultBadge = summary.isPlacementTest
+      ? 'Placement ready'
+      : isSpeedTest
+        ? (summary.isNewPB ? 'New personal best' : 'Benchmark complete')
+        : `${mastery.stars}/5 mastery stars`;
 
     container.innerHTML = `
       <div class="results-layout">
         <div class="results-hero-card">
-          <div class="results-stars-row">
-            ${[1, 2, 3, 4, 5].map(star => `<span class="result-star ${mastery.stars >= star ? 'star-awarded' : ''}">★</span>`).join('')}
+          <div class="results-hero-topline">
+            <span class="results-status-badge">${resultBadge}</span>
+            <span class="results-xp-inline">+${summary.xpEarned} XP</span>
           </div>
           <h2 class="results-title">${resultTitle}</h2>
           <p class="results-subtitle">${resultSubtitle}</p>
@@ -3026,6 +3496,21 @@ export class UIManager {
               <span class="metric-lbl">Practice Time</span>
               <span class="metric-target">${summary.consistency ? `${summary.consistency}% Consistency` : `${summary.totalKeystrokes} Keystrokes`}</span>
             </div>
+          </div>
+          <div class="results-hero-foot">
+            <span>${summary.totalKeystrokes} keystrokes</span>
+            <span>${summary.totalErrors} ${summary.totalErrors === 1 ? 'error' : 'errors'}</span>
+            <span>Target ${summary.wpmTarget} WPM · ${summary.accuracyTarget}% accuracy</span>
+          </div>
+          <div class="results-actions">
+            <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} <span class="action-shortcut">Enter ↵</span></button>
+            <button id="results-retry-btn" class="btn btn-secondary">${retryActionLabel}</button>
+            ${isCertEligible ? `
+              <button id="results-cert-btn" class="btn btn-outline" style="border-color: #D4AF37; color: #D4AF37;">
+                <span>📜 Certificate</span>
+              </button>
+            ` : ''}
+            <button id="results-dashboard-btn" class="btn btn-outline">${backActionLabel}</button>
           </div>
         </div>
 
@@ -3076,10 +3561,10 @@ export class UIManager {
         <div class="results-graph-card">
           <div class="card-header">
             <h3 class="card-title">WPM Velocity Curve</h3>
-            <span class="card-badge">Session Cadence</span>
+            <span class="card-badge">${paceSampleCount ? `${paceSampleCount} pace samples` : 'Session pace'}</span>
           </div>
           <div class="sparkline-wrapper">
-            ${AnalyticsEngine.renderWpmSparklineSvg(summary.wpmHistory)}
+            ${AnalyticsEngine.renderWpmSparklineSvg(summary.wpmHistory, 640, 170, summary.wpmTarget)}
           </div>
         </div>
 
@@ -3101,23 +3586,13 @@ export class UIManager {
         <div class="results-xp-card">
           <div class="xp-row">
             <span><strong>Level ${lvlInfo.currentLvl}</strong> • ${lvlInfo.title}</span>
-            <span>${lvlInfo.isMaxLevel ? `${state.xp.toLocaleString()} XP · Max level reached` : `${state.xp.toLocaleString()} / ${lvlInfo.nextLvlXp.toLocaleString()} XP`}</span>
+            <span>${lvlInfo.isMaxLevel ? `${state.xp.toLocaleString()} XP · Max level` : `${state.xp.toLocaleString()} / ${lvlInfo.nextLvlXp.toLocaleString()} XP`}</span>
           </div>
           <div class="xp-bar-track">
             <div class="xp-bar-fill" style="width: ${lvlInfo.pct}%"></div>
           </div>
         </div>
 
-        <div class="results-actions" style="flex-wrap: wrap; justify-content: center; gap: 10px;">
-          <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} (Enter ↵)</button>
-          <button id="results-retry-btn" class="btn btn-secondary">${retryActionLabel}</button>
-          ${isCertEligible ? `
-            <button id="results-cert-btn" class="btn btn-outline" style="border-color: #D4AF37; color: #D4AF37;">
-              <span>📜 View Certificate</span>
-            </button>
-          ` : ''}
-          <button id="results-dashboard-btn" class="btn btn-outline">${backActionLabel}</button>
-        </div>
       </div>
     `;
 

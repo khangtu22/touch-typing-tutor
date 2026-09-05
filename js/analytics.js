@@ -6,6 +6,8 @@
 
 import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js';
 
+let sparklineInstanceId = 0;
+
 export class AnalyticsEngine {
   /**
    * Identifies the user's most problematic keys based on historical error rates
@@ -210,63 +212,102 @@ export class AnalyticsEngine {
   /**
    * Generates an accessible, crisp SVG sparkline graph of WPM over time
    */
-  static renderWpmSparklineSvg(wpmHistory = [], width = 540, height = 140) {
-    if (!wpmHistory || wpmHistory.length < 2) {
+  static renderWpmSparklineSvg(wpmHistory = [], width = 640, height = 170, targetWpm = null) {
+    const samples = (Array.isArray(wpmHistory) ? wpmHistory : [])
+      .map((sample, index) => ({
+        wpm: Number(typeof sample === 'number' ? sample : sample?.wpm),
+        timeSec: Number(typeof sample === 'object' ? sample?.timeSec : NaN),
+        index
+      }))
+      .filter(sample => Number.isFinite(sample.wpm) && sample.wpm >= 0);
+
+    if (samples.length < 2) {
       return `
         <div class="sparkline-empty">
-          <span>Complete a session to view your real-time WPM velocity curve.</span>
+          <span>Keep typing to build your session pace graph.</span>
         </div>
       `;
     }
 
-    const padding = { top: 20, right: 30, bottom: 25, left: 40 };
+    const padding = { top: 18, right: 48, bottom: 28, left: 42 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
-    const values = wpmHistory.map(d => d.wpm);
-    const minWpm = Math.max(0, Math.min(...values) - 5);
-    const maxWpm = Math.max(40, Math.max(...values) + 10);
+    const values = samples.map(sample => sample.wpm);
+    const target = Number(targetWpm);
+    const domainValues = Number.isFinite(target) && target >= 0 ? [...values, target] : values;
+    const rawMin = Math.min(...domainValues);
+    const rawMax = Math.max(...domainValues);
+    const rawSpan = Math.max(1, rawMax - rawMin);
+    const domainPadding = Math.max(4, rawSpan * 0.18);
+    const minWpm = Math.max(0, Math.floor(rawMin - domainPadding));
+    const maxWpm = Math.ceil(rawMax + domainPadding);
+    const safeMaxWpm = maxWpm <= minWpm ? minWpm + 10 : maxWpm;
 
-    const getX = idx => padding.left + (idx / (wpmHistory.length - 1)) * chartW;
-    const getY = val => padding.top + chartH - ((val - minWpm) / (maxWpm - minWpm || 1)) * chartH;
+    const getX = idx => padding.left + (idx / (samples.length - 1)) * chartW;
+    const getY = val => padding.top + chartH - ((val - minWpm) / (safeMaxWpm - minWpm)) * chartH;
 
-    // Line and area path coordinates
-    const points = wpmHistory.map((d, i) => `${getX(i)},${getY(d.wpm)}`);
-    const linePath = `M ${points.join(' L ')}`;
-    const areaPath = `${linePath} L ${getX(wpmHistory.length - 1)},${padding.top + chartH} L ${getX(0)},${padding.top + chartH} Z`;
+    const coordinates = samples.map((sample, i) => ({ x: getX(i), y: getY(sample.wpm) }));
+    // A quadratic midpoint path softens noisy one-second samples without
+    // inventing a peak between measurements.
+    let linePath = `M ${coordinates[0].x.toFixed(2)},${coordinates[0].y.toFixed(2)}`;
+    for (let i = 1; i < coordinates.length; i++) {
+      const previous = coordinates[i - 1];
+      const current = coordinates[i];
+      const midpoint = { x: (previous.x + current.x) / 2, y: (previous.y + current.y) / 2 };
+      linePath += ` Q ${previous.x.toFixed(2)},${previous.y.toFixed(2)} ${midpoint.x.toFixed(2)},${midpoint.y.toFixed(2)}`;
+    }
+    const last = coordinates[coordinates.length - 1];
+    const beforeLast = coordinates[coordinates.length - 2];
+    linePath += ` Q ${beforeLast.x.toFixed(2)},${beforeLast.y.toFixed(2)} ${last.x.toFixed(2)},${last.y.toFixed(2)}`;
+    const areaPath = `${linePath} L ${last.x.toFixed(2)},${padding.top + chartH} L ${coordinates[0].x.toFixed(2)},${padding.top + chartH} Z`;
 
     const avgWpm = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
     const avgY = getY(avgWpm);
+    const midWpm = Math.round((minWpm + safeMaxWpm) / 2);
+    const gradientId = `wpmGradient-${++sparklineInstanceId}`;
+    const durationLabel = Number.isFinite(samples[samples.length - 1].timeSec)
+      ? `${Math.max(0, Math.round(samples[samples.length - 1].timeSec))} seconds`
+      : `${samples.length} samples`;
+    const timeLabel = sample => Number.isFinite(sample.timeSec) ? `${Math.max(0, Math.round(sample.timeSec))}s` : `#${sample.index + 1}`;
 
     return `
-      <svg class="wpm-sparkline-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="WPM velocity graph over time">
+      <svg class="wpm-sparkline-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="WPM velocity over ${durationLabel}">
+        <title>WPM velocity over ${durationLabel}</title>
+        <desc>Session pace ranged from ${Math.round(Math.min(...values))} to ${Math.round(Math.max(...values))} WPM, with an average of ${avgWpm} WPM.</desc>
         <defs>
-          <linearGradient id="wpmGradient" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#7C5CFC" stop-opacity="0.45"/>
             <stop offset="100%" stop-color="#7C5CFC" stop-opacity="0.0"/>
           </linearGradient>
         </defs>
 
-        <!-- Grid Lines -->
-        <line x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
-        <line x1="${padding.left}" y1="${padding.top + chartH / 2}" x2="${width - padding.right}" y2="${padding.top + chartH / 2}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
-        <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="rgba(255,255,255,0.12)"/>
+        <g class="sparkline-grid" aria-hidden="true">
+          <line x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}"/>
+          <line x1="${padding.left}" y1="${padding.top + chartH / 2}" x2="${width - padding.right}" y2="${padding.top + chartH / 2}"/>
+          <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" class="sparkline-baseline"/>
+        </g>
 
-        <!-- Y Axis Labels -->
-        <text x="${padding.left - 8}" y="${padding.top + 4}" class="sparkline-axis-label" text-anchor="end">${maxWpm}</text>
-        <text x="${padding.left - 8}" y="${padding.top + chartH + 4}" class="sparkline-axis-label" text-anchor="end">${minWpm}</text>
+        <g class="sparkline-axis" aria-hidden="true">
+          <text x="${padding.left - 9}" y="${padding.top + 4}" class="sparkline-axis-label" text-anchor="end">${safeMaxWpm}</text>
+          <text x="${padding.left - 9}" y="${padding.top + chartH / 2 + 4}" class="sparkline-axis-label" text-anchor="end">${midWpm}</text>
+          <text x="${padding.left - 9}" y="${padding.top + chartH + 4}" class="sparkline-axis-label" text-anchor="end">${minWpm}</text>
+          <text x="${padding.left}" y="${height - 5}" class="sparkline-time-label" text-anchor="start">${timeLabel(samples[0])}</text>
+          <text x="${width - padding.right}" y="${height - 5}" class="sparkline-time-label" text-anchor="end">${timeLabel(samples[samples.length - 1])}</text>
+        </g>
 
-        <!-- Average WPM Reference Line -->
-        <line x1="${padding.left}" y1="${avgY}" x2="${width - padding.right}" y2="${avgY}" stroke="#00D4AA" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.6"/>
-        <text x="${width - padding.right + 4}" y="${avgY + 4}" class="sparkline-avg-label" fill="#00D4AA">avg ${avgWpm}</text>
+        <line class="sparkline-average-line" x1="${padding.left}" y1="${avgY}" x2="${width - padding.right}" y2="${avgY}"/>
+        <text x="${width - padding.right + 5}" y="${avgY + 4}" class="sparkline-avg-label">avg ${avgWpm}</text>
+        ${Number.isFinite(target) && target >= 0 ? `
+          <line class="sparkline-target-line" x1="${padding.left}" y1="${getY(target)}" x2="${width - padding.right}" y2="${getY(target)}"/>
+          <text x="${width - padding.right - 5}" y="${getY(target) - 5}" class="sparkline-target-label" text-anchor="end">target ${Math.round(target)}</text>
+        ` : ''}
 
-        <!-- Shaded Area & Stroke Curve -->
-        <path d="${areaPath}" fill="url(#wpmGradient)"/>
-        <path d="${linePath}" fill="none" stroke="#7C5CFC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path class="sparkline-area" d="${areaPath}" fill="url(#${gradientId})"/>
+        <path class="sparkline-line" d="${linePath}"/>
 
-        <!-- Data Points -->
-        ${wpmHistory.map((d, i) => `
-          <circle cx="${getX(i)}" cy="${getY(d.wpm)}" r="3.5" fill="#7C5CFC" stroke="#151923" stroke-width="1.5"/>
+        ${samples.map((sample, i) => `
+          <circle class="sparkline-point" cx="${coordinates[i].x.toFixed(2)}" cy="${coordinates[i].y.toFixed(2)}" r="3.2"><title>${timeLabel(sample)} · ${Math.round(sample.wpm)} WPM</title></circle>
         `).join('')}
       </svg>
     `;
