@@ -1,5 +1,5 @@
 /**
- * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.3.0)
+ * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.8.0)
  * Featuring 5 Distinct Arcade Game Modes with Easy / Med / Hard Controls:
  * 1. Type Invaders: Orbit Defense (Laser turret, wave spawner, power-ups, boss battle)
  * 2. Nitro Sprint: 60s Speed Drag Race (Analog speedometer physics, turbo bursts, ghost racer)
@@ -2161,6 +2161,10 @@ export class ArcadeHubManager {
       rhythmHighScore: 0,
       totalGamesPlayed: 0
     };
+    const hasTypingTelemetry = Object.keys(state.keyStats || {}).length > 0;
+    const recommendationDetail = hasTypingTelemetry
+      ? 'It automatically favors your weakest keys while keeping the pace self-directed.'
+      : 'It builds an accuracy baseline first, then unlocks weak-key targeting as you practice.';
 
     this.container.innerHTML = `
       <div class="arcade-lobby">
@@ -2171,6 +2175,16 @@ export class ArcadeHubManager {
             Choose Easy, Medium, or Hard for your next challenge. Build accuracy at your own pace in Typing Quest, or chase speed and rhythm in the other arenas.
           </p>
         </div>
+
+        <aside class="arcade-recommendation" aria-labelledby="arcade-recommendation-title">
+          <div class="arcade-recommendation-icon" aria-hidden="true">🎯</div>
+          <div class="arcade-recommendation-copy">
+            <span class="arcade-recommendation-eyebrow">BEST FOR TYPING PRACTICE</span>
+            <h2 id="arcade-recommendation-title">Typing Quest: The Rune Dragon</h2>
+            <p>${recommendationDetail}</p>
+          </div>
+          <button id="btn-launch-recommended" class="btn btn-primary btn-sm">Start recommended game <span aria-hidden="true">→</span></button>
+        </aside>
 
         <!-- Arcade Hall of Fame Stats Banner -->
         <div class="arcade-hall-of-fame">
@@ -2393,6 +2407,9 @@ export class ArcadeHubManager {
 
     // Wire Launch Buttons
     this.container.querySelector('#btn-launch-quest')?.addEventListener('click', () => {
+      this.launchTypingQuest(this.difficulties.quest);
+    });
+    this.container.querySelector('#btn-launch-recommended')?.addEventListener('click', () => {
       this.launchTypingQuest(this.difficulties.quest);
     });
     this.container.querySelector('#btn-launch-invaders')?.addEventListener('click', () => {

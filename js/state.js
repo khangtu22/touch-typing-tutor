@@ -7,6 +7,8 @@
 import { MASTERED_STARS, PASSING_STARS, PERFECT_STARS } from './mastery.js';
 
 const STORAGE_KEY = 'typing_tutor_progress';
+export const APP_VERSION = '3.8.0';
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
  * Returns a stable local-calendar date key (YYYY-MM-DD).
@@ -96,7 +98,7 @@ export function getLevelProgress(xp) {
 }
 
 const DEFAULT_STATE = {
-  schemaVersion: 3,
+  schemaVersion: CURRENT_SCHEMA_VERSION,
   onboardingComplete: false,
   targetWpm: 40,
   xp: 0,
@@ -185,6 +187,35 @@ const DEFAULT_STATE = {
   certificateName: '',         // Custom name for printable diploma
 };
 
+/**
+ * Upgrade persisted data before it is merged with the current defaults.
+ * Keeping this step explicit makes adding new nested collections safe for
+ * users who already have an older local save.
+ */
+function migrateState(rawState) {
+  const source = rawState && typeof rawState === 'object' && !Array.isArray(rawState)
+    ? rawState
+    : {};
+  const sourceVersion = Number.isFinite(Number(source.schemaVersion))
+    ? Number(source.schemaVersion)
+    : 0;
+  const migrated = { ...source };
+
+  if (sourceVersion < 4) {
+    migrated.arcadeStats = {
+      ...DEFAULT_STATE.arcadeStats,
+      ...(source.arcadeStats || {})
+    };
+    migrated.speedTestBests = {
+      ...DEFAULT_STATE.speedTestBests,
+      ...(source.speedTestBests || {})
+    };
+  }
+
+  migrated.schemaVersion = CURRENT_SCHEMA_VERSION;
+  return migrated;
+}
+
 class StateStore {
   constructor() {
     this.subscribers = new Set();
@@ -209,7 +240,8 @@ class StateStore {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return JSON.parse(JSON.stringify(DEFAULT_STATE));
       const parsed = JSON.parse(raw);
-      const parsedSettings = parsed.settings || {};
+      const migrated = migrateState(parsed);
+      const parsedSettings = migrated.settings || {};
 
       // Sanitize and normalize sessions array so historical dates and metrics are retained
       const rawSessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
@@ -243,8 +275,16 @@ class StateStore {
 
       const state = {
         ...DEFAULT_STATE,
-        ...parsed,
+        ...migrated,
         sessions: cleanSessions,
+        arcadeStats: {
+          ...DEFAULT_STATE.arcadeStats,
+          ...(migrated.arcadeStats || {})
+        },
+        speedTestBests: {
+          ...DEFAULT_STATE.speedTestBests,
+          ...(migrated.speedTestBests || {})
+        },
         settings: {
           ...DEFAULT_STATE.settings,
           ...parsedSettings,
@@ -263,7 +303,7 @@ class StateStore {
         },
         dailyChallengeState: {
           ...DEFAULT_STATE.dailyChallengeState,
-          ...(parsed.dailyChallengeState || {})
+          ...(migrated.dailyChallengeState || {})
         }
       };
 
@@ -389,7 +429,7 @@ class StateStore {
       xpEarned: Math.max(0, Math.round(xpEarned || 0)),
       wpmHistory: Array.isArray(wpmHistory) ? wpmHistory : [],
       kind: sessionKind,
-      mastery: isCurriculumLesson ? sessionMastery : null,
+      mastery: sessionMastery,
       inFocusMode: !!inFocusMode,
       speedTestPreset: speedTestPreset || null
     };
@@ -461,7 +501,7 @@ class StateStore {
 
     this.update(prev => ({
       ...prev,
-      schemaVersion: DEFAULT_STATE.schemaVersion,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       xp: prev.xp + xpEarned,
       starsByLesson,
       lessonCompletion,
@@ -719,7 +759,8 @@ class StateStore {
   // Export state to downloadable JSON string
   exportBackupJson() {
     return JSON.stringify({
-      version: '3.0.0',
+      version: APP_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
       data: this.state
     }, null, 2);
@@ -769,6 +810,14 @@ class StateStore {
       this.state = {
         ...DEFAULT_STATE,
         ...safeData,
+        arcadeStats: {
+          ...DEFAULT_STATE.arcadeStats,
+          ...(safeData.arcadeStats || {})
+        },
+        speedTestBests: {
+          ...DEFAULT_STATE.speedTestBests,
+          ...(safeData.speedTestBests || {})
+        },
         settings: {
           ...DEFAULT_STATE.settings,
           ...(safeData.settings || {}),
@@ -787,7 +836,7 @@ class StateStore {
           ...(safeData.dailyChallengeState || {})
         }
       };
-      this.state.schemaVersion = DEFAULT_STATE.schemaVersion;
+      this.state.schemaVersion = CURRENT_SCHEMA_VERSION;
       this.state.level = getLevelFromXp(this.state.xp);
       this.persist();
       this.notify();
@@ -855,7 +904,7 @@ class StateStore {
     ];
 
     const demoState = {
-      schemaVersion: DEFAULT_STATE.schemaVersion,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       onboardingComplete: true,
       targetWpm: 60,
       xp: 2850,

@@ -1,4 +1,4 @@
-# KeyFlow • Premium Gamified 10-Finger Touch Typing Tutor (v2.0)
+# KeyFlow • Premium Gamified 10-Finger Touch Typing Tutor (v3.8.0)
 
 KeyFlow is a production-quality, standalone web application that teaches users proper **10-finger touch typing**, builds muscle memory progressively, and rewards consistency through engaging gamification without becoming distracting.
 

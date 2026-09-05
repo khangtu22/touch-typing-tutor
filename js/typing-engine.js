@@ -84,6 +84,8 @@ export class TypingEngine {
     // Timed sprint countdown
     this.timeRemainingSec = null;
     this.sprintTimer = null;
+    this.sprintDeadlineMs = null;
+    this.sprintRemainingMs = null;
 
     // Short pause between rounds. Enter can consume this transition early.
     this.roundTransitionTimer = null;
@@ -115,6 +117,8 @@ export class TypingEngine {
     this.lastCharTime = null;
     this.totalPausedMs = 0;
     this.pausedAt = null;
+    this.sprintDeadlineMs = null;
+    this.sprintRemainingMs = null;
 
     const state = store.getState();
     if (state.settings.metronomeEnabled) {
@@ -647,9 +651,11 @@ export class TypingEngine {
     this.isActive = false;
     this.stopWpmSampling();
     this.stopSprintCountdown();
+    this.sprintDeadlineMs = null;
+    this.sprintRemainingMs = null;
     sound.stopMetronome();
 
-    const activeElapsedMs = this.startTime ? Math.max(1000, (Date.now() - this.startTime) - (this.totalPausedMs || 0)) : 1000;
+    const activeElapsedMs = this.startTime ? Math.max(1000, this.getActiveElapsedMs()) : 1000;
     const durationSec = activeElapsedMs / 1000;
     const wpm = this.calculateLiveWpm();
     const accuracy = this.calculateLiveAccuracy();
@@ -712,7 +718,7 @@ export class TypingEngine {
 
   calculateLiveWpm() {
     if (!this.startTime) return 0;
-    const activeElapsedMs = (Date.now() - this.startTime) - (this.totalPausedMs || 0);
+    const activeElapsedMs = this.getActiveElapsedMs();
     const elapsedMinutes = activeElapsedMs / 60000;
     if (elapsedMinutes < 0.02) return 0;
     const wpm = (this.totalCorrect / 5) / elapsedMinutes;
@@ -729,7 +735,7 @@ export class TypingEngine {
     this.stopWpmSampling();
     this.wpmSampleTimer = setInterval(() => {
       if (this.isActive && this.startTime && !this.isPaused) {
-        const activeElapsedMs = (Date.now() - this.startTime) - (this.totalPausedMs || 0);
+        const activeElapsedMs = this.getActiveElapsedMs();
         const timeSec = Math.round(activeElapsedMs / 1000);
         const wpm = this.calculateLiveWpm();
         this.wpmHistory.push({ timeSec, wpm });
@@ -741,6 +747,18 @@ export class TypingEngine {
     }, 1000);
   }
 
+  getActiveElapsedMs() {
+    if (!this.startTime) return 0;
+
+    const elapsedMs = Math.max(0, (Date.now() - this.startTime) - (this.totalPausedMs || 0));
+    const timeLimitMs = Number(this.lesson?.timeLimitSec) > 0
+      ? Number(this.lesson.timeLimitSec) * 1000
+      : null;
+
+    // A delayed background-tab callback must not inflate the timed result.
+    return timeLimitMs === null ? elapsedMs : Math.min(elapsedMs, timeLimitMs);
+  }
+
   stopWpmSampling() {
     if (this.wpmSampleTimer) {
       clearInterval(this.wpmSampleTimer);
@@ -750,16 +768,38 @@ export class TypingEngine {
 
   startSprintCountdown() {
     this.stopSprintCountdown();
-    this.sprintTimer = setInterval(() => {
-      if (this.isActive && !this.isPaused && this.startTime && this.timeRemainingSec !== null) {
-        this.timeRemainingSec -= 1;
-        if (this.timeRemainingSec <= 0) {
-          this.finishLesson();
-        } else {
-          this.emitState();
-        }
+    if (!this.isActive || this.isPaused || !this.startTime || this.timeRemainingSec === null) return;
+
+    const remainingMs = this.sprintRemainingMs ?? Math.max(0, Number(this.timeRemainingSec) * 1000);
+    this.sprintRemainingMs = null;
+    this.sprintDeadlineMs = Date.now() + remainingMs;
+
+    const tick = () => {
+      if (!this.isActive || this.isPaused || this.timeRemainingSec === null || this.sprintDeadlineMs === null) return;
+
+      // Derive the display from a deadline instead of subtracting one per
+      // interval. Browser timer throttling can delay callbacks by several
+      // seconds, but the user should never receive extra practice time.
+      const remaining = Math.max(0, this.sprintDeadlineMs - Date.now());
+      const nextRemainingSec = Math.ceil(remaining / 1000);
+
+      if (remaining <= 0) {
+        this.timeRemainingSec = 0;
+        this.emitState();
+        this.finishLesson();
+        return;
       }
-    }, 1000);
+
+      if (nextRemainingSec !== this.timeRemainingSec) {
+        this.timeRemainingSec = nextRemainingSec;
+        this.emitState();
+      }
+    };
+
+    tick();
+    // A short polling interval keeps the visible countdown responsive while
+    // the deadline remains the source of truth for elapsed time.
+    this.sprintTimer = setInterval(tick, 250);
   }
 
   stopSprintCountdown() {
@@ -770,6 +810,14 @@ export class TypingEngine {
   }
 
   pause() {
+    if (this.sprintDeadlineMs !== null && this.timeRemainingSec !== null) {
+      const remaining = Math.max(0, this.sprintDeadlineMs - Date.now());
+      this.sprintRemainingMs = remaining;
+      this.timeRemainingSec = Math.ceil(remaining / 1000);
+      this.sprintDeadlineMs = null;
+      this.stopSprintCountdown();
+    }
+
     this.isPaused = true;
     if (this.startTime && !this.pausedAt) {
       this.pausedAt = Date.now();
@@ -787,6 +835,9 @@ export class TypingEngine {
     const state = store.getState();
     if (state.settings.metronomeEnabled) {
       sound.startMetronome(state.settings.metronomeBpm || 100);
+    }
+    if (this.timeRemainingSec !== null && this.startTime) {
+      this.startSprintCountdown();
     }
     this.emitState();
   }
@@ -837,6 +888,8 @@ export class TypingEngine {
     this.clearRoundTransition();
     this.stopWpmSampling();
     this.stopSprintCountdown();
+    this.sprintDeadlineMs = null;
+    this.sprintRemainingMs = null;
     sound.stopMetronome();
     this.isActive = false;
   }

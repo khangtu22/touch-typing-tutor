@@ -26,7 +26,8 @@
 
   --text-primary: #F5F7FA;
   --text-secondary: #9AA3B2;
-  --text-muted: #5C6578;
+  /* Keeps secondary labels legible on the dark surfaces (WCAG-friendly). */
+  --text-muted: #7D879A;
 
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-light: rgba(255, 255, 255, 0.14);
@@ -110,6 +111,17 @@ button {
   color: inherit;
 }
 
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
 input, select {
   font-family: inherit;
 }
@@ -142,13 +154,9 @@ input, select {
   align-items: center;
   gap: 12px;
   cursor: pointer;
+  padding: 0;
+  text-align: left;
   user-select: none;
-}
-
-.nav-brand:focus-visible,
-.focus-mode-exit-badge:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 3px;
 }
 
 .brand-icon {
@@ -340,6 +348,13 @@ input, select {
   display: none;
   width: 100%;
   animation: fadeIn var(--transition-normal);
+}
+
+/* Screen containers receive programmatic focus for assistive technology.
+   They are landmarks, not interactive controls, so do not draw a browser
+   focus box around the entire page section. */
+.screen-view:focus {
+  outline: none;
 }
 
 .screen-view.screen-active {

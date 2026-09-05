@@ -1,5 +1,5 @@
 /**
- * UI & Screen Coordinator (Expanded Suite v3.0 — Premium Edition)
+ * UI & Screen Coordinator (Expanded Suite v3.8.0 — Premium Edition)
  * Manages view routing, Custom Arena, Ghost Racing HUD, Theme live switcher,
  * Multi-layout key remapping, JSON Backup & Restore, and all Premium Features:
  * Focus Mode, Zen Mode, Quote Vault, Goal Rings, Theme Studio, Advanced Analytics.
@@ -55,6 +55,7 @@ export class UIManager {
     this.speakingQuoteId = null;
     this.isFocusModeActive = false;
     this.resultsShortcutLockoutUntil = 0;
+    this.lastTimerAnnouncement = null;
     this.typingViewportState = {
       text: null,
       currentIndex: null,
@@ -112,6 +113,7 @@ export class UIManager {
     this.hudComboWrapper = document.getElementById('hud-combo-wrapper');
     this.hudTimerEl = document.getElementById('hud-timer');
     this.hudTimerWrapper = document.getElementById('hud-timer-wrapper');
+    this.hudTimerAnnouncementEl = document.getElementById('hud-timer-announcement');
     this.typingTextDisplay = document.getElementById('typing-text-display');
     this.hudCorrectionBadge = document.getElementById('hud-correction-badge');
     this.keyboardContainer = document.getElementById('keyboard-container');
@@ -469,7 +471,9 @@ export class UIManager {
 
     Object.entries(this.screens).forEach(([name, el]) => {
       if (el) {
-        el.classList.toggle('screen-active', name === screenName);
+        const isActive = name === screenName;
+        el.classList.toggle('screen-active', isActive);
+        el.setAttribute('aria-hidden', String(!isActive));
       }
     });
 
@@ -502,6 +506,16 @@ export class UIManager {
       if (this.currentSessionSummary && (!this.screens.results?.children?.length || this.screens.results.innerHTML.trim() === '')) {
         this.renderResults(this.currentSessionSummary);
       }
+    }
+
+    const activeScreen = this.screens[screenName];
+    if (activeScreen) {
+      activeScreen.setAttribute('tabindex', '-1');
+      requestAnimationFrame(() => {
+        if (this.activeScreen === screenName) {
+          activeScreen.focus({ preventScroll: true });
+        }
+      });
     }
   }
 
@@ -2994,6 +3008,22 @@ export class UIManager {
         this.hudTimerWrapper.setAttribute('aria-label', `${remainingSeconds} seconds remaining`);
         this.hudTimerWrapper.classList.toggle('timer-warning', remainingSeconds <= 10);
         this.hudTimerWrapper.classList.toggle('timer-critical', remainingSeconds <= 5);
+
+        // Announce meaningful checkpoints without making assistive technology
+        // read every 250ms polling tick aloud.
+        const shouldAnnounce = !data.isStarted || remainingSeconds <= 10 || remainingSeconds % 10 === 0;
+        const announcementKey = `${remainingSeconds}:${data.isStarted ? 'started' : 'ready'}:${data.isPaused ? 'paused' : 'running'}`;
+        if (this.hudTimerAnnouncementEl && shouldAnnounce && announcementKey !== this.lastTimerAnnouncement) {
+          this.hudTimerAnnouncementEl.textContent = data.isPaused
+            ? `Timer paused at ${remainingSeconds} seconds remaining.`
+            : !data.isStarted
+              ? `${remainingSeconds} seconds available. Timer starts when you type.`
+              : `${remainingSeconds} seconds remaining.`;
+          this.lastTimerAnnouncement = announcementKey;
+        }
+      } else {
+        this.lastTimerAnnouncement = null;
+        if (this.hudTimerAnnouncementEl) this.hudTimerAnnouncementEl.textContent = '';
       }
     }
     if (this.lessonProgressFill) this.lessonProgressFill.style.width = `${data.progressPct}%`;
@@ -3440,6 +3470,27 @@ export class UIManager {
         && summary.lessonId <= CURRICULUM.length;
       const isQuoteLesson = !!summary.isQuote || !!summary.quoteId || !!this.currentLessonData?.isQuote || !!this.currentLessonData?.quoteId;
       const isFinalCurriculumLesson = isCurriculumLesson && summary.lessonId === CURRICULUM.length;
+      const comparableKind = isSpeedTest
+        ? 'speedtest'
+        : isCodeLesson
+          ? 'code'
+          : isQuoteLesson
+            ? 'quote'
+            : isCurriculumLesson
+              ? 'lesson'
+              : null;
+      const comparableSessions = (state.sessions || []).slice(1).filter(session => {
+        if (!session) return false;
+        if (isSpeedTest) {
+          return session.kind === 'speedtest' && session.speedTestPreset === summary.speedTestPreset;
+        }
+        if (comparableKind) {
+          return session.kind === comparableKind && session.lessonId === summary.lessonId;
+        }
+        return session.lessonId === summary.lessonId;
+      });
+      const previousBestWpm = comparableSessions.reduce((best, session) => Math.max(best, Number(session.wpm) || 0), 0);
+      const previousBestAccuracy = comparableSessions.reduce((best, session) => Math.max(best, Number(session.accuracy) || 0), 0);
 
       const resultTitle = summary.isPlacementTest
         ? 'Skill Check Complete!'
@@ -3461,11 +3512,12 @@ export class UIManager {
                         ? 'Ready to Advance!'
                         : 'Practice Round Complete';
 
+      const safeLessonTitle = escapeHtml(summary.lessonTitle || 'Lesson Complete');
       const resultSubtitle = summary.isPlacementTest
         ? `${summary.placementRecommendation?.message || 'Your next starting point is ready.'} • +${summary.xpEarned || 35} XP Earned`
         : isSpeedTest
           ? `Consistency: ${summary.consistency || 100}% • Duration: ${Math.round(summary.durationSec || 0)}s • +${summary.xpEarned || 30} XP`
-          : `${summary.lessonTitle || 'Lesson Complete'} • +${summary.xpEarned || 30} XP Earned`;
+          : `${safeLessonTitle} • +${summary.xpEarned || 30} XP Earned`;
 
       const primaryActionLabel = summary.isPlacementTest
         ? `Start Lesson ${summary.placementRecommendation?.lessonId || 1} →`
@@ -3511,6 +3563,13 @@ export class UIManager {
           : `${mastery.stars}/5 mastery stars`;
       const displayedStars = Math.min(5, Math.max(0, Number(mastery.stars) || 0));
       const starLabel = isSpeedTest ? 'performance stars' : 'mastery stars';
+      const starTargets = {
+        accuracy: Number(mastery.targetAccuracy ?? summary.accuracyTarget ?? 90),
+        wpm: Number(mastery.targetWpm ?? summary.wpmTarget ?? 15),
+        precision: Number(mastery.precisionTarget ?? Math.max(96, Number(summary.accuracyTarget) || 90)),
+        cleanErrors: Number(mastery.cleanErrorLimit ?? Math.max(1, Math.floor(Math.max(1, Number(summary.totalKeystrokes) || 1) * 0.01))),
+        perfectWpm: Number(mastery.perfectSpeedTarget ?? Math.ceil((Number(mastery.targetWpm ?? summary.wpmTarget ?? 15)) * 1.15))
+      };
       const resultStarsHtml = !summary.isPlacementTest ? `
         <div class="results-stars-row" role="img" aria-label="${displayedStars} out of 5 ${starLabel}">
           <span class="results-stars-icons" aria-hidden="true">
@@ -3519,6 +3578,32 @@ export class UIManager {
           <span class="results-stars-label"><strong>${displayedStars}/5</strong> ${starLabel}</span>
         </div>
       ` : '';
+      const starGuideHtml = !summary.isPlacementTest ? `
+        <details class="results-star-guide">
+          <summary>How to earn more ${starLabel}</summary>
+          <ul class="results-star-guide-list">
+            <li class="${displayedStars === 1 ? 'is-current' : ''}"><span>★ 1</span> Complete the run</li>
+            <li class="${displayedStars === 2 ? 'is-current' : ''}"><span>★ 2</span> Reach ${starTargets.accuracy}% accuracy</li>
+            <li class="${displayedStars === 3 ? 'is-current' : ''}"><span>★ 3</span> Reach ${starTargets.wpm} WPM with ${starTargets.accuracy}% accuracy</li>
+            <li class="${displayedStars === 4 ? 'is-current' : ''}"><span>★ 4</span> Reach ${starTargets.precision}% accuracy and ${starTargets.wpm} WPM with ${starTargets.cleanErrors} or fewer errors</li>
+            <li class="${displayedStars === 5 ? 'is-current' : ''}"><span>★ 5</span> Reach 99% accuracy, ${starTargets.perfectWpm} WPM, and 0 errors</li>
+          </ul>
+        </details>
+      ` : '';
+      const comparisonParts = [];
+      if (previousBestWpm > 0) {
+        const delta = (Number(summary.wpm) || 0) - previousBestWpm;
+        comparisonParts.push(`<span class="results-comparison-chip ${delta > 0 ? 'is-positive' : delta < 0 ? 'is-negative' : 'is-neutral'}">WPM ${delta > 0 ? '+' : ''}${delta} vs previous best</span>`);
+      }
+      if (previousBestAccuracy > 0) {
+        const delta = (Number(summary.accuracy) || 0) - previousBestAccuracy;
+        comparisonParts.push(`<span class="results-comparison-chip ${delta > 0 ? 'is-positive' : delta < 0 ? 'is-negative' : 'is-neutral'}">Accuracy ${delta > 0 ? '+' : ''}${delta} pts vs best</span>`);
+      }
+      const resultComparisonHtml = comparisonParts.length > 0
+        ? `<div class="results-comparison-row" aria-live="polite">${comparisonParts.join('')}</div>`
+        : comparableSessions.length === 0
+          ? '<div class="results-comparison-row"><span class="results-comparison-chip is-neutral">First recorded run for this activity</span></div>'
+          : '';
 
       let sparklineHtml = '';
       try {
@@ -3538,6 +3623,8 @@ export class UIManager {
             <h2 class="results-title">${resultTitle}</h2>
             <p class="results-subtitle">${resultSubtitle}</p>
             ${resultStarsHtml}
+            ${starGuideHtml}
+            ${resultComparisonHtml}
 
             <div class="results-metrics-grid">
               <div class="result-metric-card">
@@ -3617,7 +3704,7 @@ export class UIManager {
               <div>
                 <span class="mastery-result-kicker">${mastery.stars}/5 mastery stars</span>
                 <h3>${mastery.isPerfected ? 'Perfect run recorded' : mastery.isMastered ? 'This skill is mastered' : mastery.isPassed ? 'You passed — now polish it' : 'This lesson stays in your review queue'}</h3>
-                <p>${mastery.nextGoal}</p>
+                <p>${escapeHtml(mastery.nextGoal || 'Keep practicing to earn the next star.')}</p>
               </div>
             `}
           </div>
