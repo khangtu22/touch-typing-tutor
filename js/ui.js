@@ -97,7 +97,6 @@ export class UIManager {
     this.navSettingsBtn = document.getElementById('nav-settings-btn');
     this.navQuotesBtn = document.getElementById('nav-quotes-btn');
     this.navPaletteBtn = document.getElementById('nav-palette-btn');
-    this.navPremiumBtn = document.getElementById('nav-premium-btn');
     this.navShortcutsBtn = document.getElementById('nav-shortcuts-btn');
 
     // Initialize Universal Command Palette
@@ -144,7 +143,6 @@ export class UIManager {
     if (this.navSettingsBtn) this.navSettingsBtn.addEventListener('click', () => this.navigateTo('settings'));
     if (this.navQuotesBtn) this.navQuotesBtn.addEventListener('click', () => this.navigateTo('quotes'));
     if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
-    if (this.navPremiumBtn) this.navPremiumBtn.addEventListener('click', () => this.navigateTo('settings'));
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
 
     // Global Keydown Handler
@@ -504,19 +502,12 @@ export class UIManager {
     const xpFill = document.getElementById('nav-xp-fill');
     const streakCount = document.getElementById('nav-streak-count');
     const streakFlame = document.getElementById('nav-streak-flame');
-    const premiumLabel = document.getElementById('nav-premium-label');
-    const premiumBtn = document.getElementById('nav-premium-btn');
 
     if (levelBadge) levelBadge.textContent = `Lvl ${lvlInfo.currentLvl}`;
     if (xpText) xpText.textContent = `${state.xp.toLocaleString()} XP`;
     if (xpFill) xpFill.style.width = `${lvlInfo.pct}%`;
     if (streakCount) streakCount.textContent = `${state.dailyStreak}`;
     if (streakFlame) streakFlame.classList.toggle('flame-active', state.dailyStreak > 0);
-    if (premiumLabel) premiumLabel.textContent = state.settings.isPremium ? 'PRO' : 'Free';
-    if (premiumBtn) {
-      premiumBtn.classList.toggle('premium-active', !!state.settings.isPremium);
-      premiumBtn.title = state.settings.isPremium ? 'Premium Active (Click to configure)' : 'Upgrade to Premium (Click to unlock)';
-    }
   }
 
   // ==========================================
@@ -1600,7 +1591,7 @@ export class UIManager {
                 <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Multi-Language Vocabulary Conditioning</h3>
                 <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Train muscle memory with 200 common words and 20 sentences in 6 major languages.</p>
               </div>
-              <span class="badge ${store.getState().settings.isPremium ? 'badge-teal' : 'badge-amber'}">${store.getState().settings.isPremium ? '👑 Premium Active' : '👑 Premium Feature'}</span>
+              <span class="badge badge-teal">👑 Premium Included</span>
             </div>
 
             <div class="lang-selector-grid">
@@ -1613,9 +1604,8 @@ export class UIManager {
                 { code: 'pt', flag: '🇵🇹', name: 'Portuguese', native: 'Português' }
               ].map(lang => {
                 const isSelected = (store.getState().settings.practiceLanguage || 'en') === lang.code;
-                const isLocked = !store.getState().settings.isPremium && lang.code !== 'en';
                 return `
-                  <div class="lang-option-card ${isSelected ? 'lang-active' : ''} ${isLocked ? 'lang-premium-locked' : ''}" data-lang="${lang.code}">
+                  <div class="lang-option-card ${isSelected ? 'lang-active' : ''}" data-lang="${lang.code}">
                     <span class="lang-flag">${lang.flag}</span>
                     <span class="lang-name">${lang.name}</span>
                     <span class="lang-native">${lang.native}</span>
@@ -1623,17 +1613,6 @@ export class UIManager {
                 `;
               }).join('')}
             </div>
-
-            ${!store.getState().settings.isPremium ? `
-              <div class="premium-gate-notice" style="margin-top: 20px;">
-                <span class="gate-icon">👑</span>
-                <div style="flex: 1;">
-                  <strong style="color: var(--reward-amber); font-size: 14px;">Multi-Language Practice is a Premium Feature</strong>
-                  <p>Unlock Spanish, French, German, Italian, and Portuguese vocabulary drills with one click.</p>
-                </div>
-                <button id="unlock-premium-lang-btn" class="btn btn-primary btn-sm">Unlock Premium Free →</button>
-              </div>
-            ` : ''}
 
             <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
               <button id="start-lang-practice-btn" class="btn btn-primary btn-large">
@@ -1698,10 +1677,6 @@ export class UIManager {
     container.querySelectorAll('.lang-option-card').forEach(card => {
       card.addEventListener('click', () => {
         const lang = card.dataset.lang;
-        const isPrem = store.getState().settings.isPremium;
-        if (!isPrem && lang !== 'en') {
-          this.showToast('👑 Unlock Premium to access all 6 language vocabularies!', 'amber');
-        }
         store.update(prev => ({
           ...prev,
           settings: { ...prev.settings, practiceLanguage: lang }
@@ -1710,22 +1685,9 @@ export class UIManager {
       });
     });
 
-    document.getElementById('unlock-premium-lang-btn')?.addEventListener('click', () => {
-      store.update(prev => ({
-        ...prev,
-        settings: { ...prev.settings, isPremium: true }
-      }));
-      this.showToast('👑 Premium unlocked! All languages and features are now active.', 'teal');
-      this.renderCustomArena();
-    });
-
     document.getElementById('start-lang-practice-btn')?.addEventListener('click', () => {
       const state = store.getState();
       const lang = state.settings.practiceLanguage || 'en';
-      if (!state.settings.isPremium && lang !== 'en') {
-        this.showToast('Please unlock Premium first to practice non-English languages.', 'amber');
-        return;
-      }
       const langLesson = generateLanguagePractice(lang);
       this.startLesson(langLesson);
     });
@@ -3821,7 +3783,7 @@ export class UIManager {
           <div class="profile-info">
             <div style="display: flex; align-items: center; gap: 10px;">
               <h2 class="profile-name">Touch Typist</h2>
-              <span class="premium-crown" style="font-size: 11px;">👑 ${state.settings.isPremium ? 'PRO Master' : 'Free Tier'}</span>
+              <span class="premium-crown" style="font-size: 11px;">👑 Premium Included</span>
             </div>
             <p class="profile-level-badge">Level ${lvlInfo.currentLvl} • ${lvlInfo.title}</p>
             <div class="profile-xp-bar-track">
@@ -4274,25 +4236,7 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 9. Premium Membership Management -->
-        <div class="settings-group-card" style="border: 1px solid rgba(255, 184, 107, 0.3); background: linear-gradient(135deg, rgba(255,184,107,0.04), rgba(124,92,252,0.04));">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 18px;">👑</span>
-                <h3 class="group-title" style="margin: 0; color: var(--reward-amber);">KeyFlow Premium Status</h3>
-              </div>
-              <p class="setting-desc" style="margin-top: 4px;">
-                ${settings.isPremium ? 'All premium features unlocked (Quote Vault, Zen Mode, Multi-Language, Theme Studio, Advanced Analytics).' : 'Unlock multi-language vocabularies, ambient soundscapes, and advanced customization.'}
-              </p>
-            </div>
-            <button id="toggle-premium-mode-btn" class="btn ${settings.isPremium ? 'btn-secondary' : 'btn-primary'} btn-sm">
-              ${settings.isPremium ? 'Active (PRO)' : 'Unlock Premium Free →'}
-            </button>
-          </div>
-        </div>
-
-        <!-- 10. Data Portability (Backup & Restore) -->
+        <!-- 9. Data Portability (Backup & Restore) -->
         <div class="settings-group-card">
           <h3 class="group-title">Data Backup &amp; Restore</h3>
           <div class="setting-row">
@@ -4310,7 +4254,7 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- 11. Danger Zone -->
+        <!-- 10. Danger Zone -->
         <div class="settings-group-card danger-zone">
           <h3 class="group-title text-error">Danger Zone</h3>
           <div class="setting-row">
@@ -4484,17 +4428,6 @@ export class UIManager {
           wellness: { ...(prev.settings.wellness || {}), focusModeShortcut: e.target.checked }
         }
       }));
-    });
-
-    // Premium Mode Toggle
-    document.getElementById('toggle-premium-mode-btn')?.addEventListener('click', () => {
-      const current = !!store.getState().settings.isPremium;
-      store.update(prev => ({
-        ...prev,
-        settings: { ...prev.settings, isPremium: !current }
-      }));
-      this.showToast(!current ? '👑 Premium features unlocked!' : 'Switched to Free Tier.', 'teal');
-      this.renderSettings();
     });
 
     // Sound profile

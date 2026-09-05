@@ -1210,7 +1210,7 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
   if (!container) return;
 
   let activePeriod = '7d'; // '7d' | '30d' | '90d' | 'all'
-  let activeMode = 'session'; // 'session' | 'day'
+  let activeMode = 'day'; // 'session' | 'day'
 
   const tableState = {
     sortKey: 'date',

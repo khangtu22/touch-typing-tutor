@@ -53,16 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.navigateTo('dashboard');
   };
 
-  // 6. Unlock premium for dev testing
-  window.unlockPremium = () => {
-    store.update(prev => ({
-      ...prev,
-      settings: { ...prev.settings, isPremium: true }
-    }));
-    console.info('%c👑 Premium unlocked!', 'color: #FFB86B; font-weight: bold;');
-    ui.navigateTo('dashboard');
-  };
-
   console.info(
     '%c⌨️ KeyFlow v3.0 Premium Ready%c\nFeatures: Focus Mode, Zen Mode, Quote Vault, Goals, Theme Studio, Advanced Analytics & Multi-Language.',
     'color: #7C5CFC; font-weight: bold; font-size: 14px;',

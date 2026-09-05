@@ -1841,19 +1841,6 @@ body.focus-mode-active .hud-live-metrics {
   background: rgba(124, 92, 252, 0.1);
 }
 
-.lang-option-card.lang-premium-locked {
-  opacity: 0.6;
-  position: relative;
-}
-
-.lang-option-card.lang-premium-locked::after {
-  content: '👑';
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  font-size: 10px;
-}
-
 .lang-flag {
   font-size: 22px;
 }
@@ -1893,27 +1880,6 @@ body.focus-mode-active .hud-live-metrics {
 
 .premium-crown .crown-icon {
   font-size: 12px;
-}
-
-.premium-gate-notice {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: rgba(255, 184, 107, 0.06);
-  border: 1px solid rgba(255, 184, 107, 0.2);
-  border-radius: var(--radius-sm);
-  margin: 8px 0;
-}
-
-.premium-gate-notice .gate-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.premium-gate-notice p {
-  font-size: 13px;
-  color: var(--text-secondary);
 }
 
 /* Recommended Drill Card */

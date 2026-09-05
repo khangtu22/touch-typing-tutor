@@ -149,7 +149,7 @@ const DEFAULT_STATE = {
     metronomeEnabled: false,
     metronomeBpm: 100,
     // --- Premium Feature Settings ---
-    isPremium: false,         // Premium mode unlock (no payment, just a toggle)
+    isPremium: true,          // All features are included for every user.
     practiceLanguage: 'en',  // For multi-language practice
     goals: {
       enabled: false,
@@ -245,6 +245,9 @@ class StateStore {
         settings: {
           ...DEFAULT_STATE.settings,
           ...parsedSettings,
+          // Premium is included for everyone. Keep the legacy field so older
+          // saved data remains compatible, but never restore a restricted tier.
+          isPremium: true,
           // Deep merge nested settings objects
           goals: {
             ...DEFAULT_STATE.settings.goals,
@@ -322,6 +325,8 @@ class StateStore {
     } else {
       this.state = { ...this.state, ...updater };
     }
+    // Keep legacy saves and older callers from reintroducing a separate tier.
+    this.state.settings = { ...(this.state.settings || {}), isPremium: true };
     this.state.level = getLevelFromXp(this.state.xp);
     this.persist();
     this.notify();
@@ -759,6 +764,7 @@ class StateStore {
         settings: {
           ...DEFAULT_STATE.settings,
           ...(safeData.settings || {}),
+          isPremium: true,
           goals: {
             ...DEFAULT_STATE.settings.goals,
             ...(safeData.settings?.goals || {})
@@ -871,6 +877,7 @@ class StateStore {
       bestAccuracy: 98,
       placementTest: null,
       settings: {
+        isPremium: true,
         soundEnabled: true,
         soundVolume: 0.6,
         switchProfile: 'cherry_blue',
