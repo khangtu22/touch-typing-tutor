@@ -171,6 +171,10 @@
           <!-- Lesson HUD -->
           <div class="lesson-hud">
             <div class="hud-top-row">
+              <div id="hud-timer-wrapper" class="timer-pill" hidden role="timer" aria-label="Time remaining">
+                <span id="hud-timer" class="metric-pill-val">0:00</span>
+                <span class="metric-pill-lbl">LEFT</span>
+              </div>
               <div class="hud-meta">
                 <h2 id="hud-lesson-title" class="hud-title">Find Your Anchors</h2>
                 <span id="hud-lesson-round" class="hud-round-badge">Warmup · Round 1 of 4</span>
@@ -188,10 +192,6 @@
                 <div id="hud-combo-wrapper" class="combo-pill">
                   <span id="hud-combo" class="metric-pill-val">0</span>
                   <span class="metric-pill-lbl">COMBO</span>
-                </div>
-                <div id="hud-timer-wrapper" class="timer-pill" hidden role="timer" aria-label="Time remaining">
-                  <span id="hud-timer" class="metric-pill-val">0:00</span>
-                  <span class="metric-pill-lbl">LEFT</span>
                 </div>
                 <span id="hud-timer-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></span>
               </div>

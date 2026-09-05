@@ -340,6 +340,10 @@
     min-height: auto;
   }
 
+  .hud-top-row > .timer-pill {
+    align-self: flex-start;
+  }
+
   .hud-meta {
     width: 100%;
     gap: 8px;
