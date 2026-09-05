@@ -139,6 +139,7 @@ const DEFAULT_STATE = {
     layout: 'qwerty', // 'qwerty' | 'colemak' | 'dvorak' | 'workman'
     keyboardVisible: true,
     handGuideVisible: true,
+    reachBannerVisible: true,
     textSize: 'medium',
     reducedMotion: false,
     highContrast: false,
@@ -892,6 +893,7 @@ class StateStore {
         layout: 'qwerty',
         keyboardVisible: true,
         handGuideVisible: true,
+        reachBannerVisible: true,
         textSize: 'medium',
         reducedMotion: false,
         highContrast: false,

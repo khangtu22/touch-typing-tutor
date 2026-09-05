@@ -10,6 +10,11 @@
   user-select: none;
 }
 
+body.keyboard-hidden #keyboard-container,
+body.keyboard-hidden .mech-keyboard-container {
+  display: none !important;
+}
+
 .mech-keyboard {
   display: inline-flex;
   flex-direction: column;

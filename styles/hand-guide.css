@@ -54,3 +54,18 @@
 }
 @media (prefers-reduced-motion: reduce) { .keyboard-reach-banner { transition: none; } }
 body.reduced-motion .keyboard-reach-banner { transition: none; }
+
+/* Hand guide & reach banner visibility toggles */
+body.hand-guide-hidden #keyboard-container #keyboard-hand-svg,
+body.hand-guide-hidden #keyboard-container .keyboard-hand-overlay-svg {
+  display: none !important;
+}
+
+body.hand-guide-hidden #keyboard-container .keyboard-and-hands-stage {
+  padding-bottom: 0 !important;
+}
+
+body.reach-banner-hidden #keyboard-container #keyboard-reach-banner,
+body.reach-banner-hidden #keyboard-container .keyboard-reach-banner {
+  display: none !important;
+}

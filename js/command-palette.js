@@ -46,7 +46,51 @@ export class CommandPalette {
       { id: 'sound_gateron_brown', title: 'Sound: Gateron Brown (Warm Tactile)', category: 'Audio', icon: '🔊', action: () => this.setSound('gateron_brown') },
       { id: 'sound_holy_panda', title: 'Sound: Holy Panda / Topre (Deep Thock)', category: 'Audio', icon: '🔊', action: () => this.setSound('holy_panda') },
       { id: 'sound_typewriter', title: 'Sound: Vintage Typewriter (Mechanical Bell)', category: 'Audio', icon: '🔔', action: () => this.setSound('typewriter') },
-      { id: 'sound_bubble_pop', title: 'Sound: Bubble Wrap Pop (Playful Pitch)', category: 'Audio', icon: '🫧', action: () => this.setSound('bubble_pop') }
+      { id: 'sound_bubble_pop', title: 'Sound: Bubble Wrap Pop (Playful Pitch)', category: 'Audio', icon: '🫧', action: () => this.setSound('bubble_pop') },
+
+      // --- Display & Visual Guides ---
+      {
+        id: 'toggle_keyboard',
+        title: 'Toggle On-Screen Keyboard',
+        category: 'Display',
+        icon: '⌨️',
+        action: () => {
+          const current = this.store.getState().settings?.keyboardVisible !== false;
+          this.store.update(prev => ({
+            ...prev,
+            settings: { ...prev.settings, keyboardVisible: !current }
+          }));
+          this.ui.showToast(!current ? 'On-screen keyboard enabled' : 'On-screen keyboard hidden', 'teal');
+        }
+      },
+      {
+        id: 'toggle_handguide',
+        title: 'Toggle Hands Guide Overlay',
+        category: 'Display',
+        icon: '🖐️',
+        action: () => {
+          const current = this.store.getState().settings?.handGuideVisible !== false;
+          this.store.update(prev => ({
+            ...prev,
+            settings: { ...prev.settings, handGuideVisible: !current }
+          }));
+          this.ui.showToast(!current ? 'Hands guide overlay enabled' : 'Hands guide overlay hidden', 'teal');
+        }
+      },
+      {
+        id: 'toggle_reachbanner',
+        title: 'Toggle Next Key Guidance Banner',
+        category: 'Display',
+        icon: '🏷️',
+        action: () => {
+          const current = this.store.getState().settings?.reachBannerVisible !== false;
+          this.store.update(prev => ({
+            ...prev,
+            settings: { ...prev.settings, reachBannerVisible: !current }
+          }));
+          this.ui.showToast(!current ? 'Next key banner enabled' : 'Next key banner hidden', 'teal');
+        }
+      }
     ];
 
     this.filteredCommands = [...this.commands];

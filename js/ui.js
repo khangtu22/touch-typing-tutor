@@ -405,9 +405,23 @@ export class UIManager {
       document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion);
       document.body.dataset.textSize = state.settings.textSize || 'medium';
 
+      const keyboardVisible = state.settings.keyboardVisible !== false;
+      const handGuideVisible = state.settings.handGuideVisible !== false;
+      const reachBannerVisible = state.settings.reachBannerVisible !== false;
+
+      document.body.classList.toggle('keyboard-hidden', !keyboardVisible);
+      document.body.classList.toggle('hand-guide-hidden', !handGuideVisible);
+      document.body.classList.toggle('reach-banner-hidden', !reachBannerVisible);
+
       if (this.keyboardRenderer) {
         this.keyboardRenderer.setLayout(state.settings.layout || 'qwerty');
         this.keyboardRenderer.setBlindMode(state.settings.blindMode);
+      }
+
+      if (this.handRenderer && keyboardVisible && handGuideVisible) {
+        requestAnimationFrame(() => {
+          this.handRenderer?.updateFingers();
+        });
       }
 
       this.updateHeaderStats(state);
@@ -4206,6 +4220,36 @@ export class UIManager {
           </div>
           <div class="setting-row">
             <div>
+              <label class="setting-label">On-Screen Keyboard</label>
+              <p class="setting-desc">Display the interactive mechanical keyboard during practice</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-keyboard-toggle" ${settings.keyboardVisible !== false ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row" id="row-handguide-toggle" style="${settings.keyboardVisible === false ? 'opacity: 0.5;' : ''}">
+            <div>
+              <label class="setting-label">Hands Guide Overlay</label>
+              <p class="setting-desc">Display 3D animated hands overlaid on the keyboard</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-handguide-toggle" ${settings.handGuideVisible !== false ? 'checked' : ''} ${settings.keyboardVisible === false ? 'disabled' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row" id="row-reachbanner-toggle" style="${settings.keyboardVisible === false ? 'opacity: 0.5;' : ''}">
+            <div>
+              <label class="setting-label">Next Key Guidance Banner</label>
+              <p class="setting-desc">Display the next key finger reach indicator pill above the keyboard</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-reachbanner-toggle" ${settings.reachBannerVisible !== false ? 'checked' : ''} ${settings.keyboardVisible === false ? 'disabled' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div>
               <label class="setting-label">Blind Typing Mode</label>
               <p class="setting-desc">Masks on-screen key legends and character preview to enforce 100% muscle memory</p>
             </div>
@@ -4505,6 +4549,50 @@ export class UIManager {
         ...prev,
         settings: { ...prev.settings, layout: e.target.value }
       }));
+    });
+
+    // Keyboard & Visual Guides Visibility
+    document.getElementById('setting-keyboard-toggle')?.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      const handRow = document.getElementById('row-handguide-toggle');
+      const handInput = document.getElementById('setting-handguide-toggle');
+      const reachRow = document.getElementById('row-reachbanner-toggle');
+      const reachInput = document.getElementById('setting-reachbanner-toggle');
+      if (handRow) handRow.style.opacity = isChecked ? '1' : '0.5';
+      if (handInput) handInput.disabled = !isChecked;
+      if (reachRow) reachRow.style.opacity = isChecked ? '1' : '0.5';
+      if (reachInput) reachInput.disabled = !isChecked;
+
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, keyboardVisible: isChecked }
+      }));
+      this.showToast(
+        isChecked ? 'On-screen keyboard enabled' : 'On-screen keyboard hidden',
+        'teal'
+      );
+    });
+
+    document.getElementById('setting-handguide-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, handGuideVisible: e.target.checked }
+      }));
+      this.showToast(
+        e.target.checked ? 'Hands guide overlay enabled' : 'Hands guide overlay hidden',
+        'teal'
+      );
+    });
+
+    document.getElementById('setting-reachbanner-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, reachBannerVisible: e.target.checked }
+      }));
+      this.showToast(
+        e.target.checked ? 'Next-key guidance banner enabled' : 'Next-key guidance banner hidden',
+        'teal'
+      );
     });
 
     // Blind, Word Correction & Sudden Death
