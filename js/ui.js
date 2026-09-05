@@ -434,6 +434,9 @@ export class UIManager {
   }
 
   navigateTo(screenName) {
+    if (this.activeScreen === 'arcade' && screenName !== 'arcade') {
+      this.arcadeManager?.activeGame?.destroy?.();
+    }
     if (this.activeScreen === 'lesson' && screenName !== 'lesson') {
       try { goalsManager.setPracticeActive(false); } catch (e) {}
       try { typingEngine.destroy(); } catch (e) {}

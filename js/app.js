@@ -11,7 +11,7 @@ import { goalsManager } from './goals-wellness.js';
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Register PWA Service Worker for Offline Execution
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('./sw.js?v=3.5.1')
+    navigator.serviceWorker.register('./sw.js?v=3.6.0')
       .then((reg) => {
         console.info('KeyFlow PWA Service Worker registered:', reg.scope);
         reg.update().catch(() => {});

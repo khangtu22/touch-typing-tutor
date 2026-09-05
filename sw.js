@@ -2,7 +2,7 @@
  * KeyFlow Service Worker (v3.0.0 - Premium Edition)
  */
 
-const CACHE_NAME = 'keyflow-v3.5.1';
+const CACHE_NAME = 'keyflow-v3.6.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ const ASSETS_TO_CACHE = [
   './styles/racing.css',
   './styles/premium.css',
   './styles/arcade.css',
+  './styles/typing-quest.css',
   './js/app.js',
   './js/state.js',
   './js/sound-engine.js',
@@ -40,6 +41,7 @@ const ASSETS_TO_CACHE = [
   './js/advanced-analytics.js',
   './js/premium-features.js',
   './js/arcade-games.js',
+  './js/typing-quest.js',
   './js/code-snippets.js',
   './js/speed-test.js',
   './js/command-palette.js',

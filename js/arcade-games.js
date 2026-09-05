@@ -1,14 +1,16 @@
 /**
  * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.3.0)
- * Featuring 4 Distinct Arcade Game Modes with Easy / Med / Hard Speed Controls:
+ * Featuring 5 Distinct Arcade Game Modes with Easy / Med / Hard Controls:
  * 1. Type Invaders: Orbit Defense (Laser turret, wave spawner, power-ups, boss battle)
  * 2. Nitro Sprint: 60s Speed Drag Race (Analog speedometer physics, turbo bursts, ghost racer)
  * 3. Matrix Rain: Code Breaker (Netrunner terminal hacking, digital rain canvas, syntax tokens)
  * 4. KeyBeats: Rhythm Flow (4-Lane rhythm action, timing hit zones, Fever Mode overdrive)
+ * 5. Typing Quest (Self-paced dungeon adventure and weak-key practice)
  */
 
 import { sound } from './sound-engine.js';
 import { store } from './state.js';
+import { TypingQuestGame } from './typing-quest.js';
 
 // ==========================================
 // ADAPTIVE WORD BANKS FOR ARCADE GAMEPLAY
@@ -2142,11 +2144,14 @@ export class ArcadeHubManager {
       invaders: 'medium',
       nitro: 'medium',
       matrix: 'medium',
-      rhythm: 'medium'
+      rhythm: 'medium',
+      quest: 'medium'
     };
   }
 
   renderLobby() {
+    this.activeGame?.destroy?.();
+    this.activeGame = null;
     const state = store.getState();
     const stats = state.arcadeStats || {
       invadersHighScore: 0,
@@ -2160,15 +2165,23 @@ export class ArcadeHubManager {
     this.container.innerHTML = `
       <div class="arcade-lobby">
         <div class="arcade-lobby-header">
-          <div class="arcade-badge-chip">🕹️ 4-GAME ARCADE ARENA</div>
+          <div class="arcade-badge-chip">🕹️ 5-GAME ARCADE ARENA</div>
           <h1 class="arcade-lobby-title">Master Speed, Accuracy &amp; Rhythm</h1>
           <p class="arcade-lobby-subtitle">
-            Choose your speed mode (Easy / Med / Hard) on any game to calibrate falling velocities and test difficulty to your exact typing level.
+            Choose Easy, Medium, or Hard for your next challenge. Build accuracy at your own pace in Typing Quest, or chase speed and rhythm in the other arenas.
           </p>
         </div>
 
         <!-- Arcade Hall of Fame Stats Banner -->
         <div class="arcade-hall-of-fame">
+          <div class="hof-stat-card">
+            <div class="hof-stat-icon">🏰</div>
+            <div class="hof-stat-info">
+              <span class="hof-stat-label">TYPING QUEST</span>
+              <span class="hof-stat-value">${(stats.questHighScore || 0).toLocaleString()} PTS</span>
+              <span class="quest-record-detail">${stats.questCompletedRuns || 0} dungeons conquered</span>
+            </div>
+          </div>
           <div class="hof-stat-card">
             <div class="hof-stat-icon">👾</div>
             <div class="hof-stat-info">
@@ -2199,8 +2212,32 @@ export class ArcadeHubManager {
           </div>
         </div>
 
-        <!-- 4 Game Selection Grid -->
+        <!-- 5 Game Selection Grid -->
         <div class="arcade-game-grid">
+          <div class="arcade-game-card quest-lobby-card">
+            <div class="game-card-banner banner-quest">
+              <span class="game-banner-badge">ACCURACY ADVENTURE</span>
+              <span class="game-banner-icon">🏰</span>
+            </div>
+            <div class="game-card-body">
+              <h2 class="game-card-title">Typing Quest: The Rune Dragon</h2>
+              <p class="game-card-desc">Type your way through four dungeon rooms and a dragon boss. Accurate words defeat monsters, clear rooms restore hearts, and your weakest keys get extra practice.</p>
+              <div class="game-features-pills">
+                <span class="feature-tag">★ 5-Room Quest</span>
+                <span class="feature-tag">🎯 Weak-Key Practice</span>
+                <span class="feature-tag">🌿 No Countdown</span>
+              </div>
+              <div class="game-difficulty-select">
+                <label>WORD LENGTH:</label>
+                <div class="difficulty-toggles" data-game="quest" role="group" aria-label="Typing Quest difficulty">
+                  <button class="diff-btn ${this.difficulties.quest === 'easy' ? 'active' : ''}" data-diff="easy" aria-pressed="${this.difficulties.quest === 'easy'}">Easy (3–5)</button>
+                  <button class="diff-btn ${this.difficulties.quest === 'medium' ? 'active' : ''}" data-diff="medium" aria-pressed="${this.difficulties.quest === 'medium'}">Med (4–8)</button>
+                  <button class="diff-btn ${this.difficulties.quest === 'hard' ? 'active' : ''}" data-diff="hard" aria-pressed="${this.difficulties.quest === 'hard'}">Hard (6–12)</button>
+                </div>
+              </div>
+              <button id="btn-launch-quest" class="btn btn-primary btn-lg arcade-launch-btn">Begin Typing Quest</button>
+            </div>
+          </div>
           <!-- Game 1: Type Invaders -->
           <div class="arcade-game-card">
             <div class="game-card-banner banner-invaders">
@@ -2341,8 +2378,12 @@ export class ArcadeHubManager {
       const gameKey = toggleGroup.dataset.game;
       toggleGroup.querySelectorAll('.diff-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          toggleGroup.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+          toggleGroup.querySelectorAll('.diff-btn').forEach(b => {
+            b.classList.remove('active');
+            if (b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', 'false');
+          });
           btn.classList.add('active');
+          if (btn.hasAttribute('aria-pressed')) btn.setAttribute('aria-pressed', 'true');
           if (gameKey) {
             this.difficulties[gameKey] = btn.dataset.diff;
           }
@@ -2351,6 +2392,9 @@ export class ArcadeHubManager {
     });
 
     // Wire Launch Buttons
+    this.container.querySelector('#btn-launch-quest')?.addEventListener('click', () => {
+      this.launchTypingQuest(this.difficulties.quest);
+    });
     this.container.querySelector('#btn-launch-invaders')?.addEventListener('click', () => {
       this.launchTypeInvaders(this.difficulties.invaders);
     });
@@ -2370,6 +2414,15 @@ export class ArcadeHubManager {
 
   launchTypeInvaders(difficulty = 'medium') {
     this.activeGame = new TypeInvadersGame(this.container, {
+      difficulty,
+      onExit: () => this.renderLobby()
+    });
+    this.activeGame.mount();
+  }
+
+  launchTypingQuest(difficulty = 'medium') {
+    this.activeGame?.destroy?.();
+    this.activeGame = new TypingQuestGame(this.container, {
       difficulty,
       onExit: () => this.renderLobby()
     });

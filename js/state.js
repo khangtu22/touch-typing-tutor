@@ -126,6 +126,8 @@ const DEFAULT_STATE = {
     nitroBestWpm: 0,
     matrixHighScore: 0,
     rhythmHighScore: 0,
+    questHighScore: 0,
+    questCompletedRuns: 0,
     totalGamesPlayed: 0
   },
   settings: {
@@ -509,7 +511,7 @@ class StateStore {
   }
 
   // Record arcade mini-game score, wave, and award XP
-  recordArcadeResult({ gameId, score = 0, wave = 1, bossDefeated = false, wpm = 0, accuracy = 100, xpEarned = 50 }) {
+  recordArcadeResult({ gameId, score = 0, wave = 1, bossDefeated = false, wpm = 0, accuracy = 100, xpEarned = 50, victory = false }) {
     const today = getLocalDateKey();
     const streakResult = this.calculateStreakOnPractice(today);
 
@@ -536,12 +538,17 @@ class StateStore {
         ...prev,
         xp: prev.xp + xpEarned,
         arcadeStats: {
+          ...currentArcade,
           invadersHighScore,
           invadersMaxWave,
           invadersBossDefeated,
           nitroBestWpm,
           matrixHighScore,
           rhythmHighScore,
+          questHighScore: gameId === 'typing-quest'
+            ? Math.max(currentArcade.questHighScore || 0, score)
+            : currentArcade.questHighScore || 0,
+          questCompletedRuns: (currentArcade.questCompletedRuns || 0) + (gameId === 'typing-quest' && victory ? 1 : 0),
           totalGamesPlayed: (currentArcade.totalGamesPlayed || 0) + 1
         },
         dailyStreak: streakResult.currentStreak,
