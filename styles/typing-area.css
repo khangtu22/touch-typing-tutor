@@ -126,6 +126,40 @@
   animation: comboPulse 1s infinite alternate;
 }
 
+/* Timed benchmark countdown */
+.timer-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 184, 107, 0.12);
+  border: 1px solid rgba(255, 184, 107, 0.38);
+  color: var(--reward-amber);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.timer-pill.timer-warning {
+  background: rgba(255, 208, 38, 0.14);
+  border-color: rgba(255, 208, 38, 0.55);
+  color: #ffd026;
+}
+
+.timer-pill.timer-critical {
+  background: rgba(255, 92, 122, 0.16);
+  border-color: var(--error-coral);
+  color: var(--error-coral);
+  box-shadow: 0 0 14px var(--error-glow);
+  animation: timerPulse 0.8s infinite alternate;
+}
+
+@keyframes timerPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+
 @keyframes comboPulse {
   from { transform: scale(1); }
   to { transform: scale(1.06); }

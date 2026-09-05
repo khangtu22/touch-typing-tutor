@@ -110,6 +110,8 @@ export class UIManager {
     this.hudAccuracyEl = document.getElementById('hud-accuracy');
     this.hudComboEl = document.getElementById('hud-combo');
     this.hudComboWrapper = document.getElementById('hud-combo-wrapper');
+    this.hudTimerEl = document.getElementById('hud-timer');
+    this.hudTimerWrapper = document.getElementById('hud-timer-wrapper');
     this.typingTextDisplay = document.getElementById('typing-text-display');
     this.hudCorrectionBadge = document.getElementById('hud-correction-badge');
     this.keyboardContainer = document.getElementById('keyboard-container');
@@ -2962,10 +2964,22 @@ export class UIManager {
     }
     if (this.lessonRoundEl) {
       const roundLabel = data.lesson.roundLabels?.[data.roundIdx] || `Round ${data.roundIdx + 1}`;
-      if (data.timeRemainingSec !== null && data.timeRemainingSec !== undefined) {
-        this.lessonRoundEl.textContent = `${roundLabel} · ⏱️ ${data.timeRemainingSec}s left`;
-      } else {
-        this.lessonRoundEl.textContent = `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
+      this.lessonRoundEl.textContent = `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
+    }
+
+    if (this.hudTimerEl && this.hudTimerWrapper) {
+      const hasCountdown = data.timeRemainingSec !== null && data.timeRemainingSec !== undefined;
+      this.hudTimerWrapper.hidden = !hasCountdown;
+      this.hudTimerWrapper.classList.remove('timer-warning', 'timer-critical');
+
+      if (hasCountdown) {
+        const remainingSeconds = Math.max(0, Math.ceil(Number(data.timeRemainingSec) || 0));
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = String(remainingSeconds % 60).padStart(2, '0');
+        this.hudTimerEl.textContent = minutes > 0 ? `${minutes}:${seconds}` : `${remainingSeconds}s`;
+        this.hudTimerWrapper.setAttribute('aria-label', `${remainingSeconds} seconds remaining`);
+        this.hudTimerWrapper.classList.toggle('timer-warning', remainingSeconds <= 10);
+        this.hudTimerWrapper.classList.toggle('timer-critical', remainingSeconds <= 5);
       }
     }
     if (this.lessonProgressFill) this.lessonProgressFill.style.width = `${data.progressPct}%`;
