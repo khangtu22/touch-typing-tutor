@@ -437,18 +437,18 @@ export class UIManager {
 
   navigateTo(screenName) {
     if (this.activeScreen === 'lesson' && screenName !== 'lesson') {
-      goalsManager.setPracticeActive(false);
-      typingEngine.destroy();
-      ghostRacer.stopRace();
+      try { goalsManager.setPracticeActive(false); } catch (e) {}
+      try { typingEngine.destroy(); } catch (e) {}
+      try { ghostRacer.stopRace(); } catch (e) {}
     }
 
     if (this.speakingQuoteId && typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+      try { window.speechSynthesis.cancel(); } catch (e) {}
       this.speakingQuoteId = null;
     }
 
     this.activeScreen = screenName;
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch (e) {}
 
     Object.entries(this.screens).forEach(([name, el]) => {
       if (el) {
@@ -481,6 +481,11 @@ export class UIManager {
     if (screenName === 'quotes') this.renderQuoteVault();
     if (screenName === 'profile') this.renderProfile();
     if (screenName === 'settings') this.renderSettings();
+    if (screenName === 'results') {
+      if (this.currentSessionSummary && (!this.screens.results?.children?.length || this.screens.results.innerHTML.trim() === '')) {
+        this.renderResults(this.currentSessionSummary);
+      }
+    }
   }
 
   renderArcadeScreen() {
@@ -3192,13 +3197,25 @@ export class UIManager {
 
   handleLessonFinished(summary) {
     this.currentSessionSummary = summary;
-    goalsManager.setPracticeActive(false);
+    try {
+      goalsManager.setPracticeActive(false);
+    } catch (e) {
+      console.warn('GoalsManager setPracticeActive error:', e);
+    }
     this.resultsShortcutLockoutUntil = Date.now() + 650; // Lockout hotkeys for 650ms to swallow trailing typing keystrokes
-    ghostRacer.stopRace();
+    try {
+      ghostRacer.stopRace();
+    } catch (e) {
+      console.warn('GhostRacer stop error:', e);
+    }
     document.body.classList.remove('blind-mode-active');
 
-    if (zenMode.isActive) {
-      zenMode.exit();
+    try {
+      if (zenMode?.isActive) {
+        zenMode.exit();
+      }
+    } catch (e) {
+      console.warn('ZenMode exit error:', e);
     }
 
     if (this.isFocusModeActive) {
@@ -3206,115 +3223,137 @@ export class UIManager {
     }
 
     if (summary.isPlacementTest) {
-      summary.placementRecommendation = getPlacementRecommendation(summary);
+      try {
+        summary.placementRecommendation = getPlacementRecommendation(summary);
+      } catch (e) {
+        console.warn('Placement recommendation error:', e);
+      }
     }
 
     // Record premium data tracking
-    if (this.currentLessonData?.quoteId || this.currentLessonData?.isQuote) {
-      const qId = this.currentLessonData.quoteId;
-      if (qId) {
+    try {
+      if (this.currentLessonData?.quoteId || this.currentLessonData?.isQuote) {
+        const qId = this.currentLessonData.quoteId;
+        if (qId) {
+          store.update(prev => ({
+            ...prev,
+            quotesPracticed: Array.from(new Set([...(prev.quotesPracticed || []), qId]))
+          }));
+        }
+        summary.isQuote = true;
+        summary.quoteId = qId;
+        summary.quoteData = this.currentLessonData.quoteData || (qId ? QUOTE_VAULT.find(q => q.id === qId) : null);
+        summary.quoteCategory = this.currentLessonData.category || summary.quoteData?.category || this.activeQuoteCategory;
+        summary.quoteDifficulty = this.currentLessonData.difficulty || summary.quoteData?.difficulty || this.activeQuoteDifficulty;
+      }
+
+      if (this.currentLessonData?.isZen) {
         store.update(prev => ({
           ...prev,
-          quotesPracticed: Array.from(new Set([...(prev.quotesPracticed || []), qId]))
+          zenSessionsCompleted: (prev.zenSessionsCompleted || 0) + 1
         }));
       }
-      summary.isQuote = true;
-      summary.quoteId = qId;
-      summary.quoteData = this.currentLessonData.quoteData || (qId ? QUOTE_VAULT.find(q => q.id === qId) : null);
-      summary.quoteCategory = this.currentLessonData.category || summary.quoteData?.category || this.activeQuoteCategory;
-      summary.quoteDifficulty = this.currentLessonData.difficulty || summary.quoteData?.difficulty || this.activeQuoteDifficulty;
-    }
 
-    if (this.currentLessonData?.isZen) {
-      store.update(prev => ({
-        ...prev,
-        zenSessionsCompleted: (prev.zenSessionsCompleted || 0) + 1
-      }));
-    }
+      if (this.currentLessonData?.languageCode) {
+        store.update(prev => ({
+          ...prev,
+          languagesPracticed: Array.from(new Set([...(prev.languagesPracticed || []), this.currentLessonData.languageCode]))
+        }));
+      }
 
-    if (this.currentLessonData?.languageCode) {
-      store.update(prev => ({
-        ...prev,
-        languagesPracticed: Array.from(new Set([...(prev.languagesPracticed || []), this.currentLessonData.languageCode]))
-      }));
-    }
+      if (this.currentLessonData?.isCodeLesson || this.currentLessonData?.snippetId) {
+        const sId = this.currentLessonData.snippetId || this.currentLessonData.id;
+        store.recordCodeSnippetCompleted(sId);
+        summary.isCodeLesson = true;
+        summary.snippetData = this.currentLessonData.snippetData;
+      }
 
-    if (this.currentLessonData?.isCodeLesson || this.currentLessonData?.snippetId) {
-      const sId = this.currentLessonData.snippetId || this.currentLessonData.id;
-      store.recordCodeSnippetCompleted(sId);
-      summary.isCodeLesson = true;
-      summary.snippetData = this.currentLessonData.snippetData;
-    }
+      if (this.currentLessonData?.isSpeedTest) {
+        const presetId = this.currentLessonData.speedTestPreset || '60s';
+        const pbResult = store.recordSpeedTestResult({
+          presetId,
+          wpm: summary.wpm,
+          accuracy: summary.accuracy,
+          consistency: summary.consistency || 100,
+          durationSec: summary.durationSec
+        });
+        summary.isSpeedTest = true;
+        summary.speedTestPreset = presetId;
+        summary.isNewPB = pbResult.isNewPB;
+        summary.speedTestPB = pbResult.best;
+      }
 
-    if (this.currentLessonData?.isSpeedTest) {
-      const presetId = this.currentLessonData.speedTestPreset || '60s';
-      const pbResult = store.recordSpeedTestResult({
-        presetId,
+      if (this.currentLessonData?.isAdaptiveDrill) {
+        summary.isAdaptiveDrill = true;
+        summary.targetKeys = this.currentLessonData.targetKeys;
+      }
+
+      if (this.currentLessonData?.isMissedWordsDrill) {
+        summary.isMissedWordsDrill = true;
+      }
+
+      let sessionKind = 'lesson';
+      if (summary.isPlacementTest) sessionKind = 'placement';
+      else if (summary.isSpeedTest) sessionKind = 'speedtest';
+      else if (summary.isCodeLesson) sessionKind = 'code';
+      else if (summary.isQuote) sessionKind = 'quote';
+      else if (this.currentLessonData?.isZen) sessionKind = 'zen';
+      else if (this.currentLessonData?.isCustom) sessionKind = 'custom';
+
+      store.recordSession({
+        lessonId: summary.lessonId,
+        lessonTitle: summary.lessonTitle,
         wpm: summary.wpm,
         accuracy: summary.accuracy,
-        consistency: summary.consistency || 100,
-        durationSec: summary.durationSec
+        durationSec: summary.durationSec,
+        stars: summary.stars,
+        xpEarned: summary.xpEarned,
+        keyStatsDelta: summary.keyStatsDelta,
+        wpmHistory: summary.wpmHistory,
+        mastery: summary.mastery,
+        isPlacementTest: summary.isPlacementTest,
+        placementRecommendation: summary.placementRecommendation,
+        inFocusMode: !!this.isFocusModeActive,
+        kind: sessionKind,
+        speedTestPreset: summary.speedTestPreset || null
       });
-      summary.isSpeedTest = true;
-      summary.speedTestPreset = presetId;
-      summary.isNewPB = pbResult.isNewPB;
-      summary.speedTestPB = pbResult.best;
+
+      if (!summary.isPlacementTest && summary.lessonId === 'daily-challenge') {
+        StreakEngine.recordDailyChallengeCompletion(store, {
+          wpm: summary.wpm,
+          accuracy: summary.accuracy
+        });
+      }
+    } catch (e) {
+      console.warn('Session recording error:', e);
     }
 
-    if (this.currentLessonData?.isAdaptiveDrill) {
-      summary.isAdaptiveDrill = true;
-      summary.targetKeys = this.currentLessonData.targetKeys;
-    }
-
-    if (this.currentLessonData?.isMissedWordsDrill) {
-      summary.isMissedWordsDrill = true;
-    }
-
-    let sessionKind = 'lesson';
-    if (summary.isPlacementTest) sessionKind = 'placement';
-    else if (summary.isSpeedTest) sessionKind = 'speedtest';
-    else if (summary.isCodeLesson) sessionKind = 'code';
-    else if (summary.isQuote) sessionKind = 'quote';
-    else if (this.currentLessonData?.isZen) sessionKind = 'zen';
-    else if (this.currentLessonData?.isCustom) sessionKind = 'custom';
-
-    store.recordSession({
-      lessonId: summary.lessonId,
-      lessonTitle: summary.lessonTitle,
-      wpm: summary.wpm,
-      accuracy: summary.accuracy,
-      durationSec: summary.durationSec,
-      stars: summary.stars,
-      xpEarned: summary.xpEarned,
-      keyStatsDelta: summary.keyStatsDelta,
-      wpmHistory: summary.wpmHistory,
-      mastery: summary.mastery,
-      isPlacementTest: summary.isPlacementTest,
-      placementRecommendation: summary.placementRecommendation,
-      inFocusMode: !!this.isFocusModeActive,
-      kind: sessionKind,
-      speedTestPreset: summary.speedTestPreset || null
-    });
-
-    if (!summary.isPlacementTest && summary.lessonId === 'daily-challenge') {
-      StreakEngine.recordDailyChallengeCompletion(store, {
-        wpm: summary.wpm,
-        accuracy: summary.accuracy
+    try {
+      const unlockedAchievements = summary.isPlacementTest ? [] : AchievementEngine.evaluate(store, summary);
+      unlockedAchievements.forEach(ach => {
+        this.showToast(`🏆 Achievement Unlocked: ${ach.title}!`, 'amber');
       });
+    } catch (e) {
+      console.warn('Achievement evaluation error:', e);
     }
 
-    const unlockedAchievements = summary.isPlacementTest ? [] : AchievementEngine.evaluate(store, summary);
-    unlockedAchievements.forEach(ach => {
-      this.showToast(`🏆 Achievement Unlocked: ${ach.title}!`, 'amber');
-    });
-
-    sound.playLessonComplete(summary.stars);
-    if (!summary.isPlacementTest && summary.mastery?.isPassed) {
-      this.triggerConfetti();
+    try {
+      sound.playLessonComplete(summary.stars);
+    } catch (e) {
+      console.warn('Lesson complete audio error:', e);
     }
 
-    this.renderResults(summary);
+    try {
+      if (!summary.isPlacementTest && summary.mastery?.isPassed) {
+        this.triggerConfetti();
+      }
+    } catch (e) {
+      console.warn('Confetti error:', e);
+    }
+
+    // Always navigate to results screen FIRST so the lesson screen is deactivated and results view is shown!
     this.navigateTo('results');
+    this.renderResults(summary);
   }
 
   toggleLessonPause() {
@@ -3374,336 +3413,394 @@ export class UIManager {
     const container = this.screens.results;
     if (!container) return;
 
+    if (!summary) {
+      summary = this.currentSessionSummary;
+      if (!summary) return;
+    }
+
     this.resultsShortcutLockoutUntil = Date.now() + 650;
 
-    const state = store.getState();
-    const lvlInfo = getLevelProgress(state.xp);
-    const recommendations = AnalyticsEngine.generateSmartRecommendations(summary, state.keyStats);
-    const mastery = summary.mastery || {
-      stars: summary.stars,
-      isPassed: summary.stars >= 3,
-      isMastered: summary.stars >= 4,
-      isPerfected: summary.stars >= 5,
-      nextGoal: `Reach ${summary.accuracyTarget}% accuracy and ${summary.wpmTarget} WPM`
-    };
-    const isCodeLesson = !!summary.isCodeLesson || !!this.currentLessonData?.isCodeLesson;
-    const isSpeedTest = !!summary.isSpeedTest || !!this.currentLessonData?.isSpeedTest;
-    const isAdaptiveDrill = !!summary.isAdaptiveDrill || !!this.currentLessonData?.isAdaptiveDrill;
-    const isMissedWordsDrill = !!summary.isMissedWordsDrill || !!this.currentLessonData?.isMissedWordsDrill;
-    const isCurriculumLesson = Number.isInteger(summary.lessonId)
-      && summary.lessonId >= 1
-      && summary.lessonId <= CURRICULUM.length;
-    const isQuoteLesson = !!summary.isQuote || !!summary.quoteId || !!this.currentLessonData?.isQuote || !!this.currentLessonData?.quoteId;
-    const isFinalCurriculumLesson = isCurriculumLesson && summary.lessonId === CURRICULUM.length;
+    try {
+      const state = store.getState();
+      const lvlInfo = getLevelProgress(state.xp);
+      let recommendations = [];
+      try {
+        recommendations = AnalyticsEngine.generateSmartRecommendations(summary, state.keyStats) || [];
+      } catch (recErr) {
+        console.warn('Smart recommendations calculation failed:', recErr);
+        recommendations = [];
+      }
 
-    const resultTitle = summary.isPlacementTest
-      ? 'Skill Check Complete!'
-      : isSpeedTest
-        ? (summary.isNewPB ? '⚡ New Personal Benchmark Record!' : '⚡ Speed Benchmark Complete')
-        : isCodeLesson
-          ? '💻 Code Snippet Mastered!'
-          : isAdaptiveDrill
-            ? '🎯 AI Precision Drill Complete'
-            : isMissedWordsDrill
-              ? '🔁 Reinforcement Drill Finished'
+      const mastery = summary.mastery || {
+        stars: summary.stars || 1,
+        isPassed: (summary.stars || 1) >= 3,
+        isMastered: (summary.stars || 1) >= 4,
+        isPerfected: (summary.stars || 1) >= 5,
+        nextGoal: `Reach ${summary.accuracyTarget || 90}% accuracy and ${summary.wpmTarget || 20} WPM`
+      };
+      const isCodeLesson = !!summary.isCodeLesson || !!this.currentLessonData?.isCodeLesson;
+      const isSpeedTest = !!summary.isSpeedTest || !!this.currentLessonData?.isSpeedTest;
+      const isAdaptiveDrill = !!summary.isAdaptiveDrill || !!this.currentLessonData?.isAdaptiveDrill;
+      const isMissedWordsDrill = !!summary.isMissedWordsDrill || !!this.currentLessonData?.isMissedWordsDrill;
+      const isCurriculumLesson = Number.isInteger(summary.lessonId)
+        && summary.lessonId >= 1
+        && summary.lessonId <= CURRICULUM.length;
+      const isQuoteLesson = !!summary.isQuote || !!summary.quoteId || !!this.currentLessonData?.isQuote || !!this.currentLessonData?.quoteId;
+      const isFinalCurriculumLesson = isCurriculumLesson && summary.lessonId === CURRICULUM.length;
+
+      const resultTitle = summary.isPlacementTest
+        ? 'Skill Check Complete!'
+        : isSpeedTest
+          ? (summary.isNewPB ? '⚡ New Personal Benchmark Record!' : '⚡ Speed Benchmark Complete')
+          : isCodeLesson
+            ? '💻 Code Snippet Mastered!'
+            : isAdaptiveDrill
+              ? '🎯 AI Precision Drill Complete'
+              : isMissedWordsDrill
+                ? '🔁 Reinforcement Drill Finished'
+                : isQuoteLesson
+                  ? (mastery.isPerfected ? 'Perfect Run!' : mastery.isMastered ? 'Mastered Quote!' : mastery.isPassed ? 'Quote Completed!' : 'Quote Practice Complete')
+                  : mastery.isPerfected
+                    ? 'Perfected!'
+                    : mastery.isMastered
+                      ? 'Lesson Mastered!'
+                      : mastery.isPassed
+                        ? 'Ready to Advance!'
+                        : 'Practice Round Complete';
+
+      const resultSubtitle = summary.isPlacementTest
+        ? `${summary.placementRecommendation?.message || 'Your next starting point is ready.'} • +${summary.xpEarned || 35} XP Earned`
+        : isSpeedTest
+          ? `Consistency: ${summary.consistency || 100}% • Duration: ${Math.round(summary.durationSec || 0)}s • +${summary.xpEarned || 30} XP`
+          : `${summary.lessonTitle || 'Lesson Complete'} • +${summary.xpEarned || 30} XP Earned`;
+
+      const primaryActionLabel = summary.isPlacementTest
+        ? `Start Lesson ${summary.placementRecommendation?.lessonId || 1} →`
+        : isSpeedTest
+          ? 'Choose Speed Benchmark →'
+          : isCodeLesson
+            ? 'Next Code Snippet →'
+            : isAdaptiveDrill || isMissedWordsDrill
+              ? 'New AI Drill →'
               : isQuoteLesson
-                ? (mastery.isPerfected ? 'Perfect Run!' : mastery.isMastered ? 'Mastered Quote!' : mastery.isPassed ? 'Quote Completed!' : 'Quote Practice Complete')
-                : mastery.isPerfected
-                  ? 'Perfected!'
-                  : mastery.isMastered
-                    ? 'Lesson Mastered!'
-                    : mastery.isPassed
-                      ? 'Ready to Advance!'
-                      : 'Practice Round Complete';
+                ? 'Next Random Quote →'
+                : isCurriculumLesson && !mastery.isPassed
+                  ? 'Practice Again →'
+                  : isFinalCurriculumLesson && mastery.isPassed
+                    ? 'View Mastery Plan →'
+                    : isCurriculumLesson && mastery.isPassed
+                      ? 'Next Lesson →'
+                      : 'Back to Curriculum →';
 
-    const resultSubtitle = summary.isPlacementTest
-      ? `${summary.placementRecommendation?.message || 'Your next starting point is ready.'} • +${summary.xpEarned} XP Earned`
-      : isSpeedTest
-        ? `Consistency: ${summary.consistency || 100}% • Duration: ${Math.round(summary.durationSec)}s • +${summary.xpEarned} XP`
-        : `${summary.lessonTitle} • +${summary.xpEarned} XP Earned`;
-
-    const primaryActionLabel = summary.isPlacementTest
-      ? `Start Lesson ${summary.placementRecommendation?.lessonId || 1} →`
-      : isSpeedTest
-        ? 'Choose Speed Benchmark →'
+      const retryActionLabel = isSpeedTest
+        ? 'Repeat Benchmark (R)'
         : isCodeLesson
-          ? 'Next Code Snippet →'
-          : isAdaptiveDrill || isMissedWordsDrill
-            ? 'New AI Drill →'
-            : isQuoteLesson
-              ? 'Next Random Quote →'
-              : isCurriculumLesson && !mastery.isPassed
-                ? 'Practice Again →'
-                : isFinalCurriculumLesson && mastery.isPassed
-                  ? 'View Mastery Plan →'
-                  : isCurriculumLesson && mastery.isPassed
-                    ? 'Next Lesson →'
-                    : 'Back to Curriculum →';
+          ? 'Retype Code (R)'
+          : isQuoteLesson
+            ? 'Replay Quote (R)'
+            : 'Retry Lesson (R)';
 
-    const retryActionLabel = isSpeedTest
-      ? 'Repeat Benchmark (R)'
-      : isCodeLesson
-        ? 'Retype Code (R)'
-        : isQuoteLesson
-          ? 'Replay Quote (R)'
-          : 'Retry Lesson (R)';
+      const backActionLabel = isCodeLesson
+        ? 'Back to Code Arena'
+        : isSpeedTest
+          ? 'Back to Speed Tests'
+          : isQuoteLesson
+            ? 'Back to Quote Vault'
+            : 'Back to Dashboard';
 
-    const backActionLabel = isCodeLesson
-      ? 'Back to Code Arena'
-      : isSpeedTest
-        ? 'Back to Speed Tests'
-        : isQuoteLesson
-          ? 'Back to Quote Vault'
-          : 'Back to Dashboard';
+      const hasMissedWords = Array.isArray(summary.mistypedWords) && summary.mistypedWords.length > 0;
+      const isCertEligible = (summary.wpm || 0) >= 50 || (summary.stars || 0) >= 3 || (state.bestWpm && state.bestWpm >= 50);
+      const paceSampleCount = Array.isArray(summary.wpmHistory) ? summary.wpmHistory.length : 0;
+      const resultBadge = summary.isPlacementTest
+        ? 'Placement ready'
+        : isSpeedTest
+          ? (summary.isNewPB ? 'New personal best' : 'Benchmark complete')
+          : `${mastery.stars}/5 mastery stars`;
 
-    const hasMissedWords = summary.mistypedWords && summary.mistypedWords.length > 0;
-    const isCertEligible = summary.wpm >= 50 || summary.stars >= 3 || (state.bestWpm && state.bestWpm >= 50);
-    const paceSampleCount = Array.isArray(summary.wpmHistory) ? summary.wpmHistory.length : 0;
-    const resultBadge = summary.isPlacementTest
-      ? 'Placement ready'
-      : isSpeedTest
-        ? (summary.isNewPB ? 'New personal best' : 'Benchmark complete')
-        : `${mastery.stars}/5 mastery stars`;
+      let sparklineHtml = '';
+      try {
+        sparklineHtml = AnalyticsEngine.renderWpmSparklineSvg(summary.wpmHistory, 640, 170, summary.wpmTarget);
+      } catch (sparkErr) {
+        console.warn('Sparkline rendering error:', sparkErr);
+        sparklineHtml = '<div class="sparkline-empty"><span>Session Pace Logged</span></div>';
+      }
 
-    container.innerHTML = `
-      <div class="results-layout">
-        <div class="results-hero-card">
-          <div class="results-hero-topline">
-            <span class="results-status-badge">${resultBadge}</span>
-            <span class="results-xp-inline">+${summary.xpEarned} XP</span>
-          </div>
-          <h2 class="results-title">${resultTitle}</h2>
-          <p class="results-subtitle">${resultSubtitle}</p>
-
-          <div class="results-metrics-grid">
-            <div class="result-metric-card">
-              <span class="metric-val">${summary.wpm}</span>
-              <span class="metric-lbl">WPM Speed</span>
-              <span class="metric-target ${summary.wpm >= summary.wpmTarget ? 'target-met' : ''}">Target: ${summary.wpmTarget} WPM</span>
+      container.innerHTML = `
+        <div class="results-layout">
+          <div class="results-hero-card">
+            <div class="results-hero-topline">
+              <span class="results-status-badge">${resultBadge}</span>
+              <span class="results-xp-inline">+${summary.xpEarned || 30} XP</span>
             </div>
-            <div class="result-metric-card">
-              <span class="metric-val">${summary.accuracy}%</span>
-              <span class="metric-lbl">Accuracy</span>
-              <span class="metric-target ${summary.accuracy >= summary.accuracyTarget ? 'target-met' : ''}">Target: ${summary.accuracyTarget}%</span>
-            </div>
-            <div class="result-metric-card">
-              <span class="metric-val">${summary.maxCombo} 🔥</span>
-              <span class="metric-lbl">Max Combo</span>
-              <span class="metric-target">${summary.totalErrors} Errors</span>
-            </div>
-            <div class="result-metric-card">
-              <span class="metric-val">${Math.round(summary.durationSec)}s</span>
-              <span class="metric-lbl">Practice Time</span>
-              <span class="metric-target">${summary.consistency ? `${summary.consistency}% Consistency` : `${summary.totalKeystrokes} Keystrokes`}</span>
-            </div>
-          </div>
-          <div class="results-hero-foot">
-            <span>${summary.totalKeystrokes} keystrokes</span>
-            <span>${summary.totalErrors} ${summary.totalErrors === 1 ? 'error' : 'errors'}</span>
-            <span>Target ${summary.wpmTarget} WPM · ${summary.accuracyTarget}% accuracy</span>
-          </div>
-          <div class="results-actions">
-            <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} <span class="action-shortcut">Enter ↵</span></button>
-            <button id="results-retry-btn" class="btn btn-secondary">${retryActionLabel}</button>
-            ${isCertEligible ? `
-              <button id="results-cert-btn" class="btn btn-outline" style="border-color: #D4AF37; color: #D4AF37;">
-                <span>📜 Certificate</span>
-              </button>
-            ` : ''}
-            <button id="results-dashboard-btn" class="btn btn-outline">${backActionLabel}</button>
-          </div>
-        </div>
+            <h2 class="results-title">${resultTitle}</h2>
+            <p class="results-subtitle">${resultSubtitle}</p>
 
-        ${hasMissedWords ? `
-          <!-- Missed Words Targeted Drill Callout -->
-          <div class="missed-words-callout">
-            <div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 18px;">⚠️</span>
-                <strong style="color: var(--text-primary); font-size: 14px;">${summary.mistypedWords.length} Missed Word${summary.mistypedWords.length > 1 ? 's' : ''} Detected</strong>
+            <div class="results-metrics-grid">
+              <div class="result-metric-card">
+                <span class="metric-val">${summary.wpm || 0}</span>
+                <span class="metric-lbl">WPM Speed</span>
+                <span class="metric-target ${(summary.wpm || 0) >= (summary.wpmTarget || 0) ? 'target-met' : ''}">Target: ${summary.wpmTarget || 15} WPM</span>
               </div>
-              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Reinforce muscle memory before moving forward:</p>
-              <div class="missed-words-tags">
-                ${summary.mistypedWords.map(w => `<span class="missed-word-tag">${escapeHtml(w)}</span>`).join('')}
+              <div class="result-metric-card">
+                <span class="metric-val">${summary.accuracy || 100}%</span>
+                <span class="metric-lbl">Accuracy</span>
+                <span class="metric-target ${(summary.accuracy || 100) >= (summary.accuracyTarget || 90) ? 'target-met' : ''}">Target: ${summary.accuracyTarget || 90}%</span>
+              </div>
+              <div class="result-metric-card">
+                <span class="metric-val">${summary.maxCombo || 0} 🔥</span>
+                <span class="metric-lbl">Max Combo</span>
+                <span class="metric-target">${summary.totalErrors || 0} Errors</span>
+              </div>
+              <div class="result-metric-card">
+                <span class="metric-val">${Math.round(summary.durationSec || 0)}s</span>
+                <span class="metric-lbl">Practice Time</span>
+                <span class="metric-target">${summary.consistency ? `${summary.consistency}% Consistency` : `${summary.totalKeystrokes || 0} Keystrokes`}</span>
               </div>
             </div>
-            <button id="results-practice-missed-btn" class="btn btn-primary" style="background: #E06C75; border-color: #E06C75;">
-              <span>🔁 Practice Missed Words Only</span>
-            </button>
-          </div>
-        ` : ''}
-
-        <div class="results-mastery-card ${summary.isPlacementTest ? 'placement-result' : mastery.isMastered ? 'mastered-result' : 'review-result'}">
-          ${summary.isPlacementTest ? `
-            <div class="mastery-result-icon">🗺️</div>
-            <div>
-              <span class="mastery-result-kicker">Recommended starting point</span>
-              <h3>Lesson ${summary.placementRecommendation?.lessonId || 1}: ${summary.placementRecommendation?.label || 'Home Row Foundations'}</h3>
-              <p>Lessons before this point are available to explore, but none are marked as mastered until you earn the stars.</p>
+            <div class="results-hero-foot">
+              <span>${summary.totalKeystrokes || 0} keystrokes</span>
+              <span>${summary.totalErrors || 0} ${(summary.totalErrors || 0) === 1 ? 'error' : 'errors'}</span>
+              <span>Target ${summary.wpmTarget || 15} WPM · ${summary.accuracyTarget || 90}% accuracy</span>
             </div>
-          ` : isSpeedTest ? `
-            <div class="mastery-result-icon">⚡</div>
-            <div>
-              <span class="mastery-result-kicker">Benchmark Assessment</span>
-              <h3>${summary.isNewPB ? '🏆 All-Time Personal Best!' : 'Benchmark Logged Successfully'}</h3>
-              <p>Consistency rating: ${summary.consistency || 100}%. Pacing stability is tracked across 1-second velocity samples.</p>
-            </div>
-          ` : `
-            <div class="mastery-result-icon">${mastery.isPerfected ? '💎' : mastery.isMastered ? '✦' : mastery.isPassed ? '🚀' : '🎯'}</div>
-            <div>
-              <span class="mastery-result-kicker">${mastery.stars}/5 mastery stars</span>
-              <h3>${mastery.isPerfected ? 'Perfect run recorded' : mastery.isMastered ? 'This skill is mastered' : mastery.isPassed ? 'You passed — now polish it' : 'This lesson stays in your review queue'}</h3>
-              <p>${mastery.nextGoal}</p>
-            </div>
-          `}
-        </div>
-
-        <div class="results-graph-card">
-          <div class="card-header">
-            <h3 class="card-title">WPM Velocity Curve</h3>
-            <span class="card-badge">${paceSampleCount ? `${paceSampleCount} pace samples` : 'Session pace'}</span>
-          </div>
-          <div class="sparkline-wrapper">
-            ${AnalyticsEngine.renderWpmSparklineSvg(summary.wpmHistory, 640, 170, summary.wpmTarget)}
-          </div>
-        </div>
-
-        <div class="results-feedback-grid">
-          ${recommendations.map(rec => `
-            <div class="recommendation-card">
-              <div class="rec-header">
-                <span class="rec-icon">💡</span>
-                <h4 class="rec-title">${rec.title}</h4>
-              </div>
-              <p class="rec-message">${rec.message}</p>
-              ${rec.actionLabel && rec.keys ? `
-                <button class="btn btn-secondary btn-sm rec-btn" data-keys="${rec.keys.join(',')}">${rec.actionLabel}</button>
+            <div class="results-actions">
+              <button id="results-next-btn" class="btn btn-primary btn-large">${primaryActionLabel} <span class="action-shortcut">Enter ↵</span></button>
+              <button id="results-retry-btn" class="btn btn-secondary">${retryActionLabel}</button>
+              ${isCertEligible ? `
+                <button id="results-cert-btn" class="btn btn-outline" style="border-color: #D4AF37; color: #D4AF37;">
+                  <span>📜 Certificate</span>
+                </button>
               ` : ''}
+              <button id="results-dashboard-btn" class="btn btn-outline">${backActionLabel}</button>
             </div>
-          `).join('')}
-        </div>
-
-        <div class="results-xp-card">
-          <div class="xp-row">
-            <span><strong>Level ${lvlInfo.currentLvl}</strong> • ${lvlInfo.title}</span>
-            <span>${lvlInfo.isMaxLevel ? `${state.xp.toLocaleString()} XP · Max level` : `${state.xp.toLocaleString()} / ${lvlInfo.nextLvlXp.toLocaleString()} XP`}</span>
           </div>
-          <div class="xp-bar-track">
-            <div class="xp-bar-fill" style="width: ${lvlInfo.pct}%"></div>
+
+          ${hasMissedWords ? `
+            <!-- Missed Words Targeted Drill Callout -->
+            <div class="missed-words-callout">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 18px;">⚠️</span>
+                  <strong style="color: var(--text-primary); font-size: 14px;">${summary.mistypedWords.length} Missed Word${summary.mistypedWords.length > 1 ? 's' : ''} Detected</strong>
+                </div>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Reinforce muscle memory before moving forward:</p>
+                <div class="missed-words-tags">
+                  ${summary.mistypedWords.map(w => `<span class="missed-word-tag">${escapeHtml(w)}</span>`).join('')}
+                </div>
+              </div>
+              <button id="results-practice-missed-btn" class="btn btn-primary" style="background: #E06C75; border-color: #E06C75;">
+                <span>🔁 Practice Missed Words Only</span>
+              </button>
+            </div>
+          ` : ''}
+
+          <div class="results-mastery-card ${summary.isPlacementTest ? 'placement-result' : mastery.isMastered ? 'mastered-result' : 'review-result'}">
+            ${summary.isPlacementTest ? `
+              <div class="mastery-result-icon">🗺️</div>
+              <div>
+                <span class="mastery-result-kicker">Recommended starting point</span>
+                <h3>Lesson ${summary.placementRecommendation?.lessonId || 1}: ${summary.placementRecommendation?.label || 'Home Row Foundations'}</h3>
+                <p>Lessons before this point are available to explore, but none are marked as mastered until you earn the stars.</p>
+              </div>
+            ` : isSpeedTest ? `
+              <div class="mastery-result-icon">⚡</div>
+              <div>
+                <span class="mastery-result-kicker">Benchmark Assessment</span>
+                <h3>${summary.isNewPB ? '🏆 All-Time Personal Best!' : 'Benchmark Logged Successfully'}</h3>
+                <p>Consistency rating: ${summary.consistency || 100}%. Pacing stability is tracked across 1-second velocity samples.</p>
+              </div>
+            ` : `
+              <div class="mastery-result-icon">${mastery.isPerfected ? '💎' : mastery.isMastered ? '✦' : mastery.isPassed ? '🚀' : '🎯'}</div>
+              <div>
+                <span class="mastery-result-kicker">${mastery.stars}/5 mastery stars</span>
+                <h3>${mastery.isPerfected ? 'Perfect run recorded' : mastery.isMastered ? 'This skill is mastered' : mastery.isPassed ? 'You passed — now polish it' : 'This lesson stays in your review queue'}</h3>
+                <p>${mastery.nextGoal}</p>
+              </div>
+            `}
           </div>
+
+          <div class="results-graph-card">
+            <div class="card-header">
+              <h3 class="card-title">WPM Velocity Curve</h3>
+              <span class="card-badge">${paceSampleCount ? `${paceSampleCount} pace samples` : 'Session pace'}</span>
+            </div>
+            <div class="sparkline-wrapper">
+              ${sparklineHtml}
+            </div>
+          </div>
+
+          <div class="results-feedback-grid">
+            ${recommendations.map(rec => `
+              <div class="recommendation-card">
+                <div class="rec-header">
+                  <span class="rec-icon">💡</span>
+                  <h4 class="rec-title">${escapeHtml(rec.title || '')}</h4>
+                </div>
+                <p class="rec-message">${escapeHtml(rec.message || '')}</p>
+                ${rec.actionLabel && rec.keys ? `
+                  <button class="btn btn-secondary btn-sm rec-btn" data-keys="${escapeHtml(rec.keys.join(','))}">${escapeHtml(rec.actionLabel)}</button>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="results-xp-card">
+            <div class="xp-row">
+              <span><strong>Level ${lvlInfo.currentLvl}</strong> • ${lvlInfo.title}</span>
+              <span>${lvlInfo.isMaxLevel ? `${state.xp.toLocaleString()} XP · Max level` : `${state.xp.toLocaleString()} / ${lvlInfo.nextLvlXp.toLocaleString()} XP`}</span>
+            </div>
+            <div class="xp-bar-track">
+              <div class="xp-bar-fill" style="width: ${lvlInfo.pct}%"></div>
+            </div>
+          </div>
+
         </div>
+      `;
 
-      </div>
-    `;
-
-    // Missed Words Drill button
-    if (hasMissedWords) {
-      document.getElementById('results-practice-missed-btn')?.addEventListener('click', () => {
-        this.startMissedWordsDrill(summary.mistypedWords);
-      });
-    }
-
-    // Certificate button
-    if (isCertEligible) {
-      document.getElementById('results-cert-btn')?.addEventListener('click', () => {
-        this.openCertificateModal();
-      });
-    }
-
-    document.getElementById('results-next-btn')?.addEventListener('click', () => {
-      if (summary.isPlacementTest) {
-        const recommendedId = summary.placementRecommendation?.lessonId || 1;
-        const recommendedLesson = CURRICULUM.find(lesson => lesson.id === recommendedId) || CURRICULUM[0];
-        this.startLesson(recommendedLesson);
-        return;
+      // Missed Words Drill button
+      if (hasMissedWords) {
+        document.getElementById('results-practice-missed-btn')?.addEventListener('click', () => {
+          this.startMissedWordsDrill(summary.mistypedWords);
+        });
       }
 
-      if (isSpeedTest) {
-        this.navigateTo('speedtest');
-        return;
+      // Certificate button
+      if (isCertEligible) {
+        document.getElementById('results-cert-btn')?.addEventListener('click', () => {
+          this.openCertificateModal();
+        });
       }
 
-      if (isCodeLesson) {
-        this.startRandomCodeSnippet(this.activeCodeLanguage || 'all');
-        return;
-      }
-
-      if (isAdaptiveDrill || isMissedWordsDrill) {
-        this.startWeaknessDrill();
-        return;
-      }
-
-      if (isQuoteLesson) {
-        const category = summary.quoteCategory || this.activeQuoteCategory || null;
-        const difficulty = summary.quoteDifficulty || this.activeQuoteDifficulty || null;
-        const excludeId = summary.quoteId || null;
-        this.startRandomQuote(category, difficulty, excludeId);
-        return;
-      }
-
-      if (!isCurriculumLesson) {
-        this.navigateTo('dashboard');
-        return;
-      }
-
-      // The primary result action is deliberately mastery-aware. A learner
-      // who misses either core target returns to the same lesson; successful
-      // runs advance one step, never silently skip curriculum content.
-      if (!mastery.isPassed) {
-        const sameLesson = CURRICULUM.find(lesson => lesson.id === summary.lessonId);
-        if (sameLesson) this.startLesson(sameLesson);
-        return;
-      }
-
-      if (isFinalCurriculumLesson) {
-        this.navigateTo('dashboard');
-        return;
-      }
-
-      const nextLesson = CURRICULUM.find(lesson => lesson.id === summary.lessonId + 1) || CURRICULUM[0];
-      this.startLesson(nextLesson);
-    });
-
-    document.getElementById('results-retry-btn')?.addEventListener('click', () => {
-      if (isCodeLesson && summary.snippetData) {
-        this.startCodePractice(summary.snippetData);
-        return;
-      }
-      if (isSpeedTest && summary.speedTestPreset) {
-        this.startSpeedTest(summary.speedTestPreset);
-        return;
-      }
-      if (isQuoteLesson) {
-        if (summary.quoteData) {
-          this.startQuotePractice(summary.quoteData);
-        } else if (this.currentLessonData) {
-          this.startLesson(this.currentLessonData);
+      document.getElementById('results-next-btn')?.addEventListener('click', () => {
+        if (summary.isPlacementTest) {
+          const recommendedId = summary.placementRecommendation?.lessonId || 1;
+          const recommendedLesson = CURRICULUM.find(lesson => lesson.id === recommendedId) || CURRICULUM[0];
+          this.startLesson(recommendedLesson);
+          return;
         }
-        return;
-      }
-      const lesson = CURRICULUM.find(l => l.id === summary.lessonId) || this.currentLessonData;
-      if (lesson) this.startLesson(lesson);
-    });
 
-    document.getElementById('results-dashboard-btn')?.addEventListener('click', () => {
-      if (isCodeLesson) {
-        this.navigateTo('code');
-      } else if (isSpeedTest) {
-        this.navigateTo('speedtest');
-      } else if (isQuoteLesson) {
-        this.navigateTo('quotes');
-      } else {
-        this.navigateTo('dashboard');
-      }
-    });
+        if (isSpeedTest) {
+          this.navigateTo('speedtest');
+          return;
+        }
 
-    container.querySelectorAll('.rec-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const keys = btn.dataset.keys.split(',');
-        const weakLesson = generateWeakKeysLesson(keys);
-        this.startLesson(weakLesson);
+        if (isCodeLesson) {
+          this.startRandomCodeSnippet(this.activeCodeLanguage || 'all');
+          return;
+        }
+
+        if (isAdaptiveDrill || isMissedWordsDrill) {
+          this.startWeaknessDrill();
+          return;
+        }
+
+        if (isQuoteLesson) {
+          const category = summary.quoteCategory || this.activeQuoteCategory || null;
+          const difficulty = summary.quoteDifficulty || this.activeQuoteDifficulty || null;
+          const excludeId = summary.quoteId || null;
+          this.startRandomQuote(category, difficulty, excludeId);
+          return;
+        }
+
+        if (!isCurriculumLesson) {
+          this.navigateTo('dashboard');
+          return;
+        }
+
+        if (!mastery.isPassed) {
+          const sameLesson = CURRICULUM.find(lesson => lesson.id === summary.lessonId);
+          if (sameLesson) this.startLesson(sameLesson);
+          return;
+        }
+
+        if (isFinalCurriculumLesson) {
+          this.navigateTo('dashboard');
+          return;
+        }
+
+        const nextLesson = CURRICULUM.find(lesson => lesson.id === summary.lessonId + 1) || CURRICULUM[0];
+        this.startLesson(nextLesson);
       });
-    });
+
+      document.getElementById('results-retry-btn')?.addEventListener('click', () => {
+        if (isCodeLesson && summary.snippetData) {
+          this.startCodePractice(summary.snippetData);
+          return;
+        }
+        if (isSpeedTest && summary.speedTestPreset) {
+          this.startSpeedTest(summary.speedTestPreset);
+          return;
+        }
+        if (isQuoteLesson) {
+          if (summary.quoteData) {
+            this.startQuotePractice(summary.quoteData);
+          } else if (this.currentLessonData) {
+            this.startLesson(this.currentLessonData);
+          }
+          return;
+        }
+        const lesson = CURRICULUM.find(l => l.id === summary.lessonId) || this.currentLessonData;
+        if (lesson) this.startLesson(lesson);
+      });
+
+      document.getElementById('results-dashboard-btn')?.addEventListener('click', () => {
+        if (isCodeLesson) {
+          this.navigateTo('code');
+        } else if (isSpeedTest) {
+          this.navigateTo('speedtest');
+        } else if (isQuoteLesson) {
+          this.navigateTo('quotes');
+        } else {
+          this.navigateTo('dashboard');
+        }
+      });
+
+      container.querySelectorAll('.rec-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const keys = btn.dataset.keys.split(',');
+          const weakLesson = generateWeakKeysLesson(keys);
+          this.startLesson(weakLesson);
+        });
+      });
+    } catch (fatalErr) {
+      console.error('Fatal error rendering results screen:', fatalErr);
+      container.innerHTML = `
+        <div class="results-layout" style="text-align: center; padding: 48px 24px;">
+          <div class="results-hero-card">
+            <h2 class="results-title">Practice Complete!</h2>
+            <p class="results-subtitle">${escapeHtml(summary.lessonTitle || 'Lesson')} • +${summary.xpEarned || 30} XP Earned</p>
+            <div class="results-metrics-grid">
+              <div class="result-metric-card">
+                <span class="metric-val">${summary.wpm || 0}</span>
+                <span class="metric-lbl">WPM Speed</span>
+              </div>
+              <div class="result-metric-card">
+                <span class="metric-val">${summary.accuracy || 100}%</span>
+                <span class="metric-lbl">Accuracy</span>
+              </div>
+              <div class="result-metric-card">
+                <span class="metric-val">${summary.maxCombo || 0} 🔥</span>
+                <span class="metric-lbl">Max Combo</span>
+              </div>
+              <div class="result-metric-card">
+                <span class="metric-val">${Math.round(summary.durationSec || 0)}s</span>
+                <span class="metric-lbl">Duration</span>
+              </div>
+            </div>
+            <div class="results-actions" style="margin-top: 24px;">
+              <button id="results-next-btn" class="btn btn-primary btn-large">Next Practice →</button>
+              <button id="results-retry-btn" class="btn btn-secondary">Retry (R)</button>
+              <button id="results-dashboard-btn" class="btn btn-outline">Dashboard</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('results-next-btn')?.addEventListener('click', () => this.navigateTo('dashboard'));
+      document.getElementById('results-retry-btn')?.addEventListener('click', () => {
+        if (this.currentLessonData) this.startLesson(this.currentLessonData);
+        else this.navigateTo('dashboard');
+      });
+      document.getElementById('results-dashboard-btn')?.addEventListener('click', () => this.navigateTo('dashboard'));
+    }
   }
 
   // ==========================================

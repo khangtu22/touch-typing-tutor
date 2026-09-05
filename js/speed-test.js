@@ -56,9 +56,11 @@ export function generateWordsText(count = 50) {
  * @returns {number} 0-100 percentage
  */
 export function calculateConsistency(wpmSamples = []) {
-  if (!wpmSamples || wpmSamples.length < 3) return 100;
+  if (!wpmSamples || !Array.isArray(wpmSamples) || wpmSamples.length < 3) return 100;
 
-  const validSamples = wpmSamples.filter(v => typeof v === 'number' && !isNaN(v) && v > 0);
+  const validSamples = wpmSamples
+    .map(v => (typeof v === 'number' ? v : (v && typeof v.wpm === 'number' ? v.wpm : NaN)))
+    .filter(v => Number.isFinite(v) && v > 0);
   if (validSamples.length < 3) return 100;
 
   const mean = validSamples.reduce((a, b) => a + b, 0) / validSamples.length;

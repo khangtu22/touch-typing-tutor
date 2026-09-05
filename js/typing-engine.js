@@ -616,7 +616,13 @@ export class TypingEngine {
   finishRound() {
     const isLastRound = this.currentRoundIdx >= this.lesson.rounds.length - 1;
     if (isLastRound) {
-      this.finishLesson();
+      setTimeout(() => {
+        try {
+          this.finishLesson();
+        } catch (err) {
+          console.error('Error in finishLesson:', err);
+        }
+      }, 50);
     } else {
       this.clearRoundTransition();
       this.roundTransitioning = true;
@@ -696,7 +702,11 @@ export class TypingEngine {
     };
 
     if (this.onLessonFinished) {
-      this.onLessonFinished(summary);
+      try {
+        this.onLessonFinished(summary);
+      } catch (err) {
+        console.error('Error in onLessonFinished callback:', err);
+      }
     }
   }
 
