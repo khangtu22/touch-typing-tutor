@@ -174,6 +174,7 @@ const DEFAULT_STATE = {
   },
   // --- Premium Feature Tracking ---
   quotesPracticed: [],         // Array of quote ids practiced
+  quoteBookmarks: [],          // Array of bookmarked quote ids
   zenSessionsCompleted: 0,     // Count of completed Zen mode sessions
   languagesPracticed: [],      // Array of language codes practiced
   codeSnippetsPracticed: [],   // Array of code snippet ids practiced
@@ -583,6 +584,95 @@ class StateStore {
     });
   }
 
+  toggleQuoteBookmark(quoteId) {
+    const id = Number(quoteId);
+    if (!Number.isFinite(id)) return false;
+    let nextState = false;
+    this.update(prev => {
+      const bookmarks = Array.isArray(prev.quoteBookmarks) ? [...prev.quoteBookmarks] : [];
+      const index = bookmarks.indexOf(id);
+      if (index >= 0) {
+        bookmarks.splice(index, 1);
+        nextState = false;
+      } else {
+        bookmarks.push(id);
+        nextState = true;
+      }
+      return {
+        ...prev,
+        quoteBookmarks: bookmarks
+      };
+    });
+    return nextState;
+  }
+
+  isQuoteBookmarked(quoteId) {
+    const id = Number(quoteId);
+    return Array.isArray(this.state.quoteBookmarks) && this.state.quoteBookmarks.includes(id);
+  }
+
+  getQuoteStats(quoteId) {
+    const id = Number(quoteId);
+    const targetLessonId = `quote-${id}`;
+    let count = 0;
+    let bestWpm = 0;
+    let bestAccuracy = 0;
+    let lastDate = null;
+
+    const sessions = this.state.sessions || [];
+    for (let i = 0; i < sessions.length; i++) {
+      const s = sessions[i];
+      if (s && (s.lessonId === targetLessonId || (s.lessonId === id && s.kind === 'quote'))) {
+        count++;
+        if (s.wpm > bestWpm) bestWpm = s.wpm;
+        if (s.accuracy > bestAccuracy) bestAccuracy = s.accuracy;
+        if (!lastDate || new Date(s.date) > new Date(lastDate)) {
+          lastDate = s.date;
+        }
+      }
+    }
+
+    return {
+      count,
+      bestWpm,
+      bestAccuracy,
+      lastDate
+    };
+  }
+
+  getAllQuoteStats() {
+    const statsMap = {};
+    const sessions = this.state.sessions || [];
+    for (let i = 0; i < sessions.length; i++) {
+      const s = sessions[i];
+      if (!s || !s.lessonId) continue;
+      let qId = null;
+      if (typeof s.lessonId === 'string' && s.lessonId.startsWith('quote-')) {
+        qId = parseInt(s.lessonId.replace('quote-', ''), 10);
+      } else if (s.kind === 'quote' && Number.isInteger(s.lessonId)) {
+        qId = s.lessonId;
+      }
+      if (qId !== null && !isNaN(qId)) {
+        if (!statsMap[qId]) {
+          statsMap[qId] = {
+            count: 0,
+            bestWpm: 0,
+            bestAccuracy: 0,
+            lastDate: null
+          };
+        }
+        const item = statsMap[qId];
+        item.count++;
+        if (s.wpm > item.bestWpm) item.bestWpm = s.wpm;
+        if (s.accuracy > item.bestAccuracy) item.bestAccuracy = s.accuracy;
+        if (!item.lastDate || new Date(s.date) > new Date(item.lastDate)) {
+          item.lastDate = s.date;
+        }
+      }
+    }
+    return statsMap;
+  }
+
   // Delete a single session by date or index
   deleteSession(sessionDateOrIndex) {
     this.update(prev => {
@@ -632,7 +722,7 @@ class StateStore {
       }
 
       const arrayFields = [
-        'sessions', 'practiceDatesHistory', 'quotesPracticed',
+        'sessions', 'practiceDatesHistory', 'quotesPracticed', 'quoteBookmarks',
         'languagesPracticed', 'codeSnippetsPracticed'
       ];
       arrayFields.forEach(field => {

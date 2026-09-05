@@ -23,7 +23,7 @@ import { focusMode, zenMode } from './focus-zen.js';
 import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js';
 import { themeStudio, renderThemeStudioUI } from './theme-studio.js';
 import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js';
-import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice } from './premium-features.js';
+import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js';
 import { ArcadeHubManager } from './arcade-games.js';
 import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js';
 import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js';
@@ -49,6 +49,10 @@ export class UIManager {
     this.activeArenaTab = 'code'; // 'paste' | 'code' | 'sprint' | 'quotes' | 'language'
     this.activeQuoteCategory = null;
     this.activeQuoteDifficulty = null;
+    this.activeQuoteSearch = '';
+    this.activeQuoteStatus = 'all'; // 'all' | 'unpracticed' | 'practiced' | 'bookmarked'
+    this.activeQuoteSort = 'default'; // 'default' | 'shortest' | 'longest' | 'author' | 'wpm'
+    this.speakingQuoteId = null;
     this.isFocusModeActive = false;
     this.resultsShortcutLockoutUntil = 0;
     this.typingViewportState = {
@@ -160,6 +164,39 @@ export class UIManager {
         this.hidePauseModal();
         typingEngine.retryLesson();
         return;
+      }
+
+      // Quotes screen quick search shortcut '/' and modal escape
+      if (this.activeScreen === 'quotes') {
+        const isInteractive = e.target?.closest?.('input, textarea, select');
+        if (e.key === '/' && !isInteractive && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const searchInput = document.getElementById('quote-search-input');
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
+          return;
+        }
+        if (e.key === 'Escape') {
+          const customModal = document.getElementById('custom-passage-modal-overlay');
+          if (customModal) {
+            e.preventDefault();
+            customModal.remove();
+            return;
+          }
+          const searchInput = document.getElementById('quote-search-input');
+          if (searchInput && document.activeElement === searchInput) {
+            e.preventDefault();
+            if (searchInput.value) {
+              searchInput.value = '';
+              this.activeQuoteSearch = '';
+              this.updateQuoteVaultGrid();
+            }
+            searchInput.blur();
+            return;
+          }
+        }
       }
 
       // On the results / complete screen:
@@ -358,6 +395,11 @@ export class UIManager {
       goalsManager.setPracticeActive(false);
       typingEngine.destroy();
       ghostRacer.stopRace();
+    }
+
+    if (this.speakingQuoteId && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      this.speakingQuoteId = null;
     }
 
     this.activeScreen = screenName;
@@ -1234,7 +1276,7 @@ export class UIManager {
     });
   }
 
-  startQuotePractice(quote) {
+  startQuotePractice(quote, options = {}) {
     if (!quote) return;
     const lesson = CustomPracticeManager.createLessonFromText(`Quote: ${quote.author}`, quote.text);
     if (!lesson) return;
@@ -1244,19 +1286,233 @@ export class UIManager {
     lesson.category = quote.category;
     lesson.difficulty = quote.difficulty;
     lesson.isQuote = true;
+    lesson.author = quote.author;
+    lesson.source = quote.source || '';
     lesson.subtitle = `${quote.category ? quote.category.charAt(0).toUpperCase() + quote.category.slice(1) : 'Quote'} • ${quote.difficulty || 'standard'} length • ${quote.text.length} chars`;
-    this.startLesson(lesson);
+    if (options.zen) {
+      lesson.isZen = true;
+      this.launchZenMode(lesson);
+    } else {
+      this.startLesson(lesson);
+    }
+  }
+
+  startQuoteOfTheDayPractice(zen = false) {
+    const qotd = getQuoteOfTheDay();
+    this.startQuotePractice(qotd, { zen });
   }
 
   startRandomQuote(category = null, difficulty = null, excludeId = null) {
     const targetCat = category !== undefined ? category : this.activeQuoteCategory;
     const targetDiff = difficulty !== undefined ? difficulty : this.activeQuoteDifficulty;
-    const quote = getRandomQuote(targetCat, targetDiff, excludeId);
+    const state = store.getState();
+    const practicedList = state.quotesPracticed || [];
+    const bookmarkedList = state.quoteBookmarks || [];
+    const quoteStatsMap = store.getAllQuoteStats();
+
+    let pool = queryQuotes({
+      category: targetCat,
+      difficulty: targetDiff,
+      search: this.activeQuoteSearch,
+      status: this.activeQuoteStatus,
+      sortBy: 'default',
+      practicedIds: practicedList,
+      bookmarkedIds: bookmarkedList,
+      quoteStatsMap
+    });
+
+    if (pool.length === 0) {
+      pool = getQuotesByFilter(targetCat, targetDiff);
+    }
+    if (pool.length === 0) {
+      pool = QUOTE_VAULT;
+    }
+
+    if (excludeId !== null && pool.length > 1) {
+      const withoutExcluded = pool.filter(q => q.id !== excludeId);
+      if (withoutExcluded.length > 0) pool = withoutExcluded;
+    }
+
+    const randomIndex = Math.floor(Math.random() * pool.length);
+    const quote = pool[randomIndex];
     if (quote) {
       this.startQuotePractice(quote);
     } else {
       this.showToast('No quotes found matching filter.', 'amber');
     }
+  }
+
+  speakQuote(quoteId, text) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      this.showToast('Text-to-speech audio is not supported in this browser.', 'amber');
+      return;
+    }
+
+    if (this.speakingQuoteId === quoteId) {
+      window.speechSynthesis.cancel();
+      this.speakingQuoteId = null;
+      this.updateSpeechButtons();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    this.speakingQuoteId = quoteId;
+    this.updateSpeechButtons();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => {
+      this.speakingQuoteId = null;
+      this.updateSpeechButtons();
+    };
+
+    utterance.onerror = () => {
+      this.speakingQuoteId = null;
+      this.updateSpeechButtons();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  updateSpeechButtons() {
+    const container = this.screens.quotes;
+    if (!container) return;
+    container.querySelectorAll('.quote-tool-btn[data-action="listen"]').forEach(btn => {
+      const qId = parseInt(btn.dataset.quoteId, 10);
+      const isCurrent = this.speakingQuoteId === qId;
+      btn.classList.toggle('is-speaking', isCurrent);
+      btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+      btn.innerHTML = isCurrent
+        ? '<span aria-hidden="true">⏹️</span> <span>Stop</span>'
+        : '<span aria-hidden="true">🔊</span> <span>Listen</span>';
+    });
+
+    const qotdListenBtn = container.querySelector('#qotd-listen-btn');
+    if (qotdListenBtn) {
+      const qId = parseInt(qotdListenBtn.dataset.quoteId, 10);
+      const isCurrent = this.speakingQuoteId === qId;
+      qotdListenBtn.classList.toggle('is-speaking', isCurrent);
+      qotdListenBtn.innerHTML = isCurrent
+        ? '<span aria-hidden="true">⏹️</span> <span>Stop</span>'
+        : '<span aria-hidden="true">🔊</span> <span>Listen</span>';
+    }
+  }
+
+  resetQuoteVaultFilters() {
+    this.activeQuoteCategory = null;
+    this.activeQuoteDifficulty = null;
+    this.activeQuoteSearch = '';
+    this.activeQuoteStatus = 'all';
+    this.activeQuoteSort = 'default';
+    this.renderQuoteVault();
+  }
+
+  openCustomPassageModal() {
+    let overlay = document.getElementById('custom-passage-modal-overlay');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'custom-passage-modal-overlay';
+    overlay.className = 'custom-quote-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'custom-passage-title');
+
+    overlay.innerHTML = `
+      <div class="custom-quote-modal-card">
+        <div class="custom-quote-modal-header">
+          <div>
+            <h3 id="custom-passage-title" style="font-size: 19px; font-weight: 800; color: var(--text-primary); margin: 0 0 4px;">✍️ Practice Custom Passage</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Type or paste any classic excerpt, poem, or personal text to practice touch typing.</p>
+          </div>
+          <button id="custom-passage-close-btn" class="btn btn-secondary btn-sm" aria-label="Close modal" style="font-size: 15px; padding: 6px 12px;">✕</button>
+        </div>
+
+        <div class="custom-quote-field">
+          <label for="custom-passage-text" class="custom-quote-label">Passage Text *</label>
+          <textarea id="custom-passage-text" class="custom-quote-textarea" placeholder="Paste your favorite quote, poem, or classic literature passage here..." required></textarea>
+          <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
+            <span id="custom-passage-counter">0 characters · 0 words</span>
+            <span id="custom-passage-estimate">~0s at 40 WPM</span>
+          </div>
+        </div>
+
+        <div class="custom-quote-meta-grid">
+          <div class="custom-quote-field">
+            <label for="custom-passage-author" class="custom-quote-label">Author Name</label>
+            <input type="text" id="custom-passage-author" class="input-field" placeholder="e.g. Marcus Aurelius" style="padding: 9px 12px; font-size: 13.5px;" />
+          </div>
+          <div class="custom-quote-field">
+            <label for="custom-passage-source" class="custom-quote-label">Source / Book Title</label>
+            <input type="text" id="custom-passage-source" class="input-field" placeholder="e.g. Meditations" style="padding: 9px 12px; font-size: 13.5px;" />
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+          <button id="custom-passage-zen-btn" class="btn btn-secondary">
+            <span>🧘 Practice in Zen Mode</span>
+          </button>
+          <button id="custom-passage-start-btn" class="btn btn-primary">
+            <span>⚡ Start Typing Passage →</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const textarea = overlay.querySelector('#custom-passage-text');
+    const authorInput = overlay.querySelector('#custom-passage-author');
+    const sourceInput = overlay.querySelector('#custom-passage-source');
+    const counterEl = overlay.querySelector('#custom-passage-counter');
+    const estimateEl = overlay.querySelector('#custom-passage-estimate');
+
+    textarea?.focus();
+
+    textarea?.addEventListener('input', () => {
+      const val = textarea.value.trim();
+      const chars = val.length;
+      const words = val ? val.split(/\s+/).length : 0;
+      const sec = estimateTypingTimeSec(val, 40);
+      counterEl.textContent = `${chars} characters · ${words} words`;
+      estimateEl.textContent = `~${sec}s at 40 WPM`;
+    });
+
+    const closeModal = () => {
+      overlay.remove();
+    };
+
+    overlay.querySelector('#custom-passage-close-btn')?.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
+
+    const handleStart = (isZen = false) => {
+      const text = textarea.value.trim();
+      if (!text) {
+        this.showToast('Please enter or paste passage text first.', 'amber');
+        textarea.focus();
+        return;
+      }
+      const author = authorInput.value.trim() || 'Custom Author';
+      const source = sourceInput.value.trim();
+      closeModal();
+
+      const customQuote = {
+        id: Date.now(),
+        text,
+        author: source ? `${author}, ${source}` : author,
+        source,
+        category: 'literature',
+        difficulty: text.length < 80 ? 'short' : text.length <= 200 ? 'medium' : 'long'
+      };
+      this.startQuotePractice(customQuote, { zen: isZen });
+    };
+
+    overlay.querySelector('#custom-passage-start-btn')?.addEventListener('click', () => handleStart(false));
+    overlay.querySelector('#custom-passage-zen-btn')?.addEventListener('click', () => handleStart(true));
   }
 
   // ==========================================
@@ -1266,94 +1522,491 @@ export class UIManager {
     const container = this.screens.quotes;
     if (!container) return;
 
-    const quotes = getQuotesByFilter(this.activeQuoteCategory, this.activeQuoteDifficulty);
     const state = store.getState();
     const practicedList = state.quotesPracticed || [];
+    const bookmarkedList = state.quoteBookmarks || [];
+    const quoteStatsMap = store.getAllQuoteStats();
+
+    const practicedCount = practicedList.length;
+    const totalQuotesCount = QUOTE_VAULT.length;
+    const progressPercent = Math.min(100, Math.round((practicedCount / totalQuotesCount) * 100));
+
+    let topQuoteWpm = 0;
+    let totalAccuracySum = 0;
+    let quoteAccCount = 0;
+    let totalQuotePractices = 0;
+
+    Object.values(quoteStatsMap).forEach(st => {
+      totalQuotePractices += (st.count || 0);
+      if (st.bestWpm > topQuoteWpm) topQuoteWpm = st.bestWpm;
+      if (st.bestAccuracy > 0) {
+        totalAccuracySum += st.bestAccuracy;
+        quoteAccCount++;
+      }
+    });
+    const avgQuoteAccuracy = quoteAccCount > 0 ? Math.round(totalAccuracySum / quoteAccCount) : 0;
+
+    const qotd = getQuoteOfTheDay();
+    const isQotdPracticed = practicedList.includes(qotd.id);
+    const isQotdBookmarked = bookmarkedList.includes(qotd.id);
+    const qotdStats = quoteStatsMap[qotd.id];
+    const qotdEstSec = estimateTypingTimeSec(qotd.text);
+    const qotdWordCount = qotd.text.trim().split(/\s+/).length;
+
+    const todayDateStr = new Date().toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+
+    const catCounts = {
+      all: QUOTE_VAULT.length,
+      motivation: QUOTE_VAULT.filter(q => q.category === 'motivation').length,
+      literature: QUOTE_VAULT.filter(q => q.category === 'literature').length,
+      programming: QUOTE_VAULT.filter(q => q.category === 'programming').length,
+      science: QUOTE_VAULT.filter(q => q.category === 'science').length,
+      philosophy: QUOTE_VAULT.filter(q => q.category === 'philosophy').length,
+    };
 
     container.innerHTML = `
       <div class="quote-vault-layout">
+        <!-- Header -->
         <div class="quote-vault-header">
           <div>
             <h2 class="section-title">Quote Vault &amp; Classic Passages</h2>
-            <p class="section-subtitle">Practice touch typing with 60+ curated literature, philosophy, code, and science quotations</p>
+            <p class="section-subtitle">Practice touch typing with ${QUOTE_VAULT.length}+ timeless passages from literature, philosophy, science, and coding giants.</p>
           </div>
           <div class="quote-vault-header-actions">
-            <span class="badge badge-accent">${practicedList.length} Quotes Practiced</span>
-            <button id="start-random-quote-btn" class="btn btn-primary" title="Start a random quote from current filter or all quotes">
+            <button id="open-custom-passage-btn" class="btn btn-secondary" title="Import or type your own custom text, poem, or excerpt">
+              <span>✍️ Custom Passage</span>
+            </button>
+            <button id="start-random-quote-btn" class="btn btn-primary" title="Start a random quote from current filter">
               <span>🎲 Practice Random Quote</span>
             </button>
           </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
-          <!-- Category Filter -->
-          <div class="quote-filters" role="group" aria-label="Quote category">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 6px; align-self: center;">Category:</span>
-            <button class="quote-filter-btn ${!this.activeQuoteCategory ? 'filter-active' : ''}" aria-pressed="${!this.activeQuoteCategory}" data-cat="all">All (${QUOTE_VAULT.length})</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'motivation' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'motivation'}" data-cat="motivation">⚡ Motivation</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'literature' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'literature'}" data-cat="literature">📚 Literature</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'programming' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'programming'}" data-cat="programming">💻 Programming</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'science' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'science'}" data-cat="science">🔬 Science</button>
-            <button class="quote-filter-btn ${this.activeQuoteCategory === 'philosophy' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'philosophy'}" data-cat="philosophy">🏛️ Philosophy</button>
+        <!-- Quote of the Day Spotlight Hero -->
+        <section class="quote-spotlight-card" aria-labelledby="qotd-spotlight-title">
+          <div class="quote-spotlight-top">
+            <div class="quote-spotlight-badge-group">
+              <span class="quote-spotlight-tag" id="qotd-spotlight-title">
+                <span aria-hidden="true">✨</span> Today's Spotlight
+              </span>
+              <span class="quote-category-badge quote-cat-${qotd.category}">${qotd.category}</span>
+              <span class="quote-difficulty-dot">${qotd.difficulty} length</span>
+              ${qotdStats?.bestWpm ? `
+                <span class="quote-pb-pill">🏆 PB: ${qotdStats.bestWpm} WPM · ${qotdStats.bestAccuracy}%</span>
+              ` : ''}
+              ${isQotdPracticed ? `<span class="badge badge-teal">✓ Practiced</span>` : ''}
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="quote-spotlight-date">${todayDateStr}</span>
+              <button class="quote-bookmark-btn ${isQotdBookmarked ? 'active' : ''}" id="qotd-bookmark-btn" data-quote-id="${qotd.id}" aria-label="Bookmark Quote of the Day" title="${isQotdBookmarked ? 'Remove Bookmark' : 'Add to Bookmarks'}">
+                ${isQotdBookmarked ? '★' : '☆'}
+              </button>
+            </div>
           </div>
 
-          <!-- Difficulty Filter -->
-          <div class="quote-filters" role="group" aria-label="Quote length">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-right: 6px; align-self: center;">Length:</span>
-            <button class="quote-filter-btn ${!this.activeQuoteDifficulty ? 'filter-active' : ''}" aria-pressed="${!this.activeQuoteDifficulty}" data-diff="all">All Lengths</button>
-            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'short' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'short'}" data-diff="short">⚡ Short (&lt;80)</button>
-            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'medium' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'medium'}" data-diff="medium">📖 Medium (80-200)</button>
-            <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'long' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'long'}" data-diff="long">📜 Long (200+)</button>
+          <div class="quote-spotlight-body">
+            <blockquote class="quote-spotlight-text">${escapeHtml(qotd.text)}</blockquote>
+            <div class="quote-spotlight-meta-row">
+              <div class="quote-spotlight-author-wrap">
+                <span class="quote-spotlight-author">${escapeHtml(qotd.author)}</span>
+                ${qotd.source ? `<span class="quote-spotlight-source">(${escapeHtml(qotd.source)})</span>` : ''}
+              </div>
+              <div class="quote-spotlight-metrics">
+                <span>${qotdWordCount} words</span>
+                <span>•</span>
+                <span>${qotd.text.length} chars</span>
+                <span>•</span>
+                <span>~${qotdEstSec}s typing time</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-spotlight-actions">
+            <div class="quote-spotlight-primary-actions">
+              <button id="qotd-practice-btn" class="btn btn-primary">
+                <span>⚡ ${isQotdPracticed ? 'Practice Again' : "Practice Today's Quote"} →</span>
+              </button>
+              <button id="qotd-zen-btn" class="btn btn-secondary">
+                <span>🧘 Zen Mode</span>
+              </button>
+            </div>
+            <div class="quote-spotlight-tool-actions">
+              <button class="quote-tool-btn ${this.speakingQuoteId === qotd.id ? 'is-speaking' : ''}" id="qotd-listen-btn" data-quote-id="${qotd.id}" title="Listen (Read Aloud)">
+                <span aria-hidden="true">${this.speakingQuoteId === qotd.id ? '⏹️' : '🔊'}</span>
+                <span>${this.speakingQuoteId === qotd.id ? 'Stop' : 'Listen'}</span>
+              </button>
+              <button class="quote-tool-btn" id="qotd-copy-btn" data-quote-id="${qotd.id}" title="Copy Quote Text">
+                <span aria-hidden="true">📋</span>
+                <span>Copy</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Stats Overview Strip -->
+        <div class="quote-stats-grid">
+          <div class="quote-stat-card">
+            <div class="quote-stat-header">
+              <span>Vault Progress</span>
+              <span style="color: var(--accent-primary); font-weight: 800;">${progressPercent}%</span>
+            </div>
+            <div class="quote-stat-value-row">
+              <span class="quote-stat-val">${practicedCount}</span>
+              <span class="quote-stat-sub">of ${totalQuotesCount} passages</span>
+            </div>
+            <div class="quote-progress-bar-wrap">
+              <div class="quote-progress-bar-fill" style="width: ${progressPercent}%;"></div>
+            </div>
+          </div>
+
+          <div class="quote-stat-card">
+            <div class="quote-stat-header">
+              <span>Top Speed</span>
+              <span style="color: var(--success-teal);">⚡ Benchmark</span>
+            </div>
+            <div class="quote-stat-value-row">
+              <span class="quote-stat-val">${topQuoteWpm > 0 ? topQuoteWpm : '—'}</span>
+              <span class="quote-stat-sub">${topQuoteWpm > 0 ? 'WPM Peak' : 'No runs yet'}</span>
+            </div>
+          </div>
+
+          <div class="quote-stat-card">
+            <div class="quote-stat-header">
+              <span>Average Precision</span>
+              <span style="color: var(--reward-amber);">🎯 Accuracy</span>
+            </div>
+            <div class="quote-stat-value-row">
+              <span class="quote-stat-val">${avgQuoteAccuracy > 0 ? avgQuoteAccuracy + '%' : '—'}</span>
+              <span class="quote-stat-sub">${totalQuotePractices > 0 ? `${totalQuotePractices} total runs` : 'Benchmark target'}</span>
+            </div>
+          </div>
+
+          <div class="quote-stat-card">
+            <div class="quote-stat-header">
+              <span>Saved Passages</span>
+              <span style="color: var(--reward-amber);">⭐ Bookmarks</span>
+            </div>
+            <div class="quote-stat-value-row">
+              <span class="quote-stat-val">${bookmarkedList.length}</span>
+              <span class="quote-stat-sub">Favorites saved</span>
+            </div>
           </div>
         </div>
 
-        <div class="quotes-grid">
-          ${quotes.map(q => {
-            const isPracticed = practicedList.includes(q.id);
-            return `
-              <div class="quote-card ${isPracticed ? 'quote-practiced' : ''}" data-quote-id="${q.id}">
-                <div class="quote-card-top">
-                  <span class="quote-category-badge quote-cat-${q.category}">${q.category}</span>
-                  <span class="quote-difficulty-dot">${q.difficulty} · ${q.text.length} chars</span>
-                </div>
-                <blockquote class="quote-text">${escapeHtml(q.text)}</blockquote>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8px;">
-                  <span class="quote-author">${escapeHtml(q.author)}</span>
-                  <button class="btn btn-secondary btn-sm start-quote-btn" data-quote-id="${q.id}">
-                    ${isPracticed ? '✓ Practice Again' : 'Practice Quote →'}
-                  </button>
-                </div>
+        <!-- Filter, Search & Sort Toolbar -->
+        <div class="quote-vault-controls" role="search" aria-label="Quote filtering and search">
+          <!-- Top Row: Search input + Status filters + Sort dropdown -->
+          <div class="quote-controls-top-row">
+            <div class="quote-search-wrapper">
+              <span class="quote-search-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
+              <input
+                type="search"
+                id="quote-search-input"
+                class="quote-search-input"
+                placeholder="Search passages by author, work, or keyword... (Press /)"
+                value="${escapeHtml(this.activeQuoteSearch || '')}"
+                autocomplete="off"
+                aria-label="Search passages by author, work, or keyword"
+              />
+              ${this.activeQuoteSearch ? `
+                <button id="quote-search-clear-btn" class="quote-search-clear" aria-label="Clear search">✕</button>
+              ` : `
+                <kbd class="quote-search-kbd">/</kbd>
+              `}
+            </div>
+
+            <!-- Status Filter Pills -->
+            <div class="quote-filters" role="group" aria-label="Status filter">
+              <button class="quote-filter-btn ${this.activeQuoteStatus === 'all' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteStatus === 'all'}" data-status="all">All</button>
+              <button class="quote-filter-btn ${this.activeQuoteStatus === 'unpracticed' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteStatus === 'unpracticed'}" data-status="unpracticed">Unpracticed (${totalQuotesCount - practicedCount})</button>
+              <button class="quote-filter-btn ${this.activeQuoteStatus === 'practiced' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteStatus === 'practiced'}" data-status="practiced">✓ Practiced (${practicedCount})</button>
+              <button class="quote-filter-btn ${this.activeQuoteStatus === 'bookmarked' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteStatus === 'bookmarked'}" data-status="bookmarked">⭐ Saved (${bookmarkedList.length})</button>
+            </div>
+
+            <!-- Sort dropdown -->
+            <select id="quote-sort-select" class="quote-sort-select" aria-label="Sort passages">
+              <option value="default" ${this.activeQuoteSort === 'default' ? 'selected' : ''}>Sort: Curated</option>
+              <option value="shortest" ${this.activeQuoteSort === 'shortest' ? 'selected' : ''}>Shortest First</option>
+              <option value="longest" ${this.activeQuoteSort === 'longest' ? 'selected' : ''}>Longest First</option>
+              <option value="author" ${this.activeQuoteSort === 'author' ? 'selected' : ''}>Author (A → Z)</option>
+              <option value="wpm" ${this.activeQuoteSort === 'wpm' ? 'selected' : ''}>Highest Speed (PB)</option>
+            </select>
+          </div>
+
+          <!-- Bottom Row: Categories and Lengths -->
+          <div class="quote-controls-bottom-row">
+            <div class="quote-filter-row">
+              <span class="quote-filter-label">Category:</span>
+              <div class="quote-filters" role="group" aria-label="Category filter">
+                <button class="quote-filter-btn ${!this.activeQuoteCategory ? 'filter-active' : ''}" aria-pressed="${!this.activeQuoteCategory}" data-cat="all">All (${catCounts.all})</button>
+                <button class="quote-filter-btn ${this.activeQuoteCategory === 'motivation' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'motivation'}" data-cat="motivation">⚡ Motivation (${catCounts.motivation})</button>
+                <button class="quote-filter-btn ${this.activeQuoteCategory === 'literature' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'literature'}" data-cat="literature">📚 Literature (${catCounts.literature})</button>
+                <button class="quote-filter-btn ${this.activeQuoteCategory === 'programming' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'programming'}" data-cat="programming">💻 Programming (${catCounts.programming})</button>
+                <button class="quote-filter-btn ${this.activeQuoteCategory === 'science' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'science'}" data-cat="science">🔬 Science (${catCounts.science})</button>
+                <button class="quote-filter-btn ${this.activeQuoteCategory === 'philosophy' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteCategory === 'philosophy'}" data-cat="philosophy">🏛️ Philosophy (${catCounts.philosophy})</button>
               </div>
-            `;
-          }).join('')}
+            </div>
+
+            <div class="quote-filter-row">
+              <span class="quote-filter-label">Length:</span>
+              <div class="quote-filters" role="group" aria-label="Length filter">
+                <button class="quote-filter-btn ${!this.activeQuoteDifficulty ? 'filter-active' : ''}" aria-pressed="${!this.activeQuoteDifficulty}" data-diff="all">All Lengths</button>
+                <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'short' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'short'}" data-diff="short">⚡ Short (&lt;80)</button>
+                <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'medium' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'medium'}" data-diff="medium">📖 Medium (80-200)</button>
+                <button class="quote-filter-btn ${this.activeQuoteDifficulty === 'long' ? 'filter-active' : ''}" aria-pressed="${this.activeQuoteDifficulty === 'long'}" data-diff="long">📜 Long (200+)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Bar -->
+          <div class="quote-results-status" id="quote-results-status" role="status" aria-live="polite">
+          </div>
+        </div>
+
+        <!-- Quotes Grid Container -->
+        <div class="quotes-grid" id="quotes-grid-container">
         </div>
       </div>
     `;
 
-    // Start Random Quote button
-    container.querySelector('#start-random-quote-btn')?.addEventListener('click', () => {
-      this.startRandomQuote(this.activeQuoteCategory, this.activeQuoteDifficulty);
+    this.attachQuoteVaultListeners(container);
+    this.updateQuoteVaultGrid();
+  }
+
+  attachQuoteVaultListeners(container) {
+    container.querySelector('#open-custom-passage-btn')?.addEventListener('click', () => {
+      this.openCustomPassageModal();
     });
 
-    // Filter clicks
+    container.querySelector('#start-random-quote-btn')?.addEventListener('click', () => {
+      this.startRandomQuote();
+    });
+
+    const qotd = getQuoteOfTheDay();
+    container.querySelector('#qotd-practice-btn')?.addEventListener('click', () => {
+      this.startQuotePractice(qotd);
+    });
+
+    container.querySelector('#qotd-zen-btn')?.addEventListener('click', () => {
+      this.startQuotePractice(qotd, { zen: true });
+    });
+
+    container.querySelector('#qotd-listen-btn')?.addEventListener('click', () => {
+      this.speakQuote(qotd.id, qotd.text);
+    });
+
+    container.querySelector('#qotd-copy-btn')?.addEventListener('click', () => {
+      navigator.clipboard?.writeText(qotd.text);
+      this.showToast('Quote copied to clipboard!', 'teal');
+    });
+
+    container.querySelector('#qotd-bookmark-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isBookmarked = store.toggleQuoteBookmark(qotd.id);
+      const btn = container.querySelector('#qotd-bookmark-btn');
+      if (btn) {
+        btn.classList.toggle('active', isBookmarked);
+        btn.textContent = isBookmarked ? '★' : '☆';
+        btn.title = isBookmarked ? 'Remove Bookmark' : 'Add to Bookmarks';
+      }
+      this.showToast(isBookmarked ? 'Added to bookmarks!' : 'Removed from bookmarks.', 'amber');
+      this.updateQuoteVaultGrid();
+    });
+
+    const searchInput = container.querySelector('#quote-search-input');
+    const clearBtn = container.querySelector('#quote-search-clear-btn');
+
+    searchInput?.addEventListener('input', (e) => {
+      this.activeQuoteSearch = e.target.value;
+      this.updateQuoteVaultGrid();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
+      this.activeQuoteSearch = '';
+      this.updateQuoteVaultGrid();
+    });
+
+    container.querySelectorAll('[data-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('[data-status]').forEach(b => {
+          b.classList.remove('filter-active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('filter-active');
+        btn.setAttribute('aria-pressed', 'true');
+        this.activeQuoteStatus = btn.dataset.status;
+        this.updateQuoteVaultGrid();
+      });
+    });
+
+    container.querySelector('#quote-sort-select')?.addEventListener('change', (e) => {
+      this.activeQuoteSort = e.target.value;
+      this.updateQuoteVaultGrid();
+    });
+
     container.querySelectorAll('[data-cat]').forEach(btn => {
       btn.addEventListener('click', () => {
+        container.querySelectorAll('[data-cat]').forEach(b => {
+          b.classList.remove('filter-active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('filter-active');
+        btn.setAttribute('aria-pressed', 'true');
         const cat = btn.dataset.cat;
         this.activeQuoteCategory = cat === 'all' ? null : cat;
-        this.renderQuoteVault();
+        this.updateQuoteVaultGrid();
       });
     });
 
     container.querySelectorAll('[data-diff]').forEach(btn => {
       btn.addEventListener('click', () => {
+        container.querySelectorAll('[data-diff]').forEach(b => {
+          b.classList.remove('filter-active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('filter-active');
+        btn.setAttribute('aria-pressed', 'true');
         const diff = btn.dataset.diff;
         this.activeQuoteDifficulty = diff === 'all' ? null : diff;
-        this.renderQuoteVault();
+        this.updateQuoteVaultGrid();
       });
     });
+  }
 
-    // Start Quote Practice (button click)
-    container.querySelectorAll('.start-quote-btn').forEach(btn => {
+  updateQuoteVaultGrid() {
+    const gridContainer = document.getElementById('quotes-grid-container');
+    const statusContainer = document.getElementById('quote-results-status');
+    if (!gridContainer) return;
+
+    const state = store.getState();
+    const practicedList = state.quotesPracticed || [];
+    const bookmarkedList = state.quoteBookmarks || [];
+    const quoteStatsMap = store.getAllQuoteStats();
+
+    const quotes = queryQuotes({
+      category: this.activeQuoteCategory,
+      difficulty: this.activeQuoteDifficulty,
+      search: this.activeQuoteSearch,
+      status: this.activeQuoteStatus,
+      sortBy: this.activeQuoteSort,
+      practicedIds: practicedList,
+      bookmarkedIds: bookmarkedList,
+      quoteStatsMap
+    });
+
+    const isFiltered = !!(
+      this.activeQuoteCategory ||
+      this.activeQuoteDifficulty ||
+      this.activeQuoteSearch ||
+      this.activeQuoteStatus !== 'all' ||
+      this.activeQuoteSort !== 'default'
+    );
+
+    if (statusContainer) {
+      statusContainer.innerHTML = `
+        <span>Showing <strong>${quotes.length}</strong> of <strong>${QUOTE_VAULT.length}</strong> classic passages</span>
+        ${isFiltered ? `
+          <button id="reset-quote-filters-btn" class="btn btn-secondary btn-sm" style="padding: 3px 10px; font-size: 11.5px;">
+            ✕ Reset Filters
+          </button>
+        ` : ''}
+      `;
+      statusContainer.querySelector('#reset-quote-filters-btn')?.addEventListener('click', () => {
+        this.resetQuoteVaultFilters();
+      });
+    }
+
+    if (quotes.length === 0) {
+      gridContainer.innerHTML = `
+        <div class="quote-empty-state">
+          <span class="quote-empty-icon" aria-hidden="true">📜</span>
+          <h3 class="quote-empty-title">No Matching Passages Found</h3>
+          <p class="quote-empty-desc">
+            ${this.activeQuoteSearch
+              ? `No quotes found matching “${escapeHtml(this.activeQuoteSearch)}”. Try adjusting your search query, category, or length filters.`
+              : 'No quotes match the selected filter criteria.'}
+          </p>
+          <button id="empty-reset-filters-btn" class="btn btn-primary btn-sm" style="margin-top: 6px;">
+            <span>Reset All Filters</span>
+          </button>
+        </div>
+      `;
+      gridContainer.querySelector('#empty-reset-filters-btn')?.addEventListener('click', () => {
+        this.resetQuoteVaultFilters();
+      });
+      return;
+    }
+
+    gridContainer.innerHTML = quotes.map(q => {
+      const isPracticed = practicedList.includes(q.id);
+      const isBookmarked = bookmarkedList.includes(q.id);
+      const stats = quoteStatsMap[q.id];
+      const estSec = estimateTypingTimeSec(q.text);
+      const wordCount = q.text.trim().split(/\s+/).length;
+
+      return `
+        <div class="quote-card ${isPracticed ? 'quote-practiced' : ''} ${isBookmarked ? 'is-bookmarked' : ''}" data-quote-id="${q.id}">
+          <div class="quote-card-top">
+            <div class="quote-card-badges">
+              <span class="quote-category-badge quote-cat-${q.category}">${q.category}</span>
+              <span class="quote-difficulty-dot">${q.difficulty}</span>
+              ${isPracticed ? `<span class="badge badge-teal" style="font-size: 10px; padding: 2px 6px;">✓</span>` : ''}
+            </div>
+            <div class="quote-card-header-actions">
+              ${stats?.bestWpm ? `
+                <span class="quote-pb-pill" title="Personal Best: ${stats.bestWpm} WPM with ${stats.bestAccuracy}% accuracy">
+                  🏆 ${stats.bestWpm} WPM
+                </span>
+              ` : ''}
+              <button class="quote-bookmark-btn ${isBookmarked ? 'active' : ''}" data-action="bookmark" data-quote-id="${q.id}" aria-label="Bookmark quote" title="${isBookmarked ? 'Remove Bookmark' : 'Add to Bookmarks'}">
+                ${isBookmarked ? '★' : '☆'}
+              </button>
+            </div>
+          </div>
+
+          <blockquote class="quote-text">${escapeHtml(q.text)}</blockquote>
+
+          <div class="quote-card-author-row">
+            <span class="quote-author">${escapeHtml(q.author)}</span>
+            ${q.source ? `<span class="quote-source">${escapeHtml(q.source)}</span>` : ''}
+          </div>
+
+          <div class="quote-card-footer">
+            <span class="quote-card-meta">${wordCount} words · ${q.text.length} chars · ~${estSec}s</span>
+            <div class="quote-card-btns">
+              <button class="quote-tool-btn" data-action="zen" data-quote-id="${q.id}" title="Practice in Zen Mode" aria-label="Practice in Zen Mode">
+                <span>🧘</span>
+              </button>
+              <button class="quote-tool-btn ${this.speakingQuoteId === q.id ? 'is-speaking' : ''}" data-action="listen" data-quote-id="${q.id}" title="Listen (Read Aloud)" aria-label="Listen">
+                <span>${this.speakingQuoteId === q.id ? '⏹️' : '🔊'}</span>
+              </button>
+              <button class="quote-tool-btn" data-action="copy" data-quote-id="${q.id}" title="Copy Quote Text" aria-label="Copy Quote Text">
+                <span>📋</span>
+              </button>
+              <button class="btn btn-secondary btn-sm start-quote-btn" data-quote-id="${q.id}">
+                ${isPracticed ? '✓ Retype' : 'Type Quote →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.attachQuoteCardListeners(gridContainer);
+  }
+
+  attachQuoteCardListeners(gridContainer) {
+    gridContainer.querySelectorAll('.start-quote-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = parseInt(btn.dataset.quoteId, 10);
@@ -1364,10 +2017,42 @@ export class UIManager {
       });
     });
 
-    // Start Quote Practice (card click)
-    container.querySelectorAll('.quote-card').forEach(card => {
+    gridContainer.querySelectorAll('.quote-bookmark-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.quoteId, 10);
+        const isBookmarked = store.toggleQuoteBookmark(id);
+        btn.classList.toggle('active', isBookmarked);
+        btn.textContent = isBookmarked ? '★' : '☆';
+        btn.title = isBookmarked ? 'Remove Bookmark' : 'Add to Bookmarks';
+        const card = btn.closest('.quote-card');
+        card?.classList.toggle('is-bookmarked', isBookmarked);
+        this.showToast(isBookmarked ? 'Added to bookmarks!' : 'Removed from bookmarks.', 'amber');
+      });
+    });
+
+    gridContainer.querySelectorAll('.quote-tool-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.quoteId, 10);
+        const quote = QUOTE_VAULT.find(q => q.id === id);
+        if (!quote) return;
+
+        const action = btn.dataset.action;
+        if (action === 'zen') {
+          this.startQuotePractice(quote, { zen: true });
+        } else if (action === 'listen') {
+          this.speakQuote(quote.id, quote.text);
+        } else if (action === 'copy') {
+          navigator.clipboard?.writeText(quote.text);
+          this.showToast('Quote copied to clipboard!', 'teal');
+        }
+      });
+    });
+
+    gridContainer.querySelectorAll('.quote-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.start-quote-btn')) return;
+        if (e.target.closest('button')) return;
         const id = parseInt(card.dataset.quoteId, 10);
         const quote = QUOTE_VAULT.find(q => q.id === id);
         if (quote) {
@@ -1507,69 +2192,123 @@ export class UIManager {
     const state = store.getState();
     const bests = state.speedTestBests || {};
     const activePresetId = this.activeSpeedPresetId || '60s';
+    const selectedPreset = SPEED_TEST_PRESETS.find(p => p.id === activePresetId) || SPEED_TEST_PRESETS[2];
+    const selectedRecord = bests[selectedPreset.id];
+    const completedCount = SPEED_TEST_PRESETS.filter(p => bests[p.id]).length;
+    const safeNumber = value => Number.isFinite(Number(value)) ? Math.round(Number(value)) : 0;
+    const formatRecordDate = value => {
+      const date = value ? new Date(value) : null;
+      return date && !Number.isNaN(date.valueOf())
+        ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—';
+    };
+    const selectedFormat = selectedPreset.type === 'time'
+      ? `${selectedPreset.value}-second timed test`
+      : `${selectedPreset.value}-word completion test`;
+    const selectedGoal = selectedPreset.type === 'time'
+      ? '⌨️ Timer starts on first key'
+      : `⌨️ Finish after ${selectedPreset.value} words`;
 
     container.innerHTML = `
       <div class="speedtest-container">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <header class="speedtest-header">
           <div>
-            <h2 class="section-title">⚡ Benchmark Speed Tests</h2>
-            <p class="section-subtitle">Official typing velocity benchmarks with Monkeytype-standard consistency analysis</p>
+            <p class="speedtest-eyebrow">Typing benchmark arena</p>
+            <h2 class="section-title">Benchmark Speed Tests</h2>
+            <p class="section-subtitle">Measure speed, accuracy, and pace consistency with the same high-frequency word pool every time.</p>
           </div>
-          <button id="speedtest-launch-btn" class="btn btn-primary btn-large">
-            <span>🚀 Start Selected Test</span>
+          <div class="speedtest-completion" aria-label="${completedCount} of ${SPEED_TEST_PRESETS.length} personal records">
+            <strong>${completedCount}</strong>
+            <span>of ${SPEED_TEST_PRESETS.length}<br>records set</span>
+          </div>
+        </header>
+
+        <div class="speedtest-presets-bar" role="group" aria-label="Choose a benchmark test">
+          <div class="speedtest-preset-group">
+            <span class="speedtest-group-label">Timed</span>
+            ${SPEED_TEST_PRESETS.filter(p => p.type === 'time').map(p => `
+              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-pressed="${activePresetId === p.id}">
+                <span aria-hidden="true">${p.icon}</span>
+                <span>${p.label}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div class="speedtest-divider" aria-hidden="true"></div>
+          <div class="speedtest-preset-group">
+            <span class="speedtest-group-label">Words</span>
+            ${SPEED_TEST_PRESETS.filter(p => p.type === 'words').map(p => `
+              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-pressed="${activePresetId === p.id}">
+                <span aria-hidden="true">${p.icon}</span>
+                <span>${p.label}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <section class="speedtest-launch-card" aria-labelledby="speedtest-selected-title">
+          <div class="speedtest-launch-icon" aria-hidden="true">${selectedPreset.icon}</div>
+          <div class="speedtest-launch-main">
+            <p class="speedtest-eyebrow">Selected benchmark</p>
+            <h3 id="speedtest-selected-title">${selectedPreset.label}</h3>
+            <p>${selectedPreset.desc}. ${selectedFormat}.</p>
+            <div class="speedtest-rule-list" aria-label="Test details">
+              <span>${selectedGoal}</span>
+              <span>◎ High-frequency English words</span>
+              <span>↗ Results include consistency</span>
+            </div>
+          </div>
+          <div class="speedtest-launch-record">
+            ${selectedRecord ? `
+              <span class="speedtest-record-label">Personal best</span>
+              <strong>${safeNumber(selectedRecord.wpm)} <small>WPM</small></strong>
+              <span>${safeNumber(selectedRecord.accuracy)}% accuracy · ${safeNumber(selectedRecord.consistency || 100)}% consistent</span>
+            ` : `
+              <span class="speedtest-record-label">First attempt</span>
+              <strong>Set your baseline</strong>
+              <span>Your result is saved automatically.</span>
+            `}
+          </div>
+          <button id="speedtest-launch-btn" class="btn btn-primary btn-large speedtest-start-btn">
+            <span>Start ${selectedPreset.label}</span>
+            <span aria-hidden="true">→</span>
           </button>
         </div>
 
-        <div class="speedtest-presets-bar">
-          <div class="speedtest-preset-group">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Timed:</span>
-            ${SPEED_TEST_PRESETS.filter(p => p.type === 'time').map(p => `
-              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}">
-                <span>${p.icon}</span>
-                <span>${p.label}</span>
-              </button>
-            `).join('')}
+        <section class="speedtest-records" aria-labelledby="speedtest-records-title">
+          <div class="speedtest-section-heading">
+            <div>
+              <p class="speedtest-eyebrow">Your history</p>
+              <h3 id="speedtest-records-title">Personal benchmark records</h3>
+            </div>
+            <span>${completedCount ? `${completedCount} benchmark${completedCount === 1 ? '' : 's'} recorded` : 'Complete a test to set a record'}</span>
           </div>
-          <div style="width: 1px; height: 24px; background: var(--border-subtle); margin: 0 4px;"></div>
-          <div class="speedtest-preset-group">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Words:</span>
-            ${SPEED_TEST_PRESETS.filter(p => p.type === 'words').map(p => `
-              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}">
-                <span>${p.icon}</span>
-                <span>${p.label}</span>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-
-        <div>
-          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--text-primary);">Personal Benchmark Records</h3>
           <div class="speedtest-bests-grid">
             ${SPEED_TEST_PRESETS.map(p => {
               const record = bests[p.id];
               return `
-                <div class="speedtest-best-card">
-                  <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.icon} ${p.label}</span>
-                    <span style="font-size: 10px; color: var(--text-muted);">${p.type}</span>
+                <article class="speedtest-best-card ${record ? 'has-record' : ''} ${activePresetId === p.id ? 'is-selected' : ''}">
+                  <div class="speedtest-card-topline">
+                    <span>${p.icon} ${p.label}</span>
+                    <span>${p.type === 'time' ? `${p.value}s` : `${p.value} words`}</span>
                   </div>
                   ${record ? `
-                    <div style="font-size: 28px; font-family: var(--font-mono); font-weight: 800; color: var(--accent-primary); line-height: 1.2;">
-                      ${record.wpm} <span style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">WPM</span>
+                    <div class="speedtest-card-wpm">
+                      ${safeNumber(record.wpm)} <span>WPM</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
-                      <span>Accuracy: <strong>${record.accuracy}%</strong></span>
-                      <span>Consistency: <strong>${record.consistency || 100}%</strong></span>
+                    <div class="speedtest-card-metrics">
+                      <span><strong>${safeNumber(record.accuracy)}%</strong> accuracy</span>
+                      <span><strong>${safeNumber(record.consistency || 100)}%</strong> steady</span>
                     </div>
+                    <time datetime="${record.date || ''}">Best set ${formatRecordDate(record.date)}</time>
                   ` : `
-                    <div style="font-size: 14px; color: var(--text-muted); margin: 12px 0;">No record yet</div>
-                    <button class="btn btn-secondary btn-sm quick-start-speed-btn" data-speed-preset="${p.id}">Start Trial →</button>
+                    <p class="speedtest-card-empty">No benchmark yet</p>
+                    <button class="btn btn-secondary btn-sm quick-start-speed-btn" data-speed-preset="${p.id}">Start trial <span aria-hidden="true">→</span></button>
                   `}
-                </div>
+                </article>
               `;
             }).join('')}
           </div>
-        </div>
+        </section>
       </div>
     `;
 
@@ -1784,7 +2523,10 @@ export class UIManager {
   }
 
   handleTypingEngineState(data) {
-    if (this.lessonTitleEl) this.lessonTitleEl.textContent = data.lesson.title;
+    if (this.lessonTitleEl) {
+      this.lessonTitleEl.textContent = data.lesson.title;
+      this.lessonTitleEl.title = data.lesson.title || '';
+    }
     if (this.lessonRoundEl) {
       const roundLabel = data.lesson.roundLabels?.[data.roundIdx] || `Round ${data.roundIdx + 1}`;
       if (data.timeRemainingSec !== null && data.timeRemainingSec !== undefined) {

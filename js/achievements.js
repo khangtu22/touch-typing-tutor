@@ -338,6 +338,27 @@ export const ACHIEVEMENTS = [
     }).length >= 5
   },
   {
+    id: 'passage_virtuoso',
+    title: 'Passage Virtuoso',
+    description: 'Practice 20 different quotes from the Quote Vault.',
+    icon: '🏛️',
+    category: 'premium',
+    xpBonus: 150,
+    check: (state) => (state.quotesPracticed || []).length >= 20
+  },
+  {
+    id: 'stoic_scribe',
+    title: 'Stoic Scribe',
+    description: 'Practice 5 philosophy passages from the Quote Vault.',
+    icon: '📜',
+    category: 'premium',
+    xpBonus: 100,
+    check: (state) => (state.quotesPracticed || []).filter(id => {
+      const q = QUOTE_VAULT.find(item => item.id === id);
+      return q && q.category === 'philosophy';
+    }).length >= 5
+  },
+  {
     id: 'sonic_explorer',
     title: 'Sonic Explorer',
     description: 'Try all 5 Zen Mode ambient soundscapes.',

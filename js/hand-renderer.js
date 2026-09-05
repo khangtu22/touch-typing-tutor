@@ -1,17 +1,7 @@
 /**
- * Proportional 3D Anatomical Hand & Finger Guide Engine (v4.0)
- *
- * Major Architectural Upgrades:
- * - True Anatomical Hand Proportions: Realistic knuckle baseline (MCP arch),
- *   natural finger lengths (60-80px vs old 250px rods), and sculpted 3D palms.
- * - Dynamic Hand Inverse Kinematics (IK): When a finger reaches for top/number rows,
- *   the entire palm glides and tilts naturally instead of stretching fingers into tentacles.
- * - Organic Hand Topography: True interdigital webs between knuckles, thenar (thumb ball)
- *   muscle mound, hypothenar edge, and carpal wrist base with flexor tendons.
- * - 3D Multi-Layer Shading: Cylindrical phalanx lighting, spherical knuckle capsules with
- *   anatomical flexure creases, glossy translucent fingernails, and soft-tissue touch pads.
- * - Parabolic 3D Z-Elevation: Fingers lift upward in 3D space during flight with dynamic
- *   shadow diffusion and squash-and-stretch tactile strike physics.
+ * Sculpted SVG hand guide. Continuous contours and matte lighting suggest
+ * volume; projected joint arches, reach arcs, and coordinated palm translation
+ * provide a lightweight depth effect without a WebGL dependency.
  */
 
 import { FINGERS } from './finger-mapping.js';
@@ -44,16 +34,18 @@ function makeOrganicFingerContour(points, widths) {
   const left = points.map((p, i) => addPoint(p, scalePoint(normals[i], widths[i] / 2)));
   const right = points.map((p, i) => addPoint(p, scalePoint(normals[i], -widths[i] / 2)));
 
-  return [
-    `M ${formatPoint(left[0])}`,
-    `C ${formatPoint(left[0])} ${formatPoint(left[1])} ${formatPoint(left[1])}`,
-    `C ${formatPoint(left[1])} ${formatPoint(left[2])} ${formatPoint(left[2])}`,
-    `C ${formatPoint(left[2])} ${formatPoint(left[3])} ${formatPoint(left[3])}`,
-    `C ${formatPoint(right[3])} ${formatPoint(right[2])} ${formatPoint(right[2])}`,
-    `C ${formatPoint(right[2])} ${formatPoint(right[1])} ${formatPoint(right[1])}`,
-    `C ${formatPoint(right[1])} ${formatPoint(right[0])} ${formatPoint(right[0])}`,
-    'Z'
-  ].join(' ');
+  // Catmull–Rom sides keep the skin continuous through the joints. A rounded
+  // end cap follows the distal bone instead of adding a separate circular pad.
+  const side = vertices => vertices.slice(0, -1).map((p, i) => {
+    const prev = vertices[Math.max(0, i - 1)];
+    const next = vertices[i + 1];
+    const after = vertices[Math.min(vertices.length - 1, i + 2)];
+    return `C ${formatPoint({ x: p.x + (next.x - prev.x) / 6, y: p.y + (next.y - prev.y) / 6 })} ${formatPoint({ x: next.x - (after.x - p.x) / 6, y: next.y - (after.y - p.y) / 6 })} ${formatPoint(next)}`;
+  }).join(' ');
+  const end = points[3];
+  const direction = { x: normals[3].y, y: -normals[3].x };
+  const cap = scalePoint(direction, widths[3] * 0.65);
+  return `M ${formatPoint(left[0])} ${side(left)} C ${formatPoint(addPoint(left[3], cap))} ${formatPoint(addPoint(right[3], cap))} ${formatPoint(right[3])} ${side([...right].reverse())} Z`;
 }
 
 /** Builds cylindrical phalanx segment meshes for rich 3D shading */
@@ -82,6 +74,13 @@ function createFingerMarkup(nodeId, fingerId, label) {
 
   return `
     <g id="${nodeId}" class="overlay-finger-group" data-finger="${fingerId}">
+      ${isThumb ? `<defs>
+        <linearGradient id="${nodeId}-blend" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="white" stop-opacity="0"/>
+          <stop offset=".6" stop-color="white"/>
+        </linearGradient>
+        <mask id="${nodeId}-root"><rect width="100%" height="100%" fill="url(#${nodeId}-blend)"/></mask>
+      </defs>` : ''}
       <!-- Dynamic 3D elevation shadow layer -->
       <g class="finger-shadow-layer">
         <path class="finger-shadow-body" filter="url(#fingerElevShadow)"/>
@@ -92,7 +91,7 @@ function createFingerMarkup(nodeId, fingerId, label) {
       <path class="finger-dorsal-tendon"/>
 
       <!-- Smooth organic skin contour -->
-      <path class="finger-skin-contour"/>
+      <path class="finger-skin-contour" ${isThumb ? `mask="url(#${nodeId}-root)"` : ''}/>
 
       <!-- 3D Cylindrical Phalanx Meshes -->
       <g class="finger-phalanxes-3d">
@@ -173,8 +172,11 @@ export class HandRenderer {
     this.handTilt = { left: 0, right: 0 };
     this.targetTilt = { left: 0, right: 0 };
     this.idleClock = 0;
+    this.lastFrameTime = null;
 
     this.render();
+    this.resizeObserver = new ResizeObserver(() => this.updateFingers());
+    this.resizeObserver.observe(this.container.querySelector('#mech-kb-slot'));
   }
 
   setKeyboardRenderer(kb) {
@@ -200,6 +202,25 @@ export class HandRenderer {
       <div class="keyboard-and-hands-stage" id="keyboard-stage">
         <svg id="keyboard-hand-svg" class="keyboard-hand-overlay-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <defs>
+            <clipPath id="left-palm-clip"><use href="#left-palm-path"/></clipPath>
+            <clipPath id="right-palm-clip"><use href="#right-palm-path"/></clipPath>
+            <radialGradient id="palmVolume" cx="40%" cy="28%" r="65%" gradientTransform="translate(0 -.08) scale(1 1.12)">
+              <stop offset="0" stop-color="#e4b398"/>
+              <stop offset=".38" stop-color="#d29b7f"/>
+              <stop offset=".72" stop-color="#b67c60"/>
+              <stop offset="1" stop-color="#82503d"/>
+            </radialGradient>
+            <radialGradient id="palmSoftLight">
+              <stop offset="0" stop-color="#ffe0bd" stop-opacity=".48"/>
+              <stop offset=".55" stop-color="#f1c1a0" stop-opacity=".2"/>
+              <stop offset="1" stop-color="#f1c1a0" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="thumbVolume" cx="40%" cy="30%" r="72%">
+              <stop offset="0" stop-color="#e9b99c"/>
+              <stop offset=".5" stop-color="#d6a083"/>
+              <stop offset="1" stop-color="#ae7055"/>
+            </radialGradient>
+            <filter id="softAnatomy" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3"/></filter>
             <!-- Palm 3D Shading Gradients -->
             <linearGradient id="leftPalm3dGrad" x1="0%" y1="0%" x2="50%" y2="100%">
               <stop offset="0%" stop-color="#384566" stop-opacity="0.86"/>
@@ -356,6 +377,7 @@ export class HandRenderer {
         shadowTip: group.querySelector('.fingertip-shadow-ellipse'),
         dorsalTendon: group.querySelector('.finger-dorsal-tendon'),
         skinContour: group.querySelector('.finger-skin-contour'),
+        rootBlend: group.querySelector('linearGradient'),
         phalanxes: {
           proximal: group.querySelector('.phalanx-proximal'),
           middle: group.querySelector('.phalanx-middle'),
@@ -433,11 +455,32 @@ export class HandRenderer {
       'right-index': [21.5, 18, 15, 22],
       thumbs: [23, 19, 16.5, 23]
     };
-    const widths = sizeMap[fingerId] || [21, 17, 14.5, 21];
+    const sourceWidths = sizeMap[fingerId] || [21, 17, 14.5, 21];
+    const scale = this.geometryScale || 1;
+    const widths = [sourceWidths[0] * 1.65, sourceWidths[1] * 1.8,
+      sourceWidths[2] * 1.8, sourceWidths[3] * 1.12].map(w => w * scale);
 
     // Joints along natural finger length
-    const jointOne = pointOnLine(knuckle, target, 0.44, sway, -Math.min(5, length * 0.03) - elevation * 4);
-    const jointTwo = pointOnLine(knuckle, target, 0.78, sway * 0.5, -Math.min(3, length * 0.018) - elevation * 2.5);
+    // Project an arched finger: the proximal joint stays raised while the
+    // distal segment curls down to the key. Reaching gradually opens the arch.
+    const curl = clamp(1 - length / (180 * scale), 0.12, 0.8);
+    const jointOne = pointOnLine(knuckle, target, 0.43, sway * scale,
+      -(18 * curl + elevation * 10) * scale);
+    const jointTwo = pointOnLine(knuckle, target, 0.79, sway * 0.4 * scale,
+      -(12 * curl + elevation * 6) * scale);
+
+    if (fingerId === 'thumbs') {
+      // The thumb has two phalanges and a broad base buried in the thenar
+      // muscle. Its shallow opposing arc differs from the four fingers.
+      return {
+        knuckle,
+        jointOne: pointOnLine(knuckle, target, .38, 0, -5 * scale),
+        jointTwo: pointOnLine(knuckle, target, .75, 0, -4 * scale),
+        tip: target,
+        widths: [48, 37, 29, 24].map(w => w * scale),
+        elevation, sway
+      };
+    }
 
     return {
       knuckle,
@@ -451,6 +494,12 @@ export class HandRenderer {
   }
 
   applyFingerPose(node, pose) {
+    if (node.rootBlend) {
+      node.rootBlend.setAttribute('x1', pose.knuckle.x);
+      node.rootBlend.setAttribute('y1', pose.knuckle.y);
+      node.rootBlend.setAttribute('x2', pose.jointTwo.x);
+      node.rootBlend.setAttribute('y2', pose.jointTwo.y);
+    }
     const points = [pose.knuckle, pose.jointOne, pose.jointTwo, pose.tip];
     const contourPath = makeOrganicFingerContour(points, pose.widths);
     const centerline = makeCenterlineSpline(points);
@@ -498,8 +547,9 @@ export class HandRenderer {
 
     // 6. 3D Fingertip Assembly
     if (node.tipAssembly) {
-      const tipScale = (1.0 + pose.elevation * 0.06).toFixed(3);
-      node.tipAssembly.setAttribute('transform', `translate(${pose.tip.x.toFixed(2)}, ${pose.tip.y.toFixed(2)}) scale(${tipScale})`);
+      const tipScale = ((this.geometryScale || 1) * (1 + pose.elevation * 0.025)).toFixed(3);
+      const angle = Math.atan2(pose.tip.x - pose.jointTwo.x, -(pose.tip.y - pose.jointTwo.y)) * 180 / Math.PI;
+      node.tipAssembly.setAttribute('transform', `translate(${pose.tip.x.toFixed(2)}, ${pose.tip.y.toFixed(2)}) rotate(${angle.toFixed(2)}) scale(${tipScale})`);
     }
 
     // 7. Tactile Homing Nub on index keys
@@ -534,25 +584,25 @@ export class HandRenderer {
   animateHands(timestamp) {
     this.motionFrame = null;
     let hasActiveMotion = false;
-    this.idleClock += 0.035;
+    const dt = Math.min(50, this.lastFrameTime === null ? 16.67 : timestamp - this.lastFrameTime);
+    this.lastFrameTime = timestamp;
+    const blend = this.isReducedMotion() ? 1 : 1 - Math.exp(-dt / 65);
 
     // Smooth wrist tilt interpolation
-    this.handTilt.left = lerp(this.handTilt.left, this.targetTilt.left, 0.12);
-    this.handTilt.right = lerp(this.handTilt.right, this.targetTilt.right, 0.12);
+    this.handTilt.left = lerp(this.handTilt.left, this.targetTilt.left, blend);
+    this.handTilt.right = lerp(this.handTilt.right, this.targetTilt.right, blend);
 
     // Smooth palm glide interpolation
-    this.leftPalmOffset.x = lerp(this.leftPalmOffset.x, this.leftPalmTarget.x, 0.12);
-    this.leftPalmOffset.y = lerp(this.leftPalmOffset.y, this.leftPalmTarget.y, 0.12);
-    this.rightPalmOffset.x = lerp(this.rightPalmOffset.x, this.rightPalmTarget.x, 0.12);
-    this.rightPalmOffset.y = lerp(this.rightPalmOffset.y, this.rightPalmTarget.y, 0.12);
+    this.leftPalmOffset.x = lerp(this.leftPalmOffset.x, this.leftPalmTarget.x, blend);
+    this.leftPalmOffset.y = lerp(this.leftPalmOffset.y, this.leftPalmTarget.y, blend);
+    this.rightPalmOffset.x = lerp(this.rightPalmOffset.x, this.rightPalmTarget.x, blend);
+    this.rightPalmOffset.y = lerp(this.rightPalmOffset.y, this.rightPalmTarget.y, blend);
 
     if (this.leftHandGroup) {
-      this.leftHandGroup.style.transformOrigin = '25% 100%';
-      this.leftHandGroup.style.transform = `translate(${this.leftPalmOffset.x.toFixed(1)}px, ${this.leftPalmOffset.y.toFixed(1)}px) rotate(${this.handTilt.left.toFixed(2)}deg)`;
+      this.leftHandGroup.style.transform = `translate(${this.leftPalmOffset.x.toFixed(2)}px, ${this.leftPalmOffset.y.toFixed(2)}px)`;
     }
     if (this.rightHandGroup) {
-      this.rightHandGroup.style.transformOrigin = '75% 100%';
-      this.rightHandGroup.style.transform = `translate(${this.rightPalmOffset.x.toFixed(1)}px, ${this.rightPalmOffset.y.toFixed(1)}px) rotate(${this.handTilt.right.toFixed(2)}deg)`;
+      this.rightHandGroup.style.transform = `translate(${this.rightPalmOffset.x.toFixed(2)}px, ${this.rightPalmOffset.y.toFixed(2)}px)`;
     }
 
     this.motionStates.forEach((motion, nodeId) => {
@@ -565,9 +615,12 @@ export class HandRenderer {
         y: motion.knuckle.y + palmOffset.y
       };
 
+      const pressProgress = motion.pressStart == null ? 1 : clamp((timestamp - motion.pressStart) / 180, 0, 1);
+      const press = this.isReducedMotion() ? 0 : Math.sin(pressProgress * Math.PI) * 3 * (this.geometryScale || 1);
+      if (pressProgress < 1) hasActiveMotion = true;
       if (motion.done) {
         // Subtle organic resting breathing micro-motion
-        const idleSway = Math.sin(this.idleClock + (motion.isLeft ? 0 : Math.PI)) * 0.35;
+        const idleSway = press;
         const currentPos = {
           x: motion.current.x,
           y: motion.current.y + (motion.fingerId === 'thumbs' ? 0 : idleSway)
@@ -588,7 +641,7 @@ export class HandRenderer {
       const progress = clamp(elapsed / motion.duration, 0, 1);
 
       // Quartic smooth ease-out curve
-      const eased = 1 - Math.pow(1 - progress, 4);
+      const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
 
       // Parabolic 3D Z-elevation curve (peaks at 1.0 mid-flight)
       const elevation = Math.sin(Math.PI * progress);
@@ -599,7 +652,7 @@ export class HandRenderer {
 
       motion.current = {
         x: lerp(motion.from.x, motion.to.x, eased),
-        y: lerp(motion.from.y, motion.to.y, eased) - arcLiftPx
+        y: lerp(motion.from.y, motion.to.y, eased) - arcLiftPx + press
       };
 
       this.applyFingerPose(node, this.getFingerPose(
@@ -619,8 +672,10 @@ export class HandRenderer {
       }
     });
 
-    if (hasActiveMotion || Math.abs(this.leftPalmOffset.y - this.leftPalmTarget.y) > 0.1 || Math.abs(this.rightPalmOffset.y - this.rightPalmTarget.y) > 0.1) {
+    if (hasActiveMotion || !samePoint(this.leftPalmOffset, this.leftPalmTarget) || !samePoint(this.rightPalmOffset, this.rightPalmTarget)) {
       this.requestMotionFrame();
+    } else {
+      this.lastFrameTime = null;
     }
   }
 
@@ -652,7 +707,10 @@ export class HandRenderer {
     existing.fingerId = fingerId;
     existing.isLeft = isLeft;
 
-    if (samePoint(existing.to, target)) return;
+    if (samePoint(existing.to, target)) {
+      this.requestMotionFrame();
+      return;
+    }
 
     existing.from = { ...existing.current };
     existing.to = { ...target };
@@ -678,14 +736,12 @@ export class HandRenderer {
    */
   triggerPhysicalPress(code, key) {
     if (!this.activeFingerId) return;
-
-    this.fingerNodes.forEach(node => {
-      if (node.fingerId === this.activeFingerId) {
-        node.group.classList.remove('finger-press-impact');
-        void node.group.offsetWidth; // Restart CSS keyframe
-        node.group.classList.add('finger-press-impact');
-      }
+    this.fingerNodes.forEach((node, nodeId) => {
+      if (node.fingerId !== this.activeFingerId || (node.fingerId === 'thumbs' && nodeId.includes('left'))) return;
+      const motion = this.motionStates.get(nodeId);
+      if (motion) motion.pressStart = performance.now();
     });
+    this.requestMotionFrame();
   }
 
   updateFingers() {
@@ -696,6 +752,7 @@ export class HandRenderer {
 
     const width = slot.offsetWidth || 960;
     const height = slot.offsetHeight || 320;
+    this.geometryScale = clamp(width / 960, 0.45, 1);
     this.svgOverlay.setAttribute('viewBox', `0 0 ${width} ${height + 130}`);
     this.svgOverlay.style.height = `${height + 130}px`;
 
@@ -723,16 +780,32 @@ export class HandRenderer {
       'left-ring': { x: homePositions['left-ring'].x - 2, y: homePositions['left-ring'].y + 61 },
       'left-middle': { x: homePositions['left-middle'].x, y: homePositions['left-middle'].y + 57 },
       'left-index': { x: homePositions['left-index'].x + 2, y: homePositions['left-index'].y + 59 },
-      'left-thumb': { x: homePositions['left-index'].x + 28, y: space.y + 12 }
+      'left-thumb': { x: homePositions['left-index'].x + 4, y: space.y + 40 * this.geometryScale }
     };
 
     const rightKnuckles = {
-      'right-thumb': { x: homePositions['right-index'].x - 28, y: space.y + 12 },
+      'right-thumb': { x: homePositions['right-index'].x - 4, y: space.y + 40 * this.geometryScale },
       'right-index': { x: homePositions['right-index'].x - 2, y: homePositions['right-index'].y + 59 },
       'right-middle': { x: homePositions['right-middle'].x, y: homePositions['right-middle'].y + 57 },
       'right-ring': { x: homePositions['right-ring'].x + 2, y: homePositions['right-ring'].y + 61 },
       'right-pinky': { x: homePositions['right-pinky'].x + 5, y: homePositions['right-pinky'].y + 66 }
     };
+
+    // Mirror thumb opposition around each index root, not the spacebar center;
+    // the staggered keyboard otherwise makes the right thumb unnaturally short.
+    homePositions['left-thumb'].x = homePositions['left-index'].x + 65 * this.geometryScale;
+    homePositions['right-thumb'].x = homePositions['right-index'].x - 65 * this.geometryScale;
+
+    // Fingers fan out toward the keys from a narrower metacarpal arch.
+    // Longer middle/ring projections keep the hand from reading as a mitten.
+    for (const [side, knuckles] of [['left', leftKnuckles], ['right', rightKnuckles]]) {
+      const center = (knuckles[`${side}-pinky`].x + knuckles[`${side}-index`].x) / 2;
+      for (const digit of ['pinky', 'ring', 'middle', 'index']) {
+        const joint = knuckles[`${side}-${digit}`];
+        joint.x = lerp(joint.x, center, 0.18);
+        joint.y += (digit === 'pinky' ? 5 : digit === 'index' ? 14 : 20) * this.geometryScale;
+      }
+    }
 
     this.renderSculptedPalm('left', leftKnuckles, homePositions, height);
     this.renderSculptedPalm('right', rightKnuckles, homePositions, height);
@@ -803,6 +876,7 @@ export class HandRenderer {
     updateFinger('fg-right-middle', rightKnuckles['right-middle'], homePositions['right-middle'], false);
     updateFinger('fg-right-ring', rightKnuckles['right-ring'], homePositions['right-ring'], false);
     updateFinger('fg-right-pinky', rightKnuckles['right-pinky'], homePositions['right-pinky'], false);
+    this.requestMotionFrame();
   }
 
   /**
@@ -824,8 +898,11 @@ export class HandRenderer {
     const tendon1 = isLeft ? this.leftTendon1 : this.rightTendon1;
     const tendon2 = isLeft ? this.leftTendon2 : this.rightTendon2;
     if (!palm) return;
+    for (const surface of [rim, thenar, highlight, crease, tendon1, tendon2]) {
+      surface?.setAttribute('clip-path', `url(#${hand}-palm-clip)`);
+    }
 
-    const bottom = height + 128;
+    const bottom = height + 100;
 
     // Interdigital web dips between adjacent knuckles
     const webPR = { x: lerp(pinkyK.x, ringK.x, 0.5), y: lerp(pinkyK.y, ringK.y, 0.5) + 6 };
@@ -841,42 +918,37 @@ export class HandRenderer {
          C ${indexK.x - 6},${indexK.y - 12} ${indexK.x + 10},${indexK.y - 8} ${indexK.x + 16},${indexK.y + 12}
          C ${thumbK.x + 8},${thumbK.y - 16} ${thumbK.x + 36},${thumbK.y - 6} ${thumbK.x + 42},${thumbK.y + 16}
          C ${thumbK.x + 34},${thumbK.y + 60} ${indexK.x + 24},${bottom - 20} ${indexK.x + 8},${bottom}
-         L ${pinkyK.x - 22},${bottom}
-         C ${pinkyK.x - 28},${bottom - 24} ${pinkyK.x - 24},${pinkyK.y + 48} ${pinkyK.x - 16},${pinkyK.y + 4} Z`
+         L ${pinkyK.x + 25},${bottom}
+         C ${pinkyK.x + 18},${bottom - 24} ${pinkyK.x - 24},${pinkyK.y + 48} ${pinkyK.x - 16},${pinkyK.y + 4} Z`
       : `M ${indexK.x - 16},${indexK.y + 12}
          C ${indexK.x - 10},${indexK.y - 8} ${indexK.x + 6},${indexK.y - 12} ${webMI.x},${webMI.y}
          C ${middleK.x - 6},${middleK.y - 14} ${middleK.x + 6},${middleK.y - 14} ${webRM.x},${webRM.y}
          C ${ringK.x - 6},${ringK.y - 12} ${ringK.x + 6},${ringK.y - 12} ${webPR.x},${webPR.y}
          C ${pinkyK.x - 8},${pinkyK.y - 10} ${pinkyK.x + 8},${pinkyK.y - 12} ${pinkyK.x + 16},${pinkyK.y + 4}
-         C ${pinkyK.x + 24},${pinkyK.y + 48} ${pinkyK.x + 28},${bottom - 24} ${pinkyK.x + 22},${bottom}
+         C ${pinkyK.x + 24},${pinkyK.y + 48} ${pinkyK.x - 18},${bottom - 24} ${pinkyK.x - 25},${bottom}
          L ${indexK.x - 8},${bottom}
          C ${indexK.x - 24},${bottom - 20} ${thumbK.x - 34},${thumbK.y + 60} ${thumbK.x - 42},${thumbK.y + 16}
          C ${thumbK.x - 36},${thumbK.y - 6} ${thumbK.x - 8},${thumbK.y - 16} ${indexK.x - 16},${indexK.y + 12} Z`;
 
     palm.setAttribute('d', palmPath);
+    palm.setAttribute('fill', 'url(#palmVolume)');
 
-    // Specular upper knuckle arch rim
-    rim?.setAttribute('d', isLeft
-      ? `M ${pinkyK.x - 14},${pinkyK.y + 2} Q ${middleK.x},${middleK.y - 12} ${indexK.x + 14},${indexK.y + 4}`
-      : `M ${indexK.x - 14},${indexK.y + 4} Q ${middleK.x},${middleK.y - 12} ${pinkyK.x + 14},${pinkyK.y + 2}`);
+    // Broad dorsal dome and a separate thumb mound describe curved surfaces.
+    // Both taper to transparent at the edges, without a shiny outline.
+    const s = this.geometryScale || 1;
+    const direction = isLeft ? 1 : -1;
+    const centerX = (pinkyK.x + indexK.x) / 2;
+    const topY = (middleK.y + ringK.y) / 2;
+    const oval = (cx, cy, rx, ry) => `M ${cx-rx},${cy} a ${rx},${ry} 0 1,0 ${rx*2},0 a ${rx},${ry} 0 1,0 ${-rx*2},0`;
+    highlight?.setAttribute('d', oval(centerX - direction * 12 * s, topY + 51 * s, 77 * s, 78 * s));
+    thenar?.setAttribute('d', oval(thumbK.x + direction * 4 * s, thumbK.y + 12 * s, 38 * s, 62 * s));
+    thenar?.setAttribute('fill', 'url(#palmSoftLight)');
 
-    // Thenar (thumb ball muscle) 3D mound
-    thenar?.setAttribute('d', isLeft
-      ? `M ${indexK.x + 10},${indexK.y + 25} C ${thumbK.x + 36},${thumbK.y + 10} ${thumbK.x + 30},${bottom - 40} ${indexK.x + 12},${bottom - 45} Z`
-      : `M ${indexK.x - 10},${indexK.y + 25} C ${thumbK.x - 36},${thumbK.y + 10} ${thumbK.x - 30},${bottom - 40} ${indexK.x - 12},${bottom - 45} Z`);
-
-    // Palm topography highlight & lifelines
-    highlight?.setAttribute('d', isLeft
-      ? `M ${pinkyK.x - 6},${pinkyK.y + 28} Q ${middleK.x + 2},${middleK.y + 48} ${thumbK.x + 22},${thumbK.y + 28}`
-      : `M ${thumbK.x - 22},${thumbK.y + 28} Q ${middleK.x - 2},${middleK.y + 48} ${pinkyK.x + 6},${pinkyK.y + 28}`);
-
-    crease?.setAttribute('d', isLeft
-      ? `M ${indexK.x + 2},${indexK.y + 30} Q ${indexK.x + 28},${indexK.y + 54} ${thumbK.x + 8},${thumbK.y + 38}`
-      : `M ${thumbK.x - 8},${thumbK.y + 38} Q ${indexK.x - 28},${indexK.y + 54} ${indexK.x - 2},${indexK.y + 30}`);
-
-    // Wrist flexor tendon accents
-    tendon1?.setAttribute('d', `M ${indexK.x - 2},${indexK.y + 60} L ${indexK.x - 2},${bottom}`);
-    tendon2?.setAttribute('d', `M ${indexK.x + 12},${indexK.y + 62} L ${indexK.x + 12},${bottom}`);
+    // Subtle longitudinal ridges follow the metacarpals toward the wrist.
+    const wristX = centerX + direction * 12 * s;
+    tendon1?.setAttribute('d', `M ${ringK.x},${ringK.y + 12*s} Q ${ringK.x},${topY+55*s} ${wristX-direction*18*s},${bottom-20*s}`);
+    tendon2?.setAttribute('d', `M ${middleK.x},${middleK.y + 12*s} Q ${middleK.x},${topY+55*s} ${wristX+direction*9*s},${bottom-20*s}`);
+    crease?.setAttribute('d', `M ${indexK.x+direction*13*s},${indexK.y+24*s} Q ${thumbK.x-direction*19*s},${thumbK.y+8*s} ${thumbK.x-direction*8*s},${thumbK.y+42*s}`);
   }
 
   highlightFinger(fingerId, expectedChar = '', shiftNeeded = null) {
@@ -903,6 +975,8 @@ export class HandRenderer {
     }
 
     this.reachBanner?.classList.toggle('reach-active', !!fingerId);
+    const mode = this.reachBanner?.querySelector('.reach-mode-pill');
+    if (mode) mode.textContent = shiftNeeded ? 'Hold Shift' : fingerId ? 'Next Key' : 'Home Rest';
   }
 
   clear() {
@@ -915,5 +989,7 @@ export class HandRenderer {
       this.reachText.innerHTML = 'Rest fingers on <strong>A S D F</strong> &amp; <strong>J K L ;</strong>';
     }
     this.reachBanner?.classList.remove('reach-active');
+    const mode = this.reachBanner?.querySelector('.reach-mode-pill');
+    if (mode) mode.textContent = 'Home Rest';
   }
 }

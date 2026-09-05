@@ -18,6 +18,8 @@
   gap: 12px;
   width: 100%;
   max-width: 960px;
+  min-height: 80px;
+  box-sizing: border-box;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -28,18 +30,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  min-height: 32px;
 }
 
 .hud-meta {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .hud-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .hud-round-badge {
@@ -50,18 +62,25 @@
   background: var(--surface-2);
   color: var(--accent-primary);
   border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .hud-live-metrics {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
+  flex-shrink: 0;
 }
 
 .metric-pill {
   display: flex;
   align-items: baseline;
   gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .metric-pill-val {
@@ -69,6 +88,8 @@
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 
 .metric-pill-lbl {
@@ -88,6 +109,8 @@
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .combo-pill.combo-hot {
@@ -238,6 +261,10 @@
   border: 1px solid rgba(255, 208, 38, 0.35);
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Caret Cursor Indicator */
@@ -262,4 +289,45 @@
   color: var(--error-coral) !important;
   background: rgba(255, 92, 122, 0.35) !important;
   animation: keyShake 0.25s ease-in-out;
+}
+
+/* Responsive Lesson HUD */
+@media (max-width: 720px) {
+  .lesson-hud {
+    padding: 14px 18px;
+    gap: 10px;
+    min-height: 104px;
+  }
+
+  .hud-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    min-height: auto;
+  }
+
+  .hud-meta {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .hud-title {
+    font-size: 16px;
+  }
+
+  .hud-round-badge,
+  .hud-mode-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+
+  .hud-live-metrics {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .metric-pill-val {
+    font-size: 18px;
+  }
 }

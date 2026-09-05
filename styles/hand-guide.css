@@ -1,479 +1,56 @@
-/**
- * Proportional 3D Hand & Finger Guide Styles (v4.0)
- * Glassmorphic cyber-ergonomic aesthetic with volumetric phalanxes,
- * sculpted palm meshes, tactile contact impact rings, and adaptive theme styling.
- */
-
-.keyboard-hands-system {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  position: relative;
-}
-
-/* ======================================================= */
-/* REACH & POSTURE COACHING BANNER                         */
-/* ======================================================= */
-.keyboard-reach-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface-1, #151923);
-  border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-full, 9999px);
-  padding: 7px 22px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
-  transition: border-color var(--transition-fast, 0.15s ease),
-              background var(--transition-fast, 0.15s ease),
-              box-shadow var(--transition-fast, 0.15s ease);
-}
-
-.keyboard-reach-banner.reach-active {
-  border-color: var(--accent-primary, #7C5CFC);
-  background: rgba(27, 32, 48, 0.95);
-  box-shadow: 0 0 24px var(--accent-glow, rgba(124, 92, 252, 0.45));
-}
-
-.reach-mode-pill {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 3.5px 11px;
-  border-radius: var(--radius-full, 9999px);
-  background: var(--surface-3, #232A3E);
-  color: var(--accent-primary, #7C5CFC);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
-}
-
-.reach-instruction {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--text-secondary, #94A3B8);
-}
-
-.reach-instruction strong {
-  color: var(--text-primary, #F8FAFC);
-}
-
-/* ======================================================= */
-/* 3D STAGE & SVG OVERLAY CONTAINER                       */
-/* ======================================================= */
-.keyboard-and-hands-stage {
-  position: relative;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  perspective: 1200px;
-}
-
-.keyboard-hand-overlay-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 20;
-  overflow: visible;
-  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.4));
-}
-
-.hand-complex-group {
-  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
-  will-change: transform;
-}
-
-/* ======================================================= */
-/* SCULPTED 3D PALM MESH & ANATOMY                         */
-/* ======================================================= */
-.palm-body {
-  filter: url(#handAmbientShadow);
-  stroke: rgba(180, 200, 240, 0.25);
-  stroke-width: 1.3;
-  stroke-linejoin: round;
-  paint-order: stroke fill;
-}
-
-.palm-rim-specular {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.24);
-  stroke-width: 2;
-  stroke-linecap: round;
-  opacity: 0.85;
-}
-
-.palm-thenar-mound {
-  pointer-events: none;
-  mix-blend-mode: screen;
-}
-
-.palm-highlight,
-.palm-crease,
-.wrist-tendon {
-  fill: none;
-  stroke-linecap: round;
-  pointer-events: none;
-}
-
-.palm-highlight {
-  stroke: rgba(185, 205, 245, 0.18);
-  stroke-width: 4.5;
-}
-
-.palm-crease {
-  stroke: rgba(8, 12, 22, 0.6);
-  stroke-width: 2.8;
-}
-
-.wrist-tendon {
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 1.6;
-  stroke-dasharray: 6 3;
-}
-
-/* ======================================================= */
-/* 3D FINGER GROUPS & PROPORTIONAL PHALANX LAYERS          */
-/* ======================================================= */
-.overlay-finger-group {
-  transition: opacity 0.2s ease;
-  will-change: transform;
-}
-
-.finger-shadow-body {
-  fill: rgba(5, 9, 18, 0.68);
-  stroke: rgba(5, 9, 18, 0.4);
-  stroke-width: 4.5;
-  stroke-linejoin: round;
-  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
-}
-
-.fingertip-shadow-ellipse {
-  fill: rgba(2, 4, 8, 0.78);
-}
-
-.finger-skin-contour {
-  fill: rgba(18, 24, 38, 0.86);
-  stroke: rgba(175, 195, 235, 0.24);
-  stroke-width: 1.1;
-  stroke-linejoin: round;
-}
-
-.finger-phalanxes-3d path {
-  stroke: rgba(255, 255, 255, 0.05);
-  stroke-width: 0.7;
-}
-
-.finger-dorsal-tendon {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.finger-specular-ridge {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.22);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  opacity: 0.85;
-}
-
-/* ======================================================= */
-/* ARTICULATED KNUCKLE CAPSULES                            */
-/* ======================================================= */
-.knuckle-capsule {
-  pointer-events: none;
-}
-
-.knuckle-socket {
-  stroke: rgba(195, 215, 255, 0.2);
-  stroke-width: 1;
-}
-
-.knuckle-crease-top,
-.knuckle-crease-bot,
-.knuckle-crease-mid {
-  fill: none;
-  stroke: rgba(6, 10, 20, 0.7);
-  stroke-width: 1.1;
-  stroke-linecap: round;
-}
-
-.knuckle-glint {
-  fill: rgba(255, 255, 255, 0.4);
-}
-
-/* ======================================================= */
-/* 3D FINGERTIP ASSEMBLY & TOUCH PAD                       */
-/* ======================================================= */
-.fingertip-assembly-3d {
-  transform-origin: 0 0;
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.fingertip-pad-cushion {
-  stroke: rgba(220, 235, 255, 0.48);
-  stroke-width: 1.4;
-  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
-}
-
-.fingertip-pad-core {
-  fill: rgba(14, 19, 32, 0.95);
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 0.9;
-}
-
-.fingernail-plate {
-  stroke: rgba(255, 255, 255, 0.4);
-  stroke-width: 0.8;
-  transform: translateY(-2px);
-}
-
-.fingernail-highlight-curve {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 1.1;
-  stroke-linecap: round;
-  transform: translateY(-2px);
-}
-
-.fingertip-key-label {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 11px;
-  font-weight: 800;
-  fill: var(--text-secondary, #CBD5E1);
-  text-anchor: middle;
-  dominant-baseline: central;
-  user-select: none;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
-}
-
-/* Tactile Homing Nub for Index Anchors (F & J) */
-.homing-nub-base {
-  fill: var(--accent-primary, #7C5CFC);
-  opacity: 0.95;
-  filter: drop-shadow(0 0 6px var(--accent-glow, rgba(124, 92, 252, 0.6)));
-}
-
-.homing-nub-glint {
-  fill: rgba(255, 255, 255, 0.8);
-}
-
-/* Ambient Active Halo & Targeting Ring */
-.fingertip-active-halo {
-  fill: var(--finger-color, var(--accent-primary));
-  opacity: 0;
-  filter: blur(10px);
-  transform: scale(0.6);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.fingertip-targeting-ring {
-  fill: none;
-  stroke: var(--finger-color, #FFF);
-  stroke-width: 2;
-  stroke-dasharray: 4 2;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.tactile-impact-ripple {
-  fill: none;
-  stroke: var(--finger-color, var(--accent-primary));
-  stroke-width: 2.5;
-  opacity: 0;
-  transform-origin: 0 0;
-}
-
-/* ======================================================= */
-/* ACTIVE / TARGET FINGER ILLUMINATION                     */
-/* ======================================================= */
-.overlay-finger-group.finger-on-key-active .finger-skin-contour {
-  fill: var(--finger-color, var(--accent-primary));
-  stroke: #FFFFFF;
-  stroke-width: 1.7;
-  filter: drop-shadow(0 0 16px var(--finger-glow, var(--accent-glow)));
-}
-
-.overlay-finger-group.finger-on-key-active .phalanx-proximal,
-.overlay-finger-group.finger-on-key-active .phalanx-middle,
-.overlay-finger-group.finger-on-key-active .phalanx-distal {
-  fill: var(--finger-color, var(--accent-primary));
-  opacity: 0.42;
-  mix-blend-mode: overlay;
-}
-
-.overlay-finger-group.finger-on-key-active .finger-specular-ridge {
-  stroke: #FFFFFF;
-  stroke-width: 3;
-  opacity: 0.95;
-  filter: drop-shadow(0 0 4px #FFFFFF);
-}
-
-.overlay-finger-group.finger-on-key-active .fingertip-pad-cushion {
-  fill: var(--finger-color, var(--accent-primary));
-  stroke: #FFFFFF;
-  stroke-width: 2.2;
-  filter: drop-shadow(0 0 16px var(--finger-glow, var(--accent-glow)));
-  animation: fingertip3dBreath 1.4s ease-in-out infinite;
-}
-
-.overlay-finger-group.finger-on-key-active .fingertip-pad-core {
-  fill: rgba(255, 255, 255, 0.25);
-  stroke: rgba(255, 255, 255, 0.8);
-}
-
-.overlay-finger-group.finger-on-key-active .fingertip-active-halo {
-  opacity: 0.65;
-  transform: scale(1.15);
-  animation: haloPulse 1.4s ease-in-out infinite;
-}
-
-.overlay-finger-group.finger-on-key-active .fingertip-targeting-ring {
-  opacity: 0.9;
-  transform: scale(1.1);
-  animation: targetingRingSpin 6s linear infinite;
-}
-
-.overlay-finger-group.finger-on-key-active .fingertip-key-label {
-  fill: #FFFFFF;
-  font-size: 12px;
-  font-weight: 900;
-  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.9));
-}
-
-/* Keystroke Press Impact Wave */
-.overlay-finger-group.finger-press-impact .tactile-impact-ripple {
-  animation: rippleImpact 0.42s ease-out forwards;
-}
-
-.overlay-finger-group.finger-press-impact .fingertip-assembly-3d {
-  animation: fingertipSquashStrike 0.22s ease-out;
-}
-
-/* ======================================================= */
-/* SHIFT HOLDING STATE (Opposite-Hand Shift Rule)          */
-/* ======================================================= */
-.overlay-finger-group.finger-shift-holding .finger-skin-contour {
-  fill: var(--reward-amber, #FFB86B);
-  stroke: #FFFFFF;
-  stroke-width: 2;
-  filter: drop-shadow(0 0 16px var(--reward-glow, rgba(255, 184, 107, 0.6)));
-}
-
-.overlay-finger-group.finger-shift-holding .fingertip-pad-cushion {
-  fill: var(--reward-amber, #FFB86B);
-  stroke: #FFFFFF;
-  stroke-width: 2.2;
-}
-
-.overlay-finger-group.finger-shift-holding .fingertip-key-label {
-  fill: #000000;
-  font-weight: 900;
-}
-
-/* ======================================================= */
-/* THEME-ADAPTIVE 3D HAND SKINS                            */
-/* ======================================================= */
-
-/* Retro 1984 / Natural Warm Skin Tone */
-body.theme-retro .palm-body {
-  stroke: rgba(180, 160, 140, 0.35);
-}
-body.theme-retro .finger-skin-contour {
-  fill: rgba(45, 42, 38, 0.88);
-  stroke: rgba(210, 195, 175, 0.3);
-}
-body.theme-retro .fingertip-pad-cushion {
-  stroke: rgba(225, 210, 190, 0.5);
-}
-
-/* Cyberpunk Neon Glow */
-body.theme-cyberpunk .palm-body {
-  stroke: rgba(0, 240, 255, 0.35);
-  filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.25));
-}
-body.theme-cyberpunk .finger-skin-contour {
-  stroke: rgba(0, 240, 255, 0.3);
-}
-
-/* Botanical Forest */
-body.theme-botanical .palm-body {
-  stroke: rgba(82, 183, 136, 0.35);
-}
-body.theme-botanical .finger-skin-contour {
-  stroke: rgba(82, 183, 136, 0.28);
-}
-
-/* Tokyo Night */
-body.theme-tokyo .palm-body {
-  stroke: rgba(187, 154, 247, 0.35);
-}
-
-/* ======================================================= */
-/* KEYFRAME ANIMATIONS FOR NATURAL 3D FEEL                 */
-/* ======================================================= */
-@keyframes fingertip3dBreath {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-
-@keyframes haloPulse {
-  0%, 100% { opacity: 0.45; transform: scale(1.05); }
-  50% { opacity: 0.8; transform: scale(1.25); }
-}
-
-@keyframes targetingRingSpin {
-  from { transform: scale(1.1) rotate(0deg); }
-  to { transform: scale(1.1) rotate(360deg); }
-}
-
-@keyframes rippleImpact {
-  0% { opacity: 0.95; transform: scale(0.6); }
-  100% { opacity: 0; transform: scale(2.2); }
-}
-
-@keyframes fingertipSquashStrike {
-  0% { transform: scale(1); }
-  30% { transform: scale(0.92, 1.08); }
-  65% { transform: scale(1.05, 0.96); }
-  100% { transform: scale(1); }
-}
-
-/* ======================================================= */
-/* RESPONSIVE & ACCESSIBILITY ADAPTATIONS                 */
-/* ======================================================= */
-.mech-kb-slot {
-  width: 100%;
-}
-
+/* Continuous skin surfaces with broad, matte lighting. */
+.keyboard-hands-system { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 960px; margin: 0 auto; position: relative; }
+.keyboard-reach-banner { display: flex; align-items: center; gap: 12px; background: var(--surface-1, #151923); border: 1px solid var(--border-light, #ffffff14); border-radius: 999px; padding: 7px 22px; transition: border-color .15s ease; }
+.keyboard-reach-banner.reach-active { border-color: var(--accent-primary, #7c5cfc); }
+.reach-mode-pill { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; padding: 4px 11px; border-radius: 999px; background: var(--surface-3, #232a3e); color: var(--accent-primary, #7c5cfc); }
+.reach-instruction { font-size: 13px; color: var(--text-secondary, #94a3b8); }
+.reach-instruction strong { color: var(--text-primary, #f8fafc); }
+.keyboard-and-hands-stage { position: relative; width: 100%; max-width: 960px; margin: 0 auto; padding-bottom: 110px; }
+.mech-kb-slot { width: 100%; }
+.keyboard-hand-overlay-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; overflow: visible; mask-image: linear-gradient(#000 0%, #000 76%, transparent 100%); }
+.hand-complex-group { will-change: transform; }
+/* Shared colors join the finger roots to the back of the hand. */
+#leftPalm3dGrad stop, #rightPalm3dGrad stop { stop-opacity: 1; }
+#leftPalm3dGrad stop:nth-child(1), #rightPalm3dGrad stop:nth-child(1) { stop-color: #dca88b; }
+#leftPalm3dGrad stop:nth-child(2), #rightPalm3dGrad stop:nth-child(2) { stop-color: #c99174; }
+#leftPalm3dGrad stop:nth-child(3), #rightPalm3dGrad stop:nth-child(3) { stop-color: #b57a60; }
+#leftPalm3dGrad stop:nth-child(4), #rightPalm3dGrad stop:nth-child(4) { stop-color: #986149; }
+#phalanx3dGrad stop { stop-opacity: 1; }
+#phalanx3dGrad stop:nth-child(1) { stop-color: #ad7159; }
+#phalanx3dGrad stop:nth-child(2) { stop-color: #e4b297; }
+#phalanx3dGrad stop:nth-child(3) { stop-color: #d5a084; }
+#phalanx3dGrad stop:nth-child(4) { stop-color: #b87f63; }
+#fingernailSheenGrad stop:nth-child(1) { stop-color: #f2d2bf; }
+#fingernailSheenGrad stop:nth-child(2) { stop-color: #e8bca9; }
+#fingernailSheenGrad stop:nth-child(3) { stop-color: #d6a18e; }
+#thenarMoundGrad stop:nth-child(1) { stop-color: #f5c8a8; stop-opacity: .3; }
+#thenarMoundGrad stop:nth-child(2) { stop-color: #e9b191; stop-opacity: .1; }
+#thenarMoundGrad stop:nth-child(3) { stop-opacity: 0; }
+.palm-body { stroke: none; filter: url(#handAmbientShadow); }
+.palm-thenar-mound { pointer-events: none; }
+.palm-rim-specular, .palm-highlight, .wrist-tendon, .finger-dorsal-tendon, .finger-specular-ridge, .finger-phalanxes-3d, .knuckle-socket, .knuckle-glint, .fingertip-pad-cushion, .fingertip-pad-core, .homing-nub-group, .tactile-impact-ripple { display: none; }
+.palm-crease { fill: none; stroke: #82513c; stroke-opacity: .16; stroke-width: 1.2; }
+.palm-highlight { display: inline; fill: url(#palmSoftLight); }
+.wrist-tendon { display: inline; fill: none; stroke: #ffe0bf; stroke-opacity: .18; stroke-width: 7; stroke-linecap: round; filter: url(#softAnatomy); }
+.palm-crease { stroke-width: 4; stroke-opacity: .2; filter: url(#softAnatomy); }
+.overlay-finger-group[data-finger="thumbs"] .finger-skin-contour { fill: url(#thumbVolume); }
+.overlay-finger-group[data-finger="thumbs"] .knuckle-mid { display: none; }
+.overlay-finger-group[data-finger="thumbs"] .fingernail-plate { rx: 8.5px; ry: 7px; transform: translateY(2px); }
+.finger-skin-contour { fill: url(#phalanx3dGrad); stroke: none; }
+.finger-shadow-body { display: none; }
+.fingertip-shadow-ellipse { fill: #24130d; opacity: .16; }
+.knuckle-crease-top, .knuckle-crease-bot, .knuckle-crease-mid { fill: none; stroke: #975f48; stroke-opacity: .23; stroke-width: .8; }
+.fingernail-plate { rx: 8px; ry: 9px; transform: translateY(3px); stroke: #9e6854; stroke-opacity: .3; stroke-width: .7; }
+.fingernail-highlight-curve { fill: none; stroke: #ffe8d7; stroke-opacity: .45; stroke-width: 1.1; }
+.fingertip-key-label { display: none; }
+.fingertip-active-halo { fill: var(--finger-color); opacity: 0; filter: blur(8px); }
+.fingertip-targeting-ring { fill: none; stroke: var(--finger-color); stroke-width: 2; opacity: 0; }
+.finger-on-key-active .fingertip-active-halo { opacity: .16; }
+.finger-on-key-active .fingertip-targeting-ring, .finger-shift-holding .fingertip-targeting-ring { opacity: .85; }
+.finger-shift-holding .fingertip-targeting-ring { stroke: var(--reward-amber, #ffb86b); }
 @media (max-width: 768px) {
-  .keyboard-reach-banner {
-    max-width: calc(100% - 24px);
-    padding: 6px 14px;
-    gap: 8px;
-  }
-
-  .reach-instruction {
-    font-size: 12px;
-  }
+  .keyboard-reach-banner { max-width: calc(100% - 24px); padding: 6px 14px; gap: 8px; }
+  .reach-instruction { font-size: 12px; }
 }
-
-@media (prefers-reduced-motion: reduce), (body.reduced-motion) {
-  .keyboard-reach-banner,
-  .overlay-finger-group,
-  .fingertip-pad-cushion,
-  .fingertip-active-halo,
-  .fingertip-targeting-ring,
-  .tactile-impact-ripple {
-    transition: none !important;
-    animation: none !important;
-  }
-}
+@media (prefers-reduced-motion: reduce) { .keyboard-reach-banner { transition: none; } }
+body.reduced-motion .keyboard-reach-banner { transition: none; }

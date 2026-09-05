@@ -530,6 +530,209 @@ export const QUOTE_VAULT = [
     category: "philosophy",
     difficulty: "long",
   },
+
+  // ── EXPANDED CLASSIC PASSAGES (ids 71-95) ─────────────────────────────────
+
+  {
+    id: 71,
+    text: "Beware; for I am fearless, and therefore powerful.",
+    author: "Mary Shelley",
+    source: "Frankenstein (1818)",
+    category: "literature",
+    difficulty: "short",
+  },
+  {
+    id: 72,
+    text: "Hope is the thing with feathers that perches in the soul, and sings the tune without the words, and never stops at all.",
+    author: "Emily Dickinson",
+    source: "Poem 254",
+    category: "literature",
+    difficulty: "medium",
+  },
+  {
+    id: 73,
+    text: "Once upon a midnight dreary, while I pondered, weak and weary, over many a quaint and curious volume of forgotten lore.",
+    author: "Edgar Allan Poe",
+    source: "The Raven (1845)",
+    category: "literature",
+    difficulty: "medium",
+  },
+  {
+    id: 74,
+    text: "When you have eliminated the impossible, whatever remains, however improbable, must be the truth.",
+    author: "Arthur Conan Doyle",
+    source: "The Sign of the Four (1890)",
+    category: "literature",
+    difficulty: "medium",
+  },
+  {
+    id: 75,
+    text: "It is only with the heart that one can see rightly; what is essential is invisible to the eye.",
+    author: "Antoine de Saint-Exupéry",
+    source: "The Little Prince (1943)",
+    category: "literature",
+    difficulty: "medium",
+  },
+  {
+    id: 76,
+    text: "Two roads diverged in a wood, and I—I took the one less traveled by, and that has made all the difference.",
+    author: "Robert Frost",
+    source: "The Road Not Taken (1916)",
+    category: "literature",
+    difficulty: "medium",
+  },
+  {
+    id: 77,
+    text: "Be yourself; everyone else is already taken.",
+    author: "Oscar Wilde",
+    source: "Epigrams",
+    category: "literature",
+    difficulty: "short",
+  },
+  {
+    id: 78,
+    text: "There is no greater agony than bearing an untold story inside you.",
+    author: "Maya Angelou",
+    source: "I Know Why the Caged Bird Sings (1969)",
+    category: "literature",
+    difficulty: "short",
+  },
+  {
+    id: 79,
+    text: "Shall I compare thee to a summer's day? Thou art more lovely and more temperate. Rough winds do shake the darling buds of May, and summer's lease hath all too short a date.",
+    author: "William Shakespeare",
+    source: "Sonnet 18",
+    category: "literature",
+    difficulty: "medium",
+  },
+  {
+    id: 80,
+    text: "You have power over your mind - not outside events. Realize this, and you will find strength.",
+    author: "Marcus Aurelius",
+    source: "Meditations, Book IV",
+    category: "philosophy",
+    difficulty: "medium",
+  },
+  {
+    id: 81,
+    text: "When you arise in the morning think of what a privilege it is to be alive, to think, to enjoy, to love.",
+    author: "Marcus Aurelius",
+    source: "Meditations",
+    category: "philosophy",
+    difficulty: "medium",
+  },
+  {
+    id: 82,
+    text: "We suffer more often in imagination than in reality.",
+    author: "Seneca",
+    source: "Letters from a Stoic",
+    category: "philosophy",
+    difficulty: "short",
+  },
+  {
+    id: 83,
+    text: "It is not what happens to you, but how you react to it that matters.",
+    author: "Epictetus",
+    source: "Enchiridion",
+    category: "philosophy",
+    difficulty: "short",
+  },
+  {
+    id: 84,
+    text: "A journey of a thousand miles begins with a single step.",
+    author: "Lao Tzu",
+    source: "Tao Te Ching, Chapter 64",
+    category: "philosophy",
+    difficulty: "short",
+  },
+  {
+    id: 85,
+    text: "In the midst of chaos, there is also opportunity.",
+    author: "Sun Tzu",
+    source: "The Art of War",
+    category: "philosophy",
+    difficulty: "short",
+  },
+  {
+    id: 86,
+    text: "Look again at that dot. That's here. That's home. That's us. On it everyone you love, everyone you know, everyone you ever heard of, every human being who ever was, lived out their lives.",
+    author: "Carl Sagan",
+    source: "Pale Blue Dot (1994)",
+    category: "science",
+    difficulty: "medium",
+  },
+  {
+    id: 87,
+    text: "The Analytical Engine weaves algebraical patterns just as the Jacquard-loom weaves flowers and leaves.",
+    author: "Ada Lovelace",
+    source: "Notes on the Analytical Engine (1843)",
+    category: "science",
+    difficulty: "medium",
+  },
+  {
+    id: 88,
+    text: "I would rather have questions that can't be answered than answers that can't be questioned.",
+    author: "Richard Feynman",
+    source: "The Pleasure of Finding Things Out",
+    category: "science",
+    difficulty: "medium",
+  },
+  {
+    id: 89,
+    text: "That's one small step for man, one giant leap for mankind.",
+    author: "Neil Armstrong",
+    source: "Apollo 11 Moon Landing (1969)",
+    category: "science",
+    difficulty: "short",
+  },
+  {
+    id: 90,
+    text: "We can only see a short distance ahead, but we can see plenty there that needs to be done.",
+    author: "Alan Turing",
+    source: "Computing Machinery and Intelligence (1950)",
+    category: "programming",
+    difficulty: "medium",
+  },
+  {
+    id: 91,
+    text: "Simplicity is prerequisite for reliability.",
+    author: "Edsger W. Dijkstra",
+    source: "Selected Writings on Computing",
+    category: "programming",
+    difficulty: "short",
+  },
+  {
+    id: 92,
+    text: "Adding manpower to a late software project makes it later.",
+    author: "Fred Brooks",
+    source: "The Mythical Man-Month (1975)",
+    category: "programming",
+    difficulty: "short",
+  },
+  {
+    id: 93,
+    text: "The Web as I envisaged it, we have not seen it yet. The future is still so much bigger than the past.",
+    author: "Tim Berners-Lee",
+    source: "Longitude Prize (2014)",
+    category: "programming",
+    difficulty: "medium",
+  },
+  {
+    id: 94,
+    text: "It is not the critic who counts; not the man who points out how the strong man stumbles. The credit belongs to the man who is actually in the arena, whose face is marred by dust and sweat and blood.",
+    author: "Theodore Roosevelt",
+    source: "Citizenship in a Republic (1910)",
+    category: "motivation",
+    difficulty: "long",
+  },
+  {
+    id: 95,
+    text: "Do not go where the path may lead, go instead where there is no path and leave a trail.",
+    author: "Ralph Waldo Emerson",
+    source: "Essays and Lectures",
+    category: "motivation",
+    difficulty: "medium",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -983,6 +1186,84 @@ export function getQuotesByFilter(category = null, difficulty = null) {
     const diffMatch = !difficulty || q.difficulty === difficulty;
     return catMatch && diffMatch;
   });
+}
+
+/**
+ * Advanced query and filter engine for Quote Vault.
+ * Supports category, difficulty, search text, practice/bookmark status, and sorting.
+ *
+ * @param {Object} [options={}]
+ * @param {string|null} [options.category=null] - Category filter
+ * @param {string|null} [options.difficulty=null] - Difficulty/length filter
+ * @param {string} [options.search=''] - Keyword search (case-insensitive)
+ * @param {string} [options.status='all'] - 'all' | 'unpracticed' | 'practiced' | 'bookmarked'
+ * @param {string} [options.sortBy='default'] - 'default' | 'shortest' | 'longest' | 'author' | 'wpm'
+ * @param {number[]} [options.practicedIds=[]] - Array of practiced quote IDs
+ * @param {number[]} [options.bookmarkedIds=[]] - Array of bookmarked quote IDs
+ * @param {Object} [options.quoteStatsMap={}] - Map of { [id]: { bestWpm, count } }
+ * @returns {Quote[]} Filtered and sorted quotes
+ */
+export function queryQuotes({
+  category = null,
+  difficulty = null,
+  search = '',
+  status = 'all',
+  sortBy = 'default',
+  practicedIds = [],
+  bookmarkedIds = [],
+  quoteStatsMap = {}
+} = {}) {
+  const term = typeof search === 'string' ? search.trim().toLowerCase() : '';
+
+  let list = QUOTE_VAULT.filter((q) => {
+    if (category && q.category !== category) return false;
+    if (difficulty && q.difficulty !== difficulty) return false;
+
+    if (status === 'practiced' && !practicedIds.includes(q.id)) return false;
+    if (status === 'unpracticed' && practicedIds.includes(q.id)) return false;
+    if (status === 'bookmarked' && !bookmarkedIds.includes(q.id)) return false;
+
+    if (term) {
+      const textMatch = q.text.toLowerCase().includes(term);
+      const authorMatch = q.author.toLowerCase().includes(term);
+      const sourceMatch = q.source ? q.source.toLowerCase().includes(term) : false;
+      const catMatch = q.category.toLowerCase().includes(term);
+      if (!textMatch && !authorMatch && !sourceMatch && !catMatch) return false;
+    }
+
+    return true;
+  });
+
+  if (sortBy === 'shortest') {
+    list.sort((a, b) => a.text.length - b.text.length);
+  } else if (sortBy === 'longest') {
+    list.sort((a, b) => b.text.length - a.text.length);
+  } else if (sortBy === 'author') {
+    list.sort((a, b) => a.author.localeCompare(b.author));
+  } else if (sortBy === 'wpm') {
+    list.sort((a, b) => {
+      const wpmA = quoteStatsMap[a.id]?.bestWpm || 0;
+      const wpmB = quoteStatsMap[b.id]?.bestWpm || 0;
+      if (wpmB !== wpmA) return wpmB - wpmA;
+      return a.id - b.id;
+    });
+  }
+
+  return list;
+}
+
+/**
+ * Calculates estimated reading and typing duration in seconds for a text
+ * based on standard target speed (default 40 WPM ~ 200 chars/min).
+ *
+ * @param {string} text
+ * @param {number} [wpm=40]
+ * @returns {number} duration in seconds
+ */
+export function estimateTypingTimeSec(text, wpm = 40) {
+  if (!text) return 0;
+  const wordCount = text.trim().split(/\s+/).length;
+  return Math.max(5, Math.round((wordCount / Math.max(10, wpm)) * 60));
 }
 
 /**
