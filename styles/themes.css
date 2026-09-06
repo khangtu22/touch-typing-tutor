@@ -3,121 +3,117 @@
  * Instant live theme switching without page reload.
  */
 
-/* 1. Theme: Dark Flow (Flagship Pro Studio) */
+/* 1. Theme: Default (Clean Minimal / Không hoa hòe) */
 body.theme-dark {
-  --bg-base: #0B0D13;
-  --surface-1: #131722;
-  --surface-2: #1A2030;
-  --surface-3: #222A3F;
-  --surface-glass: rgba(19, 23, 34, 0.85);
+  --bg-base: #0F1117;
+  --surface-1: #151923;
+  --surface-2: #1B2030;
+  --surface-3: #232A3E;
+  --surface-glass: rgba(21, 25, 35, 0.75);
 
   --accent-primary: #7C5CFC;
   --accent-primary-hover: #6848E8;
-  --accent-glow: rgba(124, 92, 252, 0.4);
+  --accent-glow: rgba(124, 92, 252, 0.35);
 
   --success-teal: #00D4AA;
-  --success-glow: rgba(0, 212, 170, 0.35);
+  --success-glow: rgba(0, 212, 170, 0.3);
 
   --reward-amber: #FFB86B;
-  --reward-glow: rgba(255, 184, 107, 0.35);
+  --reward-glow: rgba(255, 184, 107, 0.3);
 
   --error-coral: #FF5C7A;
-  --error-glow: rgba(255, 92, 122, 0.4);
+  --error-glow: rgba(255, 92, 122, 0.35);
 
   --text-primary: #F5F7FA;
   --text-secondary: #9AA3B2;
   --text-muted: #7D879A;
 
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-light: rgba(255, 255, 255, 0.15);
-  --border-active: rgba(124, 92, 252, 0.55);
+  --border-light: rgba(255, 255, 255, 0.14);
+  --border-active: rgba(124, 92, 252, 0.5);
 }
 
-/* Dark Flow Keyboard Chassis */
+/* Default Theme: Pure distraction-free keyboard without badges, ribbons, or LEDs */
+body.theme-dark .keyboard-chassis-header {
+  display: none !important;
+}
+
 body.theme-dark .mech-keyboard {
-  background: #10131D;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-              0 20px 42px rgba(0, 0, 0, 0.65),
-              0 0 0 1px rgba(0, 0, 0, 0.5);
+  background: #11141D;
+  border: 1px solid var(--border-light);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
-/* Dark Flow Badge & LEDs */
-body.theme-dark .keyboard-retro-badge {
-  background: linear-gradient(180deg, #242B3E 0%, #161A26 100%);
-  border: 1px solid rgba(124, 92, 252, 0.3);
-}
-body.theme-dark .retro-badge-brand {
-  color: #7C5CFC;
-}
-body.theme-dark .retro-badge-model {
-  color: #9AA3B2;
-}
-body.theme-dark .keyboard-retro-leds {
-  background: #0B0E16;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-body.theme-dark .retro-led-dot.active {
-  background: #00D4AA;
-  box-shadow: 0 0 8px #00D4AA, 0 0 14px rgba(0, 212, 170, 0.6);
-}
-
-/* Two-Tone Studio Keycaps */
+/* Default Keycaps: Clean standard mechanical keys (không hoa hòe) */
 body.theme-dark .keycap {
-  background: #1B2132;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
-              0 4px 0 #0C0F17,
-              0 5px 6px rgba(0, 0, 0, 0.45);
+  background: #191E2C;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 0 #0C0F17, 0 5px 6px rgba(0, 0, 0, 0.4);
 }
+
 body.theme-dark .keycap.key-special,
 body.theme-dark .keycap.key-modifier,
 body.theme-dark .keycap:has(.key-legend-special) {
-  background: #141824;
-  border: 1px solid rgba(124, 92, 252, 0.2);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-              0 4px 0 #080B12,
-              0 5px 6px rgba(0, 0, 0, 0.5);
-}
-body.theme-dark .key-legend-primary {
-  color: #F5F7FA;
-}
-body.theme-dark .key-legend-special {
-  color: #A38AFF;
-}
-body.theme-dark .key-legend-shift {
-  color: #7D879A;
+  background: #161A26;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 0 #0C0F17, 0 5px 6px rgba(0, 0, 0, 0.4);
 }
 
-/* Dark Flow Pressed State */
+body.theme-dark .key-legend-primary {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+body.theme-dark .key-legend-special {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+body.theme-dark .key-legend-shift {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Default Key Pressed State: Clean tactile depression */
 body.theme-dark .keycap.key-pressed {
   transform: translateY(3px) !important;
-  background: #121622 !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4),
-              0 1px 0 #0C0F17,
-              0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  background: #232A3E !important;
+  box-shadow: 0 1px 0 #0C0F17, 0 2px 4px rgba(0, 0, 0, 0.4) !important;
 }
+
 body.theme-dark .keycap.key-special.key-pressed,
 body.theme-dark .keycap.key-modifier.key-pressed,
 body.theme-dark .keycap:has(.key-legend-special).key-pressed {
-  background: #0D1018 !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45),
-              0 1px 0 #080B12,
-              0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  background: #1E2435 !important;
+  box-shadow: 0 1px 0 #0C0F17, 0 2px 4px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Dark Flow Typing Screen */
+/* Default Typing Screen: Clean, high contrast, zero visual clutter */
 body.theme-dark .typing-box-card {
-  background: #121520;
-  border: 1px solid rgba(124, 92, 252, 0.22);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05),
-              0 14px 36px rgba(0, 0, 0, 0.6);
+  background: var(--surface-1);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-md);
 }
+
+body.theme-dark .char-upcoming {
+  color: var(--text-muted);
+}
+
+body.theme-dark .char-current {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
 body.theme-dark .char-correct {
-  color: #00D4AA;
-  text-shadow: 0 0 8px rgba(0, 212, 170, 0.4);
+  color: var(--success-teal);
+  text-shadow: none;
+}
+
+body.theme-dark .char-incorrect {
+  color: var(--error-coral) !important;
+  background: rgba(255, 92, 122, 0.2) !important;
+  border-bottom: 2px solid var(--error-coral);
+  text-shadow: none;
 }
 
 /* 2. Theme: Retro 1984 (Classic IBM Model M & Amber CRT Terminal) */
@@ -162,8 +158,15 @@ body.theme-retro .mech-keyboard {
   position: relative;
 }
 
-/* Shared Keyboard Chassis Header & Status LEDs */
+/* Shared Keyboard Chassis Header & Status LEDs (Hidden on clean default mode, enabled on themed keyboards) */
 .keyboard-chassis-header {
+  display: none;
+}
+
+body.theme-retro .keyboard-chassis-header,
+body.theme-cyberpunk .keyboard-chassis-header,
+body.theme-botanical .keyboard-chassis-header,
+body.theme-tokyo .keyboard-chassis-header {
   display: flex;
   align-items: center;
   justify-content: space-between;

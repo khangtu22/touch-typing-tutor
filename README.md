@@ -16,7 +16,7 @@ KeyFlow is a production-quality, standalone web application that teaches users p
 - **Cadence Metronome**: Adjustable audio tempo (50 to 220 BPM) to train even, rhythmic keystrokes.
 
 ### 2. 🎨 5 Keycap Aesthetic Themes (Two-Tone Artisan Mechanical Systems)
-- **Dark Flow (Default)**: Flagship Pro Studio with two-tone carbon slate & obsidian keycaps, ice white & royal indigo legends, and emerald teal telemetry.
+- **Simple Default (Clean & Minimal / Không hoa hòe)**: Distraction-free, clean dark aesthetic with high contrast, standard mechanical keycaps, and zero visual clutter.
 - **Retro 1984**: Vintage IBM Model M two-tone beige & industrial pebble grey keycaps, amber phosphor CRT display with scanlines, and warm amber LED indicators.
 - **Cyberpunk Neon**: Night City synthwave with deep obsidian-plum keycaps, electric cyan & hot magenta legends, laser underglow, and Cyber HUD terminal.
 - **Botanical Forest**: Nordic moss & alpine spruce with soft birch ivory alphas, deep forest moss modifiers, and calming sage emerald accents.

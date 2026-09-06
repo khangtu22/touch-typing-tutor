@@ -36,7 +36,7 @@ export class CommandPalette {
       { id: 'act_speed_30', title: 'Start 30-Second Speed Sprint', category: 'Quick Action', icon: '⚡', action: () => this.ui.startSpeedTest('30s') },
 
       // --- Themes ---
-      { id: 'theme_dark', title: 'Theme: Dark Cyberpunk', category: 'Theme', icon: '🌌', action: () => this.setTheme('dark') },
+      { id: 'theme_dark', title: 'Theme: Simple Default (Clean Minimal)', category: 'Theme', icon: '⌨️', action: () => this.setTheme('dark') },
       { id: 'theme_tokyo', title: 'Theme: Tokyo Night (Neon Purple)', category: 'Theme', icon: '🌆', action: () => this.setTheme('tokyo') },
       { id: 'theme_retro', title: 'Theme: Retro 1984 (IBM Model M & Amber CRT)', category: 'Theme', icon: '💾', action: () => this.setTheme('retro') },
       { id: 'theme_cyberpunk', title: 'Theme: Cyberpunk Neon Yellow', category: 'Theme', icon: '⚡', action: () => this.setTheme('cyberpunk') },

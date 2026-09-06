@@ -4212,11 +4212,11 @@ export class UIManager {
           <div class="theme-selector-grid">
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'dark' ? 'theme-active' : ''}" data-theme="dark">
               <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #0B0D13"></span>
-                <span class="palette-dot" style="background: #1B2132"></span>
+                <span class="palette-dot" style="background: #0F1117"></span>
+                <span class="palette-dot" style="background: #191E2C"></span>
                 <span class="palette-dot" style="background: #7C5CFC"></span>
               </div>
-              <span class="theme-name">Dark Flow</span>
+              <span class="theme-name">Simple Default</span>
             </div>
 
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'retro' ? 'theme-active' : ''}" data-theme="retro">
