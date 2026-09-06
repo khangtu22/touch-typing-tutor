@@ -8,7 +8,7 @@ class SoundEngine {
     this.ctx = null;
     this.enabled = true;
     this.volume = 0.6;
-    this.switchProfile = 'cherry_blue'; // 'cherry_blue' | 'gateron_brown' | 'holy_panda' | 'typewriter' | 'bubble_pop'
+    this.switchProfile = 'cherry_blue'; // 'cherry_blue' | 'buckling_spring' | 'gateron_brown' | 'holy_panda' | 'typewriter' | 'bubble_pop'
     this.isInitialized = false;
 
     // Metronome
@@ -49,7 +49,7 @@ class SoundEngine {
     this.switchProfile = profile || 'cherry_blue';
   }
 
-  // 1. Mechanical Switch Click with 5 Switch Profiles
+  // 1. Mechanical Switch Click with 6 Switch Profiles
   playKeyClick(char = '') {
     if (!this.enabled || !this.ctx) return;
     this.resume();
@@ -58,6 +58,9 @@ class SoundEngine {
     const isSpecial = char === ' ' || char === 'Enter' || char === '\n' || char === '\r';
 
     switch (this.switchProfile) {
+      case 'buckling_spring':
+        this._playBucklingSpring(now, isSpecial);
+        break;
       case 'gateron_brown':
         this._playGateronBrown(now, isSpecial);
         break;
@@ -75,6 +78,86 @@ class SoundEngine {
         this._playCherryBlue(now, isSpecial);
         break;
     }
+  }
+
+  // Authentic 1984 IBM Model M Buckling Spring Sound Profile
+  _playBucklingSpring(now, isSpecial) {
+    const masterGain = this.ctx.createGain();
+    masterGain.gain.setValueAtTime(this.volume * 0.55, now);
+    masterGain.connect(this.ctx.destination);
+
+    // 1. Buckling Coil Snap (Metallic click transient)
+    const snapOsc = this.ctx.createOscillator();
+    const snapGain = this.ctx.createGain();
+    snapOsc.type = 'triangle';
+    const snapFreq = isSpecial ? 1900 : 2900 + (Math.random() * 200 - 100);
+    snapOsc.frequency.setValueAtTime(snapFreq, now);
+    snapOsc.frequency.exponentialRampToValueAtTime(320, now + 0.022);
+
+    snapGain.gain.setValueAtTime(0.85, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+
+    snapOsc.connect(snapGain);
+    snapGain.connect(masterGain);
+    snapOsc.start(now);
+    snapOsc.stop(now + 0.028);
+
+    // 2. High-Q Metallic Spring Ping / Twang Resonance
+    const pingOsc = this.ctx.createOscillator();
+    const pingGain = this.ctx.createGain();
+    pingOsc.type = 'sine';
+    const pingFreq = 2200 + (Math.random() * 160 - 80);
+    pingOsc.frequency.setValueAtTime(pingFreq, now);
+    pingOsc.frequency.exponentialRampToValueAtTime(pingFreq * 0.94, now + 0.07);
+
+    pingGain.gain.setValueAtTime(0.35, now);
+    pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+
+    pingOsc.connect(pingGain);
+    pingGain.connect(masterGain);
+    pingOsc.start(now);
+    pingOsc.stop(now + 0.08);
+
+    // 3. Acoustic Barrel / Barrel Plate Thud
+    const thudOsc = this.ctx.createOscillator();
+    const thudGain = this.ctx.createGain();
+    thudOsc.type = 'sine';
+    const thudFreq = isSpecial ? 130 : 210 + (Math.random() * 30 - 15);
+    thudOsc.frequency.setValueAtTime(thudFreq, now);
+    thudOsc.frequency.exponentialRampToValueAtTime(60, now + 0.045);
+
+    thudGain.gain.setValueAtTime(isSpecial ? 0.9 : 0.65, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.048);
+
+    thudOsc.connect(thudGain);
+    thudGain.connect(masterGain);
+    thudOsc.start(now);
+    thudOsc.stop(now + 0.05);
+
+    // 4. Buckling impact noise burst (mechanical membrane impact)
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.012);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(isSpecial ? 2200 : 3400, now);
+    filter.Q.setValueAtTime(3.0, now);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.45, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+
+    noise.start(now);
+    noise.stop(now + 0.018);
   }
 
   _playCherryBlue(now, isSpecial) {

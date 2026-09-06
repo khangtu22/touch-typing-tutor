@@ -135,7 +135,7 @@ const DEFAULT_STATE = {
   settings: {
     soundEnabled: true,
     soundVolume: 0.6,
-    switchProfile: 'cherry_blue', // 'cherry_blue' | 'gateron_brown' | 'holy_panda' | 'typewriter' | 'bubble_pop'
+    switchProfile: 'cherry_blue', // 'cherry_blue' | 'buckling_spring' | 'gateron_brown' | 'holy_panda' | 'typewriter' | 'bubble_pop'
     theme: 'dark', // 'dark' | 'retro' | 'cyberpunk' | 'botanical' | 'tokyo'
     customThemeId: null, // id of applied custom theme, or null for built-in
     layout: 'qwerty', // 'qwerty' | 'colemak' | 'dvorak' | 'workman'

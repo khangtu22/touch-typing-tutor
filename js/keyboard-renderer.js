@@ -57,6 +57,22 @@ export class KeyboardRenderer {
     const keyboardWrapper = document.createElement('div');
     keyboardWrapper.className = `mech-keyboard layout-${this.layoutId}`;
 
+    // Vintage Model M chassis header with LED indicator panel
+    const chassisHeader = document.createElement('div');
+    chassisHeader.className = 'keyboard-chassis-header';
+    chassisHeader.innerHTML = `
+      <div class="keyboard-retro-badge">
+        <span class="retro-badge-brand">IBM</span>
+        <span class="retro-badge-model">MODEL M • 1984</span>
+      </div>
+      <div class="keyboard-retro-leds">
+        <div class="retro-led-item"><span class="retro-led-dot active"></span><span>NUM</span></div>
+        <div class="retro-led-item"><span class="retro-led-dot active" id="retro-caps-led"></span><span>CAPS</span></div>
+        <div class="retro-led-item"><span class="retro-led-dot"></span><span>SCROLL</span></div>
+      </div>
+    `;
+    keyboardWrapper.appendChild(chassisHeader);
+
     layoutRows.forEach((row, rowIdx) => {
       const rowEl = document.createElement('div');
       rowEl.className = `keyboard-row row-${rowIdx + 1}`;
@@ -65,6 +81,9 @@ export class KeyboardRenderer {
         const keyEl = document.createElement('button');
         keyEl.type = 'button';
         keyEl.className = `keycap key-${keyDef.width.replace('.', '_')} finger-${keyDef.finger}`;
+        if (keyDef.isSpecial) {
+          keyEl.classList.add('key-special', 'key-modifier');
+        }
         keyEl.dataset.code = keyDef.code;
         keyEl.dataset.finger = keyDef.finger;
         keyEl.tabIndex = this.options.interactive ? 0 : -1;
@@ -169,6 +188,7 @@ export class KeyboardRenderer {
     this.charToCode.set(' ', 'Space');
 
     this.container.appendChild(keyboardWrapper);
+    this.updateChassisBadge();
   }
 
   setVirtualShiftActive(active) {
@@ -180,6 +200,35 @@ export class KeyboardRenderer {
         shiftEl.setAttribute('aria-pressed', String(this.virtualShiftActive));
       }
     });
+    const capsLed = this.container.querySelector('#retro-caps-led');
+    if (capsLed) {
+      capsLed.classList.toggle('active', this.virtualShiftActive);
+    }
+  }
+
+  updateChassisBadge() {
+    if (!this.container) return;
+    const brandEl = this.container.querySelector('.retro-badge-brand');
+    const modelEl = this.container.querySelector('.retro-badge-model');
+    if (!brandEl || !modelEl) return;
+
+    const classList = document.body.classList;
+    if (classList.contains('theme-retro')) {
+      brandEl.textContent = 'IBM';
+      modelEl.textContent = 'MODEL M • 1984';
+    } else if (classList.contains('theme-cyberpunk')) {
+      brandEl.textContent = 'CYBER';
+      modelEl.textContent = 'DECK // 2077';
+    } else if (classList.contains('theme-botanical')) {
+      brandEl.textContent = 'BOTANICAL';
+      modelEl.textContent = 'SAGE GARDEN';
+    } else if (classList.contains('theme-tokyo')) {
+      brandEl.textContent = 'TOKYO';
+      modelEl.textContent = 'NIGHT // SHIBUYA';
+    } else {
+      brandEl.textContent = 'KEYFLOW';
+      modelEl.textContent = 'STUDIO PRO';
+    }
   }
 
   highlightTarget(char, shiftNeeded = null) {

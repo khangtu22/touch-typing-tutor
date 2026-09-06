@@ -38,11 +38,12 @@ export class CommandPalette {
       // --- Themes ---
       { id: 'theme_dark', title: 'Theme: Dark Cyberpunk', category: 'Theme', icon: '🌌', action: () => this.setTheme('dark') },
       { id: 'theme_tokyo', title: 'Theme: Tokyo Night (Neon Purple)', category: 'Theme', icon: '🌆', action: () => this.setTheme('tokyo') },
-      { id: 'theme_retro', title: 'Theme: Retro Beige (90s Terminal)', category: 'Theme', icon: '💾', action: () => this.setTheme('retro') },
+      { id: 'theme_retro', title: 'Theme: Retro 1984 (IBM Model M & Amber CRT)', category: 'Theme', icon: '💾', action: () => this.setTheme('retro') },
       { id: 'theme_cyberpunk', title: 'Theme: Cyberpunk Neon Yellow', category: 'Theme', icon: '⚡', action: () => this.setTheme('cyberpunk') },
       { id: 'theme_botanical', title: 'Theme: Botanical Forest Green', category: 'Theme', icon: '🌿', action: () => this.setTheme('botanical') },
 
       // --- Sound Profiles ---
+      { id: 'sound_buckling_spring', title: 'Sound: IBM Model M (Buckling Spring)', category: 'Audio', icon: '⌨️', action: () => this.setSound('buckling_spring') },
       { id: 'sound_cherry_blue', title: 'Sound: Cherry MX Blue (Clicky)', category: 'Audio', icon: '🔊', action: () => this.setSound('cherry_blue') },
       { id: 'sound_gateron_brown', title: 'Sound: Gateron Brown (Warm Tactile)', category: 'Audio', icon: '🔊', action: () => this.setSound('gateron_brown') },
       { id: 'sound_holy_panda', title: 'Sound: Holy Panda / Topre (Deep Thock)', category: 'Audio', icon: '🔊', action: () => this.setSound('holy_panda') },

@@ -6,7 +6,8 @@ KeyFlow is a production-quality, standalone web application that teaches users p
 
 ## 🌟 Complete Feature Suite
 
-### 1. 🎧 5 Procedural Mechanical Switch Sound Profiles
+### 1. 🎧 6 Procedural Mechanical Switch Sound Profiles
+- **IBM Model M (Buckling Spring)**: Authentic 1984 metallic buckling spring snap, coil twang, and acoustic barrel clack.
 - **Cherry MX Blue**: Crisp, high-frequency tactile clicks.
 - **Gateron Brown**: Warm, subtle tactile bumps.
 - **Holy Panda / Topre**: Heavy, resonant low-frequency *"thock"*.
@@ -14,12 +15,12 @@ KeyFlow is a production-quality, standalone web application that teaches users p
 - **Bubble Wrap Pop**: Playful, springy pitch-chirp pop.
 - **Cadence Metronome**: Adjustable audio tempo (50 to 220 BPM) to train even, rhythmic keystrokes.
 
-### 2. 🎨 5 Keycap Aesthetic Themes
-- **Dark Flow (Default)**: Deep midnight obsidian with Royal Indigo and Emerald Teal accents.
-- **Retro 1984**: Vintage IBM Model M beige & grey keycaps with warm amber LED indicators.
-- **Cyberpunk Neon**: Deep violet chassis with electric cyan, hot neon pink, and laser yellow.
-- **Botanical Forest**: Deep emerald forest chassis with ivory keycaps and sage accents.
-- **Tokyo Night / Dracula**: Midnight navy chassis with soft pastel lavender and cyan legends.
+### 2. 🎨 5 Keycap Aesthetic Themes (Two-Tone Artisan Mechanical Systems)
+- **Dark Flow (Default)**: Flagship Pro Studio with two-tone carbon slate & obsidian keycaps, ice white & royal indigo legends, and emerald teal telemetry.
+- **Retro 1984**: Vintage IBM Model M two-tone beige & industrial pebble grey keycaps, amber phosphor CRT display with scanlines, and warm amber LED indicators.
+- **Cyberpunk Neon**: Night City synthwave with deep obsidian-plum keycaps, electric cyan & hot magenta legends, laser underglow, and Cyber HUD terminal.
+- **Botanical Forest**: Nordic moss & alpine spruce with soft birch ivory alphas, deep forest moss modifiers, and calming sage emerald accents.
+- **Tokyo Night / Dracula**: Neo-Shibuya twilight with deep midnight indigo alphas, twilight purple modifiers, pastel cyan & lavender legends, and Shibuya rain glass.
 
 ### 3. 📂 Custom Practice & Developer Code Studio (Custom Arena)
 - **Paste Custom Text**: Paste articles, book excerpts, poetry, or lyrics with automatic sentence chunking.

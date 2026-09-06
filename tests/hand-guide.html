@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand guide visual and regression checks</title>
+<link rel="stylesheet" href="../styles/main.css">
+<link rel="stylesheet" href="../styles/themes.css">
+<link rel="stylesheet" href="../styles/keyboard.css">
+<link rel="stylesheet" href="../styles/hand-guide.css">
+<style>
+  body { margin: 0; padding: 24px; background: #191b1f; color: #eee; font: 14px system-ui; }
+  main { max-width: 1000px; margin: auto; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  p { color: #a9aab0; margin-bottom: 18px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 24px; }
+  nav button, select { padding: 8px 12px; background: #30343e; border: 1px solid #4c5260; border-radius: 8px; color: white; font: inherit; }
+  #keyboard-container { width: 100%; max-width: 960px; margin: auto; }
+  #results { white-space: pre-wrap; font: 12px/1.6 monospace; color: #ade2bc; }
+</style>
+<main>
+  <h1>Hand guide</h1>
+  <p>Inspect the home pose and reaches. Run checks for alignment, animation, layouts, resizing and WebGL recovery. No saved practice data is used.</p>
+  <nav>
+    <button id="home">Home</button>
+    <button data-char="c">C reach</button>
+    <button data-char="3">Number row</button>
+    <button data-char="C">Shift + C</button>
+    <button data-char="P">Shift + P</button>
+    <button data-char=" ">Space</button>
+    <button id="checks">Run checks</button>
+    <select id="theme" aria-label="Preview theme"><option value="retro">Retro</option><option value="dark">Dark</option></select>
+  </nav>
+  <div id="keyboard-container"></div>
+  <pre id="results" role="status">Ready</pre>
+</main>
+<script type="module">
+  import { HandRenderer } from '../js/hand-renderer.js';
+  import { KeyboardRenderer } from '../js/keyboard-renderer.js';
+  import { getFingerForKey, getOppositeShift, isShiftRequired } from '../js/finger-mapping.js?v=3.8.1';
+
+  const container = document.querySelector('#keyboard-container');
+  const hand = new HandRenderer(container);
+  const keyboard = new KeyboardRenderer(container.querySelector('#mech-kb-slot'), {
+    onKeyClick: char => reach(char)
+  });
+  hand.setKeyboardRenderer(keyboard);
+  document.body.classList.add('theme-retro');
+  const results = document.querySelector('#results');
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const assert = (condition, message) => { if (!condition) throw new Error(message); };
+  const reach = char => {
+    const finger = getFingerForKey(char, keyboard.layoutId);
+    const shift = isShiftRequired(char) ? getOppositeShift(char, keyboard.layoutId) : null;
+    hand.highlightFinger(finger.id, char, shift);
+    keyboard.highlightTarget(char, shift);
+  };
+  document.querySelector('#home').onclick = () => { hand.clear(); keyboard.highlightTarget(''); };
+  document.querySelectorAll('[data-char]').forEach(button => button.onclick = () => reach(button.dataset.char));
+  document.querySelector('#theme').onchange = event => {
+    document.body.classList.remove('theme-retro', 'theme-dark');
+    document.body.classList.add(`theme-${event.target.value}`);
+  };
+
+  function checkTarget(char) {
+    const finger = getFingerForKey(char, keyboard.layoutId);
+    const code = keyboard.charToCode.get(char);
+    const key = keyboard.keyElements.get(code).getBoundingClientRect();
+    const slot = container.querySelector('#mech-kb-slot').getBoundingClientRect();
+    const motion = hand.motionStates.get(`fg-${finger.id}`);
+    assert(motion && Math.hypot(motion.current.x - (key.x - slot.x + key.width / 2),
+      motion.current.y - (key.y - slot.y + key.height / 2)) < 1, `${keyboard.layoutId}: ${char} misses its key`);
+    if (hand.shiftNeeded) {
+      const side = hand.shiftNeeded === 'ShiftLeft' ? 'left' : 'right';
+      const shiftMotion = hand.motionStates.get(`fg-${side}-pinky`);
+      const shiftKey = keyboard.keyElements.get(hand.shiftNeeded).getBoundingClientRect();
+      assert(Math.hypot(shiftMotion.current.x - (shiftKey.x - slot.x + shiftKey.width / 2),
+        shiftMotion.current.y - (shiftKey.y - slot.y + shiftKey.height / 2)) < 1, 'Opposite Shift misses its key');
+    }
+  }
+
+  document.querySelector('#checks').onclick = async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    results.textContent = 'Running…';
+    const passed = [];
+    const pass = text => { passed.push(`PASS ${text}`); results.textContent = passed.join('\n'); };
+    try {
+      await sleep(500);
+      assert(hand.motionStates.size === 10, 'Expected ten articulated fingers');
+      assert(hand.handModel.ready, 'WebGL2 not available in this browser');
+      const gl = hand.handModel.gl;
+      hand.handModel.draw({left: hand.leftPalmOffset, right: hand.rightPalmOffset});
+      const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+      gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      assert(pixels.some((value, i) => i % 4 === 3 && value > 200), '3D canvas is blank');
+      assert(gl.getError() === gl.NO_ERROR, 'WebGL reported a rendering error');
+      pass('Ten fingers and a nonempty WebGL surface without GPU errors');
+
+      for (const layout of ['qwerty', 'colemak', 'dvorak', 'workman']) {
+        keyboard.setLayout(layout);
+        for (const char of ['c', '3', 'P', '?']) {
+          reach(char);
+          await sleep(380);
+          checkTarget(char);
+        }
+      }
+      pass('Top, bottom, number and Shift reaches align in all four layouts');
+      keyboard.setLayout('qwerty');
+      reach(' ');
+      await sleep(380);
+      assert(container.querySelectorAll('.finger-on-key-active').length === 1 &&
+        container.querySelector('#fg-right-thumb').classList.contains('finger-on-key-active'), 'Space must cue one thumb');
+      pass('Space cues the right thumb');
+
+      document.body.classList.add('reduced-motion');
+      reach('c');
+      await frame(); await frame();
+      checkTarget('c');
+      assert([...hand.motionStates.values()].every(motion => motion.done), 'Reduced motion did not settle immediately');
+      document.body.classList.remove('reduced-motion');
+      pass('Reduced motion lands immediately');
+
+      container.style.maxWidth = '560px';
+      await sleep(400);
+      reach('P');
+      await sleep(400);
+      checkTarget('P');
+      assert(Math.abs(hand.handModel.width - container.clientWidth) < 1, 'Canvas failed to resize');
+      container.style.maxWidth = '';
+      await sleep(400);
+      checkTarget('P');
+      pass('Resize realigns the model and Shift cue');
+
+      await sleep(500);
+      assert(hand.motionFrame === null, 'The hand keeps rendering while idle');
+      pass('Animation stops when the hand settles');
+
+      const context = gl.getExtension('WEBGL_lose_context');
+      assert(context, 'Context recovery test extension unavailable');
+      context.loseContext();
+      await sleep(200);
+      assert(!container.querySelector('.has-3d-hands'), 'SVG fallback did not activate');
+      assert(container.querySelector('#fg-left-middle .finger-skin-contour').getAttribute('d')?.includes('C'), 'Fallback finger is blank');
+      reach('c');
+      await sleep(400);
+      checkTarget('c');
+      context.restoreContext();
+      await sleep(650);
+      assert(hand.handModel.ready && container.querySelector('.has-3d-hands'), '3D renderer failed to recover');
+      pass('SVG fallback stays interactive and WebGL restores');
+
+      hand.clear(); keyboard.highlightTarget('');
+      results.textContent += `\n\n${passed.length} checks passed.`;
+    } catch (error) {
+      results.textContent += `\nFAIL ${error.message}`;
+      console.error(error);
+    } finally {
+      container.style.maxWidth = '';
+      document.body.classList.remove('reduced-motion');
+      button.disabled = false;
+    }
+  };
+  window.addEventListener('pagehide', () => hand.destroy(), {once: true});
+</script>
+</html>

@@ -37,24 +37,44 @@ float ellipsoid(vec3 p, vec3 center, vec3 radii) {
 
 float bone(vec3 p, vec4 a, vec4 b) {
   vec3 axis = b.xyz - a.xyz;
-  float t = clamp(dot(p - a.xyz, axis) / max(dot(axis, axis), 0.01), 0.0, 1.0);
-  return length(p - mix(a.xyz, b.xyz, t)) - mix(a.w, b.w, t);
+  float span = max(length(axis), 0.01);
+  axis /= span;
+  vec3 offset = p - a.xyz;
+  float along = dot(offset, axis);
+  float radial = length(offset - axis * along);
+  float taper = clamp((b.w - a.w) / span, -0.98, 0.98);
+  // The nearest sphere on a tapered bone lies off the perpendicular projection.
+  // Correcting for that slope removes the rings at the ends of each phalanx.
+  float t = clamp(along + taper * radial / sqrt(1.0 - taper * taper), 0.0, span);
+  return length(offset - axis * t) - mix(a.w, b.w, t / span);
 }
 
 float surface(vec3 p) {
   // A broad metacarpal arch, a gently domed back, and a narrower oval wrist.
-  float d = ellipsoid(p, vec3(0.0, 61.0, 27.0), vec3(uPalmWidth, 78.0, 26.0));
+  float d = ellipsoid(p, vec3(0.0, 61.0, 27.0), vec3(uPalmWidth * 0.92, 78.0, 26.0));
   d = join(d, ellipsoid(p, vec3(0.0, 20.0, 33.0), vec3(uPalmWidth, 39.0, 22.0)), 15.0);
   d = join(d, ellipsoid(p, vec3(uSide * (uPalmWidth - 22.0), 76.0, 24.0), vec3(31.0, 48.0, 25.0)), 16.0);
   d = join(d, bone(p * vec3(1.0, 1.0, 1.9),
     vec4(uSide * 4.0, 119.0, 35.0, 41.0),
     vec4(uSide * 12.0, 235.0, 29.0, 44.0)) / 1.9, 20.0);
 
+  // Subtle extensor ridges converge into the wrist rather than striping the palm.
+  float tendons = 0.0;
+  for (int f = 0; f < 4; f++) {
+    vec2 start = uJoints[f * 4].xy + vec2(0.0, 8.0);
+    vec2 end = vec2(uSide * 8.0 + (float(f) - 1.5) * 6.0, 139.0);
+    vec2 axis = end - start;
+    float t = clamp(dot(p.xy - start, axis) / max(dot(axis, axis), 0.1), 0.0, 1.0);
+    float distance = length(p.xy - mix(start, end, t));
+    tendons += exp(-pow(distance / 6.5, 2.0)) * sin(t * 3.14159) * 0.5;
+  }
+  d -= tendons * smoothstep(37.0, 53.0, p.z);
+
   for (int f = 0; f < 5; f++) {
     int base = f * 4;
     float digit = bone(p, uJoints[base], uJoints[base + 1]);
-    digit = join(digit, bone(p, uJoints[base + 1], uJoints[base + 2]), 3.5);
-    digit = join(digit, bone(p, uJoints[base + 2], uJoints[base + 3]), 3.0);
+    digit = join(digit, bone(p, uJoints[base + 1], uJoints[base + 2]), 4.0);
+    digit = join(digit, bone(p, uJoints[base + 2], uJoints[base + 3]), 4.0);
     d = join(d, digit, f == 4 ? 13.0 : 9.0);
   }
   return d;
@@ -158,11 +178,11 @@ void main() {
 
   float fade = 1.0 - smoothstep(uSize.y - 78.0 * uScale, uSize.y - 5.0 * uScale, vScreen.y);
   if (hit) {
-    outColor = vec4(shade(p, normalAt(p)), fade);
+    outColor = vec4(shade(p, normalAt(p)) * fade, fade);
   } else {
     float shadow = surface(vec3(xy - vec2(5.0, 9.0), 25.0));
     float alpha = exp(-max(shadow, 0.0) / 7.0) * 0.24 * fade;
-    outColor = vec4(0.075, 0.052, 0.044, alpha);
+    outColor = vec4(vec3(0.075, 0.052, 0.044) * alpha, alpha);
   }
 }`;
 
@@ -180,7 +200,7 @@ export class HandModel {
     this.ready = false;
     this.gl = this.canvas.getContext('webgl2', {
       alpha: true, antialias: false, depth: false,
-      premultipliedAlpha: false, powerPreference: 'low-power'
+      premultipliedAlpha: true, powerPreference: 'low-power'
     });
     if (!this.gl) return;
 
@@ -188,6 +208,7 @@ export class HandModel {
       event.preventDefault();
       this.ready = false;
       this.stage.classList.remove('has-3d-hands');
+      this.onRestore?.();
     };
     this.handleContextRestored = () => {
       this.initialize();
@@ -236,7 +257,7 @@ export class HandModel {
           .map(name => [name, gl.getUniformLocation(program, name)])
       );
       gl.enable(gl.BLEND);
-      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       this.ready = true;
     } catch (error) {
       if (program) gl.deleteProgram(program);
@@ -283,6 +304,7 @@ export class HandModel {
 
   draw(offsets) {
     if (!this.ready || !this.width || !this.stage.isConnected) return;
+    if (!this.canvas.getClientRects().length || document.visibilityState === 'hidden') return;
     const gl = this.gl, u = this.uniforms, scale = this.scale;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(0, 0, 0, 0);
@@ -332,8 +354,9 @@ export class HandModel {
     this.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
     this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
     if (this.gl) {
-      this.gl.deleteBuffer(this.buffer);
-      this.gl.deleteProgram(this.program);
+      if (this.buffer) this.gl.deleteBuffer(this.buffer);
+      if (this.program) this.gl.deleteProgram(this.program);
+      this.gl.getExtension('WEBGL_lose_context')?.loseContext();
     }
     this.canvas.remove();
     this.stage.classList.remove('has-3d-hands');

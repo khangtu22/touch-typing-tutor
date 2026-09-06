@@ -463,6 +463,7 @@ export class UIManager {
       if (this.keyboardRenderer) {
         this.keyboardRenderer.setLayout(state.settings.layout || 'qwerty');
         this.keyboardRenderer.setBlindMode(state.settings.blindMode);
+        this.keyboardRenderer.updateChassisBadge();
       }
 
       if (this.handRenderer && keyboardVisible && handGuideVisible) {
@@ -497,6 +498,11 @@ export class UIManager {
   }
 
   navigateTo(screenName) {
+    if (this.activeScreen === 'onboarding' && screenName !== 'onboarding') {
+      this.onboardingHand?.destroy();
+      this.onboardingHand = null;
+      clearTimeout(this.onboardingHandTimer);
+    }
     if (this.activeScreen === 'arcade' && screenName !== 'arcade') {
       this.arcadeManager?.activeGame?.destroy?.();
       if (this.arcadeManager) this.arcadeManager.activeGame = null;
@@ -602,6 +608,9 @@ export class UIManager {
     let currentStep = 1;
 
     const renderStep = () => {
+      this.onboardingHand?.destroy();
+      this.onboardingHand = null;
+      clearTimeout(this.onboardingHandTimer);
       if (currentStep === 1) {
         container.innerHTML = `
           <div class="onboarding-card">
@@ -657,7 +666,7 @@ export class UIManager {
         `;
         const handPreviewEl = document.getElementById('onboarding-hand-preview');
         if (handPreviewEl) {
-          const previewHand = new HandRenderer(handPreviewEl);
+          const previewHand = this.onboardingHand = new HandRenderer(handPreviewEl);
           const kbSlot = handPreviewEl.querySelector('#mech-kb-slot') || handPreviewEl;
           const previewKb = new KeyboardRenderer(kbSlot, {
             interactive: false,
@@ -666,7 +675,7 @@ export class UIManager {
           previewHand.setKeyboardRenderer(previewKb);
           previewHand.highlightFinger('left-index', 'f');
 
-          const timer = setTimeout(() => {
+          this.onboardingHandTimer = setTimeout(() => {
             if (document.body.contains(handPreviewEl)) {
               previewHand.highlightFinger('right-index', 'j');
             }
@@ -4203,8 +4212,8 @@ export class UIManager {
           <div class="theme-selector-grid">
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'dark' ? 'theme-active' : ''}" data-theme="dark">
               <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #0F1117"></span>
-                <span class="palette-dot" style="background: #191E2C"></span>
+                <span class="palette-dot" style="background: #0B0D13"></span>
+                <span class="palette-dot" style="background: #1B2132"></span>
                 <span class="palette-dot" style="background: #7C5CFC"></span>
               </div>
               <span class="theme-name">Dark Flow</span>
@@ -4212,26 +4221,26 @@ export class UIManager {
 
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'retro' ? 'theme-active' : ''}" data-theme="retro">
               <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #282A30"></span>
-                <span class="palette-dot" style="background: #D8D2C2"></span>
-                <span class="palette-dot" style="background: #FF8C00"></span>
+                <span class="palette-dot" style="background: #1E1C18"></span>
+                <span class="palette-dot" style="background: #E8E3D5"></span>
+                <span class="palette-dot" style="background: #FF9500"></span>
               </div>
               <span class="theme-name">Retro 1984</span>
             </div>
 
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'cyberpunk' ? 'theme-active' : ''}" data-theme="cyberpunk">
               <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #090114"></span>
+                <span class="palette-dot" style="background: #080112"></span>
+                <span class="palette-dot" style="background: #17072E"></span>
                 <span class="palette-dot" style="background: #00F0FF"></span>
-                <span class="palette-dot" style="background: #FF007F"></span>
               </div>
               <span class="theme-name">Cyberpunk</span>
             </div>
 
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'botanical' ? 'theme-active' : ''}" data-theme="botanical">
               <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #0B170E"></span>
-                <span class="palette-dot" style="background: #172D1E"></span>
+                <span class="palette-dot" style="background: #08120A"></span>
+                <span class="palette-dot" style="background: #DCE7DF"></span>
                 <span class="palette-dot" style="background: #52B788"></span>
               </div>
               <span class="theme-name">Botanical</span>
@@ -4239,8 +4248,8 @@ export class UIManager {
 
             <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'tokyo' ? 'theme-active' : ''}" data-theme="tokyo">
               <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #1A1B26"></span>
-                <span class="palette-dot" style="background: #202436"></span>
+                <span class="palette-dot" style="background: #13141F"></span>
+                <span class="palette-dot" style="background: #1F2134"></span>
                 <span class="palette-dot" style="background: #BB9AF7"></span>
               </div>
               <span class="theme-name">Tokyo Night</span>
@@ -4412,6 +4421,7 @@ export class UIManager {
               <p class="setting-desc">Choose your synthesized key switch acoustic character</p>
             </div>
             <select id="setting-switch-profile" class="select-input">
+              <option value="buckling_spring" ${settings.switchProfile === 'buckling_spring' ? 'selected' : ''}>IBM Model M (Buckling Spring)</option>
               <option value="cherry_blue" ${settings.switchProfile === 'cherry_blue' ? 'selected' : ''}>Cherry MX Blue (Clicky)</option>
               <option value="gateron_brown" ${settings.switchProfile === 'gateron_brown' ? 'selected' : ''}>Gateron Brown (Warm Tactile)</option>
               <option value="holy_panda" ${settings.switchProfile === 'holy_panda' ? 'selected' : ''}>Holy Panda / Topre (Deep Thock)</option>
@@ -4596,10 +4606,16 @@ export class UIManager {
     container.querySelectorAll('.theme-card-option[data-theme]').forEach(card => {
       card.addEventListener('click', () => {
         const theme = card.dataset.theme;
-        store.update(prev => ({
-          ...prev,
-          settings: { ...prev.settings, theme, customThemeId: null }
-        }));
+        store.update(prev => {
+          const newSettings = { ...prev.settings, theme, customThemeId: null };
+          if (theme === 'retro' && (!prev.settings.switchProfile || prev.settings.switchProfile === 'cherry_blue')) {
+            newSettings.switchProfile = 'buckling_spring';
+          }
+          return {
+            ...prev,
+            settings: newSettings
+          };
+        });
         this.renderSettings();
       });
     });

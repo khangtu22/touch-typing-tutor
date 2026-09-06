@@ -3,99 +3,1083 @@
  * Instant live theme switching without page reload.
  */
 
-/* 1. Theme: Dark Flow (Default) */
+/* 1. Theme: Dark Flow (Flagship Pro Studio) */
 body.theme-dark {
-  --bg-base: #0F1117;
-  --surface-1: #151923;
-  --surface-2: #1B2030;
-  --surface-3: #232A3E;
+  --bg-base: #0B0D13;
+  --surface-1: #131722;
+  --surface-2: #1A2030;
+  --surface-3: #222A3F;
+  --surface-glass: rgba(19, 23, 34, 0.85);
+
   --accent-primary: #7C5CFC;
   --accent-primary-hover: #6848E8;
-  --accent-glow: rgba(124, 92, 252, 0.35);
+  --accent-glow: rgba(124, 92, 252, 0.4);
+
   --success-teal: #00D4AA;
+  --success-glow: rgba(0, 212, 170, 0.35);
+
   --reward-amber: #FFB86B;
+  --reward-glow: rgba(255, 184, 107, 0.35);
+
+  --error-coral: #FF5C7A;
+  --error-glow: rgba(255, 92, 122, 0.4);
+
+  --text-primary: #F5F7FA;
+  --text-secondary: #9AA3B2;
+  --text-muted: #7D879A;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.15);
+  --border-active: rgba(124, 92, 252, 0.55);
 }
 
-/* 2. Theme: Retro 1984 (Classic IBM Model M) */
+/* Dark Flow Keyboard Chassis */
+body.theme-dark .mech-keyboard {
+  background: #10131D;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 20px 42px rgba(0, 0, 0, 0.65),
+              0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark Flow Badge & LEDs */
+body.theme-dark .keyboard-retro-badge {
+  background: linear-gradient(180deg, #242B3E 0%, #161A26 100%);
+  border: 1px solid rgba(124, 92, 252, 0.3);
+}
+body.theme-dark .retro-badge-brand {
+  color: #7C5CFC;
+}
+body.theme-dark .retro-badge-model {
+  color: #9AA3B2;
+}
+body.theme-dark .keyboard-retro-leds {
+  background: #0B0E16;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+body.theme-dark .retro-led-dot.active {
+  background: #00D4AA;
+  box-shadow: 0 0 8px #00D4AA, 0 0 14px rgba(0, 212, 170, 0.6);
+}
+
+/* Two-Tone Studio Keycaps */
+body.theme-dark .keycap {
+  background: #1B2132;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
+              0 4px 0 #0C0F17,
+              0 5px 6px rgba(0, 0, 0, 0.45);
+}
+body.theme-dark .keycap.key-special,
+body.theme-dark .keycap.key-modifier,
+body.theme-dark .keycap:has(.key-legend-special) {
+  background: #141824;
+  border: 1px solid rgba(124, 92, 252, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 4px 0 #080B12,
+              0 5px 6px rgba(0, 0, 0, 0.5);
+}
+body.theme-dark .key-legend-primary {
+  color: #F5F7FA;
+}
+body.theme-dark .key-legend-special {
+  color: #A38AFF;
+}
+body.theme-dark .key-legend-shift {
+  color: #7D879A;
+}
+
+/* Dark Flow Pressed State */
+body.theme-dark .keycap.key-pressed {
+  transform: translateY(3px) !important;
+  background: #121622 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4),
+              0 1px 0 #0C0F17,
+              0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+body.theme-dark .keycap.key-special.key-pressed,
+body.theme-dark .keycap.key-modifier.key-pressed,
+body.theme-dark .keycap:has(.key-legend-special).key-pressed {
+  background: #0D1018 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45),
+              0 1px 0 #080B12,
+              0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Dark Flow Typing Screen */
+body.theme-dark .typing-box-card {
+  background: #121520;
+  border: 1px solid rgba(124, 92, 252, 0.22);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05),
+              0 14px 36px rgba(0, 0, 0, 0.6);
+}
+body.theme-dark .char-correct {
+  color: #00D4AA;
+  text-shadow: 0 0 8px rgba(0, 212, 170, 0.4);
+}
+
+/* 2. Theme: Retro 1984 (Classic IBM Model M & Amber CRT Terminal) */
 body.theme-retro {
-  --bg-base: #1C1D21;
-  --surface-1: #282A30;
-  --surface-2: #343740;
-  --surface-3: #414552;
-  --accent-primary: #FF8C00; /* Amber LED */
-  --accent-primary-hover: #E07B00;
-  --accent-glow: rgba(255, 140, 0, 0.35);
-  --success-teal: #48BB78;
-  --reward-amber: #ECC94B;
-  --text-primary: #F0EDE5;
-  --text-secondary: #C8C2B4;
+  --bg-base: #141311;
+  --surface-1: #1E1C18;
+  --surface-2: #282520;
+  --surface-3: #35312A;
+  --surface-glass: rgba(30, 28, 24, 0.88);
+
+  --accent-primary: #FF9500; /* Warm Phosphor Amber LED */
+  --accent-primary-hover: #E68500;
+  --accent-glow: rgba(255, 149, 0, 0.42);
+
+  --success-teal: #48C774; /* Phosphor Emerald */
+  --success-glow: rgba(72, 199, 116, 0.35);
+
+  --reward-amber: #FFB833;
+  --reward-glow: rgba(255, 184, 51, 0.4);
+
+  --error-coral: #FF473A; /* CRT Alert Red */
+  --error-glow: rgba(255, 71, 58, 0.45);
+
+  --text-primary: #F5EFE6; /* Vintage Parchment White */
+  --text-secondary: #C7BEAE; /* Aged Sand Grey */
+  --text-muted: #8E8573;
+
+  --border-subtle: rgba(255, 180, 80, 0.12);
+  --border-light: rgba(255, 180, 80, 0.22);
+  --border-active: rgba(255, 149, 0, 0.6);
+
+  --shadow-glow: 0 0 24px var(--accent-glow);
 }
+
+/* Retro Keyboard Chassis */
+body.theme-retro .mech-keyboard {
+  background: #23201C;
+  border: 1px solid rgba(255, 180, 80, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 20px 42px rgba(0, 0, 0, 0.65),
+              0 0 0 1px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+/* Shared Keyboard Chassis Header & Status LEDs */
+.keyboard-chassis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.keyboard-retro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  padding: 3px 10px;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.retro-badge-brand {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--accent-primary);
+}
+
+.retro-badge-model {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+}
+
+.keyboard-retro-leds {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-base);
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.retro-led-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.retro-led-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  transition: all 0.15s ease;
+}
+
+.retro-led-dot.active {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary), 0 0 14px var(--accent-glow);
+}
+
+/* Theme-specific Badge & LED Overrides: Retro 1984 */
+body.theme-retro .keyboard-retro-badge {
+  background: linear-gradient(180deg, #38342D 0%, #28251F 100%);
+  border: 1px solid rgba(255, 180, 80, 0.3);
+}
+body.theme-retro .retro-badge-brand {
+  color: #FFB833;
+}
+body.theme-retro .retro-badge-model {
+  color: #C7BEAE;
+}
+body.theme-retro .keyboard-retro-leds {
+  background: #171512;
+  border: 1px solid rgba(255, 180, 80, 0.18);
+}
+body.theme-retro .retro-led-dot {
+  background: #42351E;
+}
+body.theme-retro .retro-led-dot.active {
+  background: #FF9500;
+  box-shadow: 0 0 8px #FF9500, 0 0 14px rgba(255, 149, 0, 0.75);
+}
+
+/* Two-Tone IBM Model M Keycaps: Alphanumerics in Parchment Beige */
 body.theme-retro .keycap {
-  background: #D8D2C2;
-  box-shadow: 0 4px 0 #9E9785, 0 5px 6px rgba(0, 0, 0, 0.4);
+  background: #E8E3D5;
+  color: #1A1815;
   border: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+              0 4px 0 #88806F,
+              0 6px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.12s ease;
 }
-body.theme-retro .key-legend-primary,
+
+/* Two-Tone IBM Model M Keycaps: Modifiers in Industrial Pebble Stone Gray */
+body.theme-retro .keycap.key-special,
+body.theme-retro .keycap.key-modifier,
+body.theme-retro .keycap:has(.key-legend-special) {
+  background: #B6AEA0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+              0 4px 0 #6E6759,
+              0 6px 8px rgba(0, 0, 0, 0.38);
+}
+
+/* Dye-Sublimated High Contrast Lettering */
+body.theme-retro .key-legend-primary {
+  color: #1A1815;
+  font-weight: 700;
+}
+
 body.theme-retro .key-legend-special {
-  color: #1A1A1A;
+  color: #1D1B18;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
+
 body.theme-retro .key-legend-shift {
-  color: #615E57;
+  color: #555045;
+  font-weight: 600;
 }
 
-/* 3. Theme: Cyberpunk Neon */
+/* Mechanical Buckling Spring Key Depression */
+body.theme-retro .keycap.key-pressed {
+  transform: translateY(3px) !important;
+  background: #D2CBBD !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25),
+              0 1px 0 #88806F,
+              0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+body.theme-retro .keycap.key-special.key-pressed,
+body.theme-retro .keycap.key-modifier.key-pressed,
+body.theme-retro .keycap:has(.key-legend-special).key-pressed {
+  background: #A29A8C !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3),
+              0 1px 0 #6E6759,
+              0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Held Modifier State */
+body.theme-retro .keycap.key-modifier-active {
+  transform: translateY(2px) !important;
+  background: #FFE4B0 !important;
+  border-color: #FF9500 !important;
+  box-shadow: 0 2px 0 #88806F, 0 0 14px rgba(255, 149, 0, 0.5) !important;
+}
+
+/* Target Key: Warm Amber Phosphor Halo */
+body.theme-retro .keycap.key-target {
+  background: #FFF0D0 !important;
+  border: 1.5px solid #FF9500 !important;
+  box-shadow: 0 4px 0 #88806F, 0 0 18px rgba(255, 149, 0, 0.65) !important;
+  animation: retroKeyGlowPulse 1.6s infinite ease-in-out;
+}
+
+body.theme-retro .keycap.key-target .key-legend-primary {
+  color: #A85500 !important;
+  font-weight: 800;
+}
+
+body.theme-retro .keycap.key-shift-target {
+  background: #FFF4DC !important;
+  border: 1.5px dashed #FF9500 !important;
+  box-shadow: 0 4px 0 #88806F, 0 0 14px rgba(255, 149, 0, 0.5) !important;
+  animation: retroKeyGlowPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes retroKeyGlowPulse {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 4px 0 #88806F, 0 0 12px rgba(255, 149, 0, 0.55);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 0 #88806F, 0 0 20px rgba(255, 149, 0, 0.85);
+  }
+}
+
+/* Tactile Homing Indicators for F and J */
+body.theme-retro .keycap-homing-nub {
+  background: #FF9500;
+  box-shadow: 0 0 6px rgba(255, 149, 0, 0.8);
+  height: 3px;
+}
+
+body.theme-retro .keycap-home-dot {
+  background: #FF9500;
+  opacity: 0.55;
+}
+
+/* Authentic Amber Phosphor CRT Terminal Screen */
+body.theme-retro .typing-box-card {
+  background: #0D0C09;
+  border: 1px solid rgba(255, 180, 80, 0.28);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.95),
+              inset 0 0 16px rgba(255, 149, 0, 0.08),
+              0 14px 32px rgba(0, 0, 0, 0.65);
+  position: relative;
+}
+
+/* CRT Scanlines Overlay */
+body.theme-retro .typing-box-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.2) 0px,
+    rgba(0, 0, 0, 0.2) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.65;
+}
+
+/* CRT Vignette Depth */
+body.theme-retro .typing-box-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 65%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Amber CRT Character Styling */
+body.theme-retro .char-upcoming {
+  color: #7B6342;
+}
+
+body.theme-retro .char-current {
+  color: #FFF2CC;
+  text-shadow: 0 0 10px rgba(255, 212, 128, 0.85);
+  font-weight: 800;
+}
+
+body.theme-retro .char-correct {
+  color: #FFB31A;
+  text-shadow: 0 0 8px rgba(255, 179, 26, 0.55);
+  font-weight: 700;
+}
+
+body.theme-retro .char-incorrect {
+  color: #FF473A !important;
+  background: rgba(255, 71, 58, 0.22) !important;
+  border-bottom: 2px solid #FF473A;
+  text-shadow: 0 0 10px rgba(255, 71, 58, 0.85);
+  font-weight: 800;
+}
+
+/* Caret: Amber Phosphor Terminal Line & Box */
+body.theme-retro .typing-smooth-caret .smooth-caret-box {
+  background: rgba(255, 149, 0, 0.22);
+  box-shadow: 0 0 12px rgba(255, 149, 0, 0.55);
+  border: 1px solid rgba(255, 149, 0, 0.45);
+}
+
+body.theme-retro .typing-smooth-caret .smooth-caret-line {
+  background: #FF9500;
+  box-shadow: 0 0 10px #FF9500;
+}
+
+/* HUD & Status in Retro Theme */
+body.theme-retro .lesson-hud {
+  background: #1C1A16;
+  border: 1px solid rgba(255, 180, 80, 0.16);
+}
+
+body.theme-retro .metric-pill-val {
+  color: #FFB833;
+  text-shadow: 0 0 6px rgba(255, 184, 51, 0.3);
+}
+
+body.theme-retro .hud-round-badge {
+  background: #27241E;
+  color: #FF9500;
+  border-color: rgba(255, 180, 80, 0.25);
+}
+
+body.theme-retro .hud-progress-fill {
+  background: linear-gradient(90deg, #FF9500, #FFCC00);
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.5);
+}
+
+/* 3. Theme: Cyberpunk Neon (Night City Synthwave) */
 body.theme-cyberpunk {
-  --bg-base: #090114;
-  --surface-1: #140529;
-  --surface-2: #210A42;
-  --surface-3: #321063;
+  --bg-base: #080112;
+  --surface-1: #110424;
+  --surface-2: #1B0738;
+  --surface-3: #280B52;
+  --surface-glass: rgba(17, 4, 36, 0.85);
+
   --accent-primary: #00F0FF; /* Electric Cyan */
-  --accent-primary-hover: #00C8D6;
-  --accent-glow: rgba(0, 240, 255, 0.45);
-  --success-teal: #00FF66;
-  --reward-amber: #FFE600;
-  --error-coral: #FF007F; /* Hot Pink */
+  --accent-primary-hover: #00D2E0;
+  --accent-glow: rgba(0, 240, 255, 0.5);
+
+  --success-teal: #00FF66; /* Neon Lime */
+  --success-glow: rgba(0, 255, 102, 0.4);
+
+  --reward-amber: #FFE600; /* Laser Yellow */
+  --reward-glow: rgba(255, 230, 0, 0.45);
+
+  --error-coral: #FF007F; /* Hot Magenta */
+  --error-glow: rgba(255, 0, 127, 0.55);
+
+  --text-primary: #E0F7FF;
+  --text-secondary: #B39DDB;
+  --text-muted: #7E57C2;
+
+  --border-subtle: rgba(0, 240, 255, 0.16);
+  --border-light: rgba(0, 240, 255, 0.3);
+  --border-active: rgba(255, 0, 127, 0.75);
+
+  --shadow-glow: 0 0 26px var(--accent-glow);
 }
+
+/* Cyberpunk Keyboard Chassis */
+body.theme-cyberpunk .mech-keyboard {
+  background: #100322;
+  border: 1px solid rgba(0, 240, 255, 0.32);
+  box-shadow: inset 0 1px 0 rgba(0, 240, 255, 0.2),
+              0 0 24px rgba(255, 0, 127, 0.16),
+              0 20px 42px rgba(0, 0, 0, 0.75),
+              0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+/* Cyberpunk Badge & Status LEDs */
+body.theme-cyberpunk .keyboard-retro-badge {
+  background: linear-gradient(180deg, #2D0B56 0%, #16042E 100%);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+}
+body.theme-cyberpunk .retro-badge-brand {
+  color: #00F0FF;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.7);
+}
+body.theme-cyberpunk .retro-badge-model {
+  color: #FF007F;
+  text-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
+}
+body.theme-cyberpunk .keyboard-retro-leds {
+  background: #090114;
+  border: 1px solid rgba(255, 0, 127, 0.3);
+}
+body.theme-cyberpunk .retro-led-item {
+  color: #7E57C2;
+}
+body.theme-cyberpunk .retro-led-dot {
+  background: #2D0B40;
+}
+body.theme-cyberpunk .retro-led-dot.active {
+  background: #00F0FF;
+  box-shadow: 0 0 10px #00F0FF, 0 0 16px rgba(0, 240, 255, 0.8);
+}
+
+/* Two-Tone Cyberpunk Keycaps */
 body.theme-cyberpunk .keycap {
-  background: #180830;
-  border-color: rgba(0, 240, 255, 0.2);
-  box-shadow: 0 4px 0 #080012, 0 0 10px rgba(255, 0, 127, 0.2);
+  background: #17072E;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 rgba(0, 240, 255, 0.3),
+              0 4px 0 #080014,
+              0 0 8px rgba(0, 240, 255, 0.15);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.12s ease;
 }
 
-/* 4. Theme: Botanical Forest */
+body.theme-cyberpunk .keycap.key-special,
+body.theme-cyberpunk .keycap.key-modifier,
+body.theme-cyberpunk .keycap:has(.key-legend-special) {
+  background: #280C4A;
+  border: 1px solid rgba(255, 0, 127, 0.35);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 0, 127, 0.3),
+              0 4px 0 #0E021C,
+              0 0 10px rgba(255, 0, 127, 0.2);
+}
+
+body.theme-cyberpunk .key-legend-primary {
+  color: #00F0FF;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+  font-weight: 700;
+}
+body.theme-cyberpunk .key-legend-special {
+  color: #FF2A85;
+  text-shadow: 0 0 6px rgba(255, 42, 133, 0.4);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+body.theme-cyberpunk .key-legend-shift {
+  color: #7DF8FF;
+  font-weight: 600;
+}
+
+/* Cyberpunk Pressed Key */
+body.theme-cyberpunk .keycap.key-pressed {
+  transform: translateY(3px) !important;
+  background: #0E021E !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6),
+              0 1px 0 #080014,
+              0 0 14px rgba(0, 240, 255, 0.35) !important;
+}
+body.theme-cyberpunk .keycap.key-special.key-pressed,
+body.theme-cyberpunk .keycap.key-modifier.key-pressed,
+body.theme-cyberpunk .keycap:has(.key-legend-special).key-pressed {
+  background: #1A0532 !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6),
+              0 1px 0 #0E021C,
+              0 0 14px rgba(255, 0, 127, 0.4) !important;
+}
+
+/* Cyberpunk Active Modifier */
+body.theme-cyberpunk .keycap.key-modifier-active {
+  transform: translateY(2px) !important;
+  background: rgba(255, 0, 127, 0.25) !important;
+  border-color: #FF007F !important;
+  box-shadow: 0 2px 0 #0E021C, 0 0 18px rgba(255, 0, 127, 0.7) !important;
+}
+
+/* Cyberpunk Target Key */
+body.theme-cyberpunk .keycap.key-target {
+  background: rgba(0, 240, 255, 0.22) !important;
+  border: 1.5px solid #00F0FF !important;
+  box-shadow: 0 4px 0 #080014, 0 0 22px #00F0FF, inset 0 0 10px rgba(0, 240, 255, 0.35) !important;
+  animation: cyberKeyGlowPulse 1.4s infinite ease-in-out;
+}
+body.theme-cyberpunk .keycap.key-target .key-legend-primary {
+  color: #FFFFFF !important;
+  text-shadow: 0 0 10px #00F0FF;
+}
+
+body.theme-cyberpunk .keycap.key-shift-target {
+  background: rgba(255, 230, 0, 0.2) !important;
+  border: 1.5px dashed #FFE600 !important;
+  box-shadow: 0 4px 0 #080014, 0 0 16px rgba(255, 230, 0, 0.6) !important;
+  animation: cyberKeyGlowPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes cyberKeyGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 0 #080014, 0 0 14px #00F0FF;
+  }
+  50% {
+    box-shadow: 0 4px 0 #080014, 0 0 26px #00F0FF;
+  }
+}
+
+body.theme-cyberpunk .keycap-homing-nub {
+  background: #00F0FF;
+  box-shadow: 0 0 8px #00F0FF;
+}
+
+/* Cyberpunk Typing Screen */
+body.theme-cyberpunk .typing-box-card {
+  background: #0A0118;
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.92),
+              0 0 22px rgba(0, 240, 255, 0.15),
+              0 14px 36px rgba(0, 0, 0, 0.75);
+}
+body.theme-cyberpunk .char-upcoming {
+  color: #634394;
+}
+body.theme-cyberpunk .char-current {
+  color: #FFFFFF;
+  text-shadow: 0 0 10px #00F0FF, 0 0 20px #00F0FF;
+}
+body.theme-cyberpunk .char-correct {
+  color: #00F0FF;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.7);
+}
+body.theme-cyberpunk .char-incorrect {
+  color: #FF007F !important;
+  background: rgba(255, 0, 127, 0.25) !important;
+  border-bottom: 2px solid #FF007F;
+  text-shadow: 0 0 12px rgba(255, 0, 127, 0.9);
+}
+body.theme-cyberpunk .typing-smooth-caret .smooth-caret-box {
+  background: rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.6);
+}
+body.theme-cyberpunk .typing-smooth-caret .smooth-caret-line {
+  background: #00F0FF;
+  box-shadow: 0 0 12px #00F0FF;
+}
+body.theme-cyberpunk .hud-progress-fill {
+  background: linear-gradient(90deg, #00F0FF, #FF007F);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.7);
+}
+
+/* 4. Theme: Botanical Forest (Nordic Moss & Sage) */
 body.theme-botanical {
-  --bg-base: #0B170E;
-  --surface-1: #132418;
-  --surface-2: #1B3322;
-  --surface-3: #264530;
-  --accent-primary: #52B788; /* Sage Emerald */
+  --bg-base: #08120A;
+  --surface-1: #0F1E14;
+  --surface-2: #162B1D;
+  --surface-3: #203A28;
+  --surface-glass: rgba(15, 30, 20, 0.88);
+
+  --accent-primary: #52B788; /* Mint Sage Emerald */
   --accent-primary-hover: #40916C;
-  --accent-glow: rgba(82, 183, 136, 0.35);
+  --accent-glow: rgba(82, 183, 136, 0.4);
+
   --success-teal: #74C69D;
+  --success-glow: rgba(116, 198, 157, 0.35);
+
   --reward-amber: #D8F3DC;
-}
-body.theme-botanical .keycap {
-  background: #172D1E;
-  border-color: rgba(82, 183, 136, 0.25);
-  box-shadow: 0 4px 0 #09130C, 0 4px 6px rgba(0, 0, 0, 0.4);
+  --reward-glow: rgba(216, 243, 220, 0.4);
+
+  --error-coral: #E07A5F; /* Terracotta Clay */
+  --error-glow: rgba(224, 122, 95, 0.45);
+
+  --text-primary: #EEF8F1;
+  --text-secondary: #B7D5C2;
+  --text-muted: #79A387;
+
+  --border-subtle: rgba(82, 183, 136, 0.14);
+  --border-light: rgba(82, 183, 136, 0.24);
+  --border-active: rgba(82, 183, 136, 0.6);
+
+  --shadow-glow: 0 0 24px var(--accent-glow);
 }
 
-/* 5. Theme: Tokyo Night / Dracula */
+/* Botanical Keyboard Chassis */
+body.theme-botanical .mech-keyboard {
+  background: #112217;
+  border: 1px solid rgba(82, 183, 136, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 20px 42px rgba(0, 0, 0, 0.68),
+              0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+/* Botanical Badge & Status LEDs */
+body.theme-botanical .keyboard-retro-badge {
+  background: linear-gradient(180deg, #244633 0%, #152A1F 100%);
+  border: 1px solid rgba(82, 183, 136, 0.35);
+}
+body.theme-botanical .retro-badge-brand {
+  color: #74C69D;
+}
+body.theme-botanical .retro-badge-model {
+  color: #D8F3DC;
+}
+body.theme-botanical .keyboard-retro-leds {
+  background: #0A160D;
+  border: 1px solid rgba(82, 183, 136, 0.2);
+}
+body.theme-botanical .retro-led-item {
+  color: #79A387;
+}
+body.theme-botanical .retro-led-dot {
+  background: #1B3525;
+}
+body.theme-botanical .retro-led-dot.active {
+  background: #52B788;
+  box-shadow: 0 0 8px #52B788, 0 0 14px rgba(82, 183, 136, 0.7);
+}
+
+/* Two-Tone Botanical Keycaps: Alphas in Birch Ivory */
+body.theme-botanical .keycap {
+  background: #DCE7DF;
+  color: #132B1D;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+              0 4px 0 #859B8E,
+              0 5px 7px rgba(0, 0, 0, 0.35);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.12s ease;
+}
+
+/* Modifiers in Deep Alpine Spruce */
+body.theme-botanical .keycap.key-special,
+body.theme-botanical .keycap.key-modifier,
+body.theme-botanical .keycap:has(.key-legend-special) {
+  background: #254634;
+  border: 1px solid rgba(82, 183, 136, 0.25);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+              0 4px 0 #12241A,
+              0 5px 7px rgba(0, 0, 0, 0.4);
+}
+
+body.theme-botanical .key-legend-primary {
+  color: #132B1D;
+  font-weight: 700;
+}
+body.theme-botanical .key-legend-special {
+  color: #D8F3DC;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+body.theme-botanical .key-legend-shift {
+  color: #436551;
+  font-weight: 600;
+}
+
+/* Botanical Pressed Key */
+body.theme-botanical .keycap.key-pressed {
+  transform: translateY(3px) !important;
+  background: #C4D3C8 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25),
+              0 1px 0 #859B8E,
+              0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+body.theme-botanical .keycap.key-special.key-pressed,
+body.theme-botanical .keycap.key-modifier.key-pressed,
+body.theme-botanical .keycap:has(.key-legend-special).key-pressed {
+  background: #1C3628 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35),
+              0 1px 0 #12241A,
+              0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Botanical Active Modifier */
+body.theme-botanical .keycap.key-modifier-active {
+  transform: translateY(2px) !important;
+  background: #A9DFBF !important;
+  border-color: #52B788 !important;
+  box-shadow: 0 2px 0 #859B8E, 0 0 14px rgba(82, 183, 136, 0.55) !important;
+}
+
+/* Botanical Target Key */
+body.theme-botanical .keycap.key-target {
+  background: #C6EBD1 !important;
+  border: 1.5px solid #52B788 !important;
+  box-shadow: 0 4px 0 #859B8E, 0 0 18px rgba(82, 183, 136, 0.65) !important;
+  animation: botanicalKeyGlowPulse 1.6s infinite ease-in-out;
+}
+body.theme-botanical .keycap.key-target .key-legend-primary {
+  color: #0E2918 !important;
+  font-weight: 800;
+}
+
+body.theme-botanical .keycap.key-shift-target {
+  background: #D9F4E1 !important;
+  border: 1.5px dashed #52B788 !important;
+  box-shadow: 0 4px 0 #859B8E, 0 0 14px rgba(82, 183, 136, 0.5) !important;
+  animation: botanicalKeyGlowPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes botanicalKeyGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 0 #859B8E, 0 0 12px rgba(82, 183, 136, 0.55);
+  }
+  50% {
+    box-shadow: 0 4px 0 #859B8E, 0 0 20px rgba(82, 183, 136, 0.85);
+  }
+}
+
+body.theme-botanical .keycap-homing-nub {
+  background: #52B788;
+  box-shadow: 0 0 6px rgba(82, 183, 136, 0.8);
+}
+
+/* Botanical Typing Screen */
+body.theme-botanical .typing-box-card {
+  background: #0C1710;
+  border: 1px solid rgba(82, 183, 136, 0.25);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05),
+              0 14px 34px rgba(0, 0, 0, 0.65);
+}
+body.theme-botanical .char-upcoming {
+  color: #5D856B;
+}
+body.theme-botanical .char-current {
+  color: #FFFFFF;
+  text-shadow: 0 0 8px rgba(116, 198, 157, 0.6);
+  font-weight: 800;
+}
+body.theme-botanical .char-correct {
+  color: #74C69D;
+  text-shadow: 0 0 6px rgba(116, 198, 157, 0.45);
+}
+body.theme-botanical .char-incorrect {
+  color: #E07A5F !important;
+  background: rgba(224, 122, 95, 0.22) !important;
+  border-bottom: 2px solid #E07A5F;
+  text-shadow: 0 0 10px rgba(224, 122, 95, 0.7);
+}
+body.theme-botanical .typing-smooth-caret .smooth-caret-box {
+  background: rgba(82, 183, 136, 0.22);
+  box-shadow: 0 0 12px rgba(82, 183, 136, 0.5);
+  border: 1px solid rgba(82, 183, 136, 0.4);
+}
+body.theme-botanical .typing-smooth-caret .smooth-caret-line {
+  background: #52B788;
+  box-shadow: 0 0 10px #52B788;
+}
+body.theme-botanical .hud-progress-fill {
+  background: linear-gradient(90deg, #52B788, #74C69D);
+  box-shadow: 0 0 8px rgba(82, 183, 136, 0.5);
+}
+
+/* 5. Theme: Tokyo Night / Dracula (Neo-Shibuya Twilight) */
 body.theme-tokyo {
-  --bg-base: #1A1B26;
-  --surface-1: #24283B;
-  --surface-2: #2E344F;
-  --surface-3: #3B4263;
+  --bg-base: #13141F;
+  --surface-1: #1A1B2A;
+  --surface-2: #222437;
+  --surface-3: #2D3048;
+  --surface-glass: rgba(26, 27, 42, 0.88);
+
   --accent-primary: #BB9AF7; /* Pastel Violet */
   --accent-primary-hover: #A476F5;
-  --accent-glow: rgba(187, 154, 247, 0.35);
-  --success-teal: #7DCFFF;
-  --reward-amber: #E0AF68;
+  --accent-glow: rgba(187, 154, 247, 0.4);
+
+  --success-teal: #7DCFFF; /* Pastel Cyan */
+  --success-glow: rgba(125, 207, 255, 0.35);
+
+  --reward-amber: #E0AF68; /* Golden Sunset */
+  --reward-glow: rgba(224, 175, 104, 0.4);
+
+  --error-coral: #F7768E; /* Sakura Pink / Red */
+  --error-glow: rgba(247, 118, 142, 0.45);
+
+  --text-primary: #F0F1FB;
+  --text-secondary: #A9B1D6;
+  --text-muted: #787C99;
+
+  --border-subtle: rgba(187, 154, 247, 0.14);
+  --border-light: rgba(187, 154, 247, 0.24);
+  --border-active: rgba(187, 154, 247, 0.6);
+
+  --shadow-glow: 0 0 24px var(--accent-glow);
 }
+
+/* Tokyo Night Keyboard Chassis */
+body.theme-tokyo .mech-keyboard {
+  background: #171826;
+  border: 1px solid rgba(187, 154, 247, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 20px 42px rgba(0, 0, 0, 0.7),
+              0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+/* Tokyo Night Badge & Status LEDs */
+body.theme-tokyo .keyboard-retro-badge {
+  background: linear-gradient(180deg, #2B2E4A 0%, #1A1B2C 100%);
+  border: 1px solid rgba(187, 154, 247, 0.35);
+}
+body.theme-tokyo .retro-badge-brand {
+  color: #BB9AF7;
+}
+body.theme-tokyo .retro-badge-model {
+  color: #7DCFFF;
+}
+body.theme-tokyo .keyboard-retro-leds {
+  background: #0F1019;
+  border: 1px solid rgba(187, 154, 247, 0.2);
+}
+body.theme-tokyo .retro-led-item {
+  color: #787C99;
+}
+body.theme-tokyo .retro-led-dot {
+  background: #25273C;
+}
+body.theme-tokyo .retro-led-dot.active {
+  background: #BB9AF7;
+  box-shadow: 0 0 8px #BB9AF7, 0 0 14px rgba(187, 154, 247, 0.7);
+}
+
+/* Two-Tone Tokyo Night Keycaps: Alphas in Midnight Indigo */
 body.theme-tokyo .keycap {
-  background: #202436;
-  border-color: rgba(187, 154, 247, 0.2);
-  box-shadow: 0 4px 0 #13151F, 0 4px 6px rgba(0, 0, 0, 0.4);
+  background: #1F2134;
+  border: 1px solid rgba(125, 207, 255, 0.18);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
+              0 4px 0 #10111D,
+              0 5px 6px rgba(0, 0, 0, 0.45);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.12s ease;
+}
+
+/* Modifiers in Twilight Royal Slate */
+body.theme-tokyo .keycap.key-special,
+body.theme-tokyo .keycap.key-modifier,
+body.theme-tokyo .keycap:has(.key-legend-special) {
+  background: #2C2D46;
+  border: 1px solid rgba(187, 154, 247, 0.25);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 0 rgba(187, 154, 247, 0.18),
+              0 4px 0 #161725,
+              0 5px 6px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-tokyo .key-legend-primary {
+  color: #7DCFFF;
+  font-weight: 700;
+}
+body.theme-tokyo .key-legend-special {
+  color: #BB9AF7;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+body.theme-tokyo .key-legend-shift {
+  color: #A9B1D6;
+  font-weight: 600;
+}
+
+/* Tokyo Night Pressed Key */
+body.theme-tokyo .keycap.key-pressed {
+  transform: translateY(3px) !important;
+  background: #151624 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4),
+              0 1px 0 #10111D,
+              0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+body.theme-tokyo .keycap.key-special.key-pressed,
+body.theme-tokyo .keycap.key-modifier.key-pressed,
+body.theme-tokyo .keycap:has(.key-legend-special).key-pressed {
+  background: #1E1F32 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45),
+              0 1px 0 #161725,
+              0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Tokyo Night Active Modifier */
+body.theme-tokyo .keycap.key-modifier-active {
+  transform: translateY(2px) !important;
+  background: rgba(187, 154, 247, 0.25) !important;
+  border-color: #BB9AF7 !important;
+  box-shadow: 0 2px 0 #161725, 0 0 14px rgba(187, 154, 247, 0.55) !important;
+}
+
+/* Tokyo Night Target Key */
+body.theme-tokyo .keycap.key-target {
+  background: rgba(187, 154, 247, 0.22) !important;
+  border: 1.5px solid #BB9AF7 !important;
+  box-shadow: 0 4px 0 #10111D, 0 0 18px rgba(187, 154, 247, 0.65) !important;
+  animation: tokyoKeyGlowPulse 1.6s infinite ease-in-out;
+}
+body.theme-tokyo .keycap.key-target .key-legend-primary {
+  color: #FFFFFF !important;
+  text-shadow: 0 0 8px #BB9AF7;
+  font-weight: 800;
+}
+
+body.theme-tokyo .keycap.key-shift-target {
+  background: rgba(247, 118, 142, 0.2) !important;
+  border: 1.5px dashed #F7768E !important;
+  box-shadow: 0 4px 0 #10111D, 0 0 14px rgba(247, 118, 142, 0.5) !important;
+  animation: tokyoKeyGlowPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes tokyoKeyGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 0 #10111D, 0 0 12px rgba(187, 154, 247, 0.55);
+  }
+  50% {
+    box-shadow: 0 4px 0 #10111D, 0 0 20px rgba(187, 154, 247, 0.85);
+  }
+}
+
+body.theme-tokyo .keycap-homing-nub {
+  background: #BB9AF7;
+  box-shadow: 0 0 6px rgba(187, 154, 247, 0.8);
+}
+
+/* Tokyo Night Typing Screen */
+body.theme-tokyo .typing-box-card {
+  background: #121320;
+  border: 1px solid rgba(187, 154, 247, 0.25);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06),
+              0 14px 34px rgba(0, 0, 0, 0.65);
+}
+body.theme-tokyo .char-upcoming {
+  color: #636785;
+}
+body.theme-tokyo .char-current {
+  color: #FFFFFF;
+  text-shadow: 0 0 8px rgba(187, 154, 247, 0.65);
+  font-weight: 800;
+}
+body.theme-tokyo .char-correct {
+  color: #7DCFFF;
+  text-shadow: 0 0 6px rgba(125, 207, 255, 0.5);
+}
+body.theme-tokyo .char-incorrect {
+  color: #F7768E !important;
+  background: rgba(247, 118, 142, 0.22) !important;
+  border-bottom: 2px solid #F7768E;
+  text-shadow: 0 0 10px rgba(247, 118, 142, 0.7);
+}
+body.theme-tokyo .typing-smooth-caret .smooth-caret-box {
+  background: rgba(187, 154, 247, 0.22);
+  box-shadow: 0 0 12px rgba(187, 154, 247, 0.55);
+  border: 1px solid rgba(187, 154, 247, 0.45);
+}
+body.theme-tokyo .typing-smooth-caret .smooth-caret-line {
+  background: #BB9AF7;
+  box-shadow: 0 0 10px #BB9AF7;
+}
+body.theme-tokyo .hud-progress-fill {
+  background: linear-gradient(90deg, #BB9AF7, #7DCFFF);
+  box-shadow: 0 0 8px rgba(187, 154, 247, 0.5);
 }
 
 /* Blind Mode Keycaps */
