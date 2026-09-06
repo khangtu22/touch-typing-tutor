@@ -816,18 +816,19 @@
   letter-spacing: 0.5px;
 }
 
-.char-correct {
+.nitro-text-display .char-correct {
   color: #00D4AA;
 }
 
-.char-current {
+/* Nitro uses an inline cursor; keep it out of the lesson/Zen sliding caret. */
+.nitro-text-display .char-current {
   color: #FFFFFF;
   background: rgba(124, 92, 252, 0.4);
   border-bottom: 2px solid var(--accent-primary);
   border-radius: 2px;
 }
 
-.char-upcoming {
+.nitro-text-display .char-upcoming {
   color: rgba(255, 255, 255, 0.35);
 }
 

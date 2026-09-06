@@ -18,14 +18,14 @@
   <link rel="stylesheet" href="styles/themes.css?v=3.8.1">
   <link rel="stylesheet" href="styles/keyboard.css?v=3.8.1">
   <link rel="stylesheet" href="styles/hand-guide.css?v=3.8.1">
-  <link rel="stylesheet" href="styles/typing-area.css?v=3.8.1">
+  <link rel="stylesheet" href="styles/typing-area.css?v=3.8.1-caret2">
   <link rel="stylesheet" href="styles/dashboard.css?v=3.8.1">
   <link rel="stylesheet" href="styles/custom-practice.css?v=3.8.1">
-  <link rel="stylesheet" href="styles/racing.css?v=3.8.1">
+  <link rel="stylesheet" href="styles/racing.css?v=3.8.1-race2">
   <link rel="stylesheet" href="styles/results.css?v=3.8.1">
   <link rel="stylesheet" href="styles/components.css?v=3.8.1">
-  <link rel="stylesheet" href="styles/premium.css?v=3.8.1">
-  <link rel="stylesheet" href="styles/arcade.css?v=3.8.1">
+  <link rel="stylesheet" href="styles/premium.css?v=3.8.1-results2">
+  <link rel="stylesheet" href="styles/arcade.css?v=3.8.1-caret3">
   <link rel="stylesheet" href="styles/typing-quest.css?v=3.8.1">
 </head>
 <body class="theme-dark">
@@ -204,7 +204,13 @@
           <!-- Active Text Box -->
           <div class="typing-box-card">
             <div class="typing-text-viewport" aria-live="off">
-              <div id="typing-text-display" class="typing-text-display"></div>
+              <div id="typing-text-display" class="typing-text-display">
+                <div id="typing-smooth-caret" class="typing-smooth-caret" aria-hidden="true">
+                  <div class="smooth-caret-box"></div>
+                  <div class="smooth-caret-line"></div>
+                </div>
+                <div id="typing-text-content" class="typing-text-content"></div>
+              </div>
             </div>
           </div>
 

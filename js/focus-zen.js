@@ -611,6 +611,7 @@ class ZenModeManager {
     if (this.isActive) return;
     this.isActive = true;
     this._onType = onType;
+    this._caretState = null;
 
     const overlay = this._buildOverlay(options);
     document.body.appendChild(overlay);
@@ -677,8 +678,12 @@ class ZenModeManager {
    */
   renderText(html, meta = {}) {
     if (!this._overlay) return;
+    const textContainer = this._overlay.querySelector('#zen-text-content');
     const content = this._overlay.querySelector('.zen-typing-content');
-    if (content) {
+    if (textContainer) {
+      textContainer.innerHTML = html;
+      this.updateSmoothCaret();
+    } else if (content) {
       content.innerHTML = html;
     }
 
@@ -706,15 +711,81 @@ class ZenModeManager {
   }
 
   /**
+   * Update smooth sliding caret in Zen mode.
+   */
+  updateSmoothCaret(forceSnap = false) {
+    if (!this._overlay) return;
+    const caret = this._overlay.querySelector('#zen-smooth-caret');
+    const content = this._overlay.querySelector('.zen-typing-content');
+    if (!caret || !content) return;
+
+    const target = content.querySelector('.char-current');
+    if (!target) {
+      clearTimeout(this._caretErrorTimer);
+      caret.classList.remove('caret-error');
+      caret.style.opacity = '0';
+      return;
+    }
+
+    const contentRect = content.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const x = targetRect.left - contentRect.left;
+    const y = targetRect.top - contentRect.top;
+    const width = target.offsetWidth || targetRect.width || 16;
+    const height = target.offsetHeight || targetRect.height || 40;
+
+    const prevState = this._caretState || { x: null, y: null };
+    const currentIndex = target.dataset.charIndex;
+    if (prevState.currentIndex !== currentIndex || prevState.x !== x || prevState.y !== y) {
+      clearTimeout(this._caretErrorTimer);
+      caret.classList.remove('caret-error');
+    }
+    const shouldSnap = forceSnap || prevState.x === null;
+
+    if (shouldSnap) {
+      caret.classList.add('no-transition');
+    } else {
+      caret.classList.remove('no-transition');
+      void caret.offsetWidth;
+    }
+
+    caret.style.width = `${Math.round(width)}px`;
+    caret.style.height = `${Math.round(height)}px`;
+    caret.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
+    caret.style.opacity = '1';
+
+    if (shouldSnap) {
+      void caret.offsetWidth;
+      caret.classList.remove('no-transition');
+    }
+
+    caret.classList.add('is-typing');
+    clearTimeout(this._caretIdleTimer);
+    this._caretIdleTimer = setTimeout(() => {
+      caret?.classList.remove('is-typing');
+    }, 450);
+
+    this._caretState = { x, y, currentIndex };
+  }
+
+  /**
    * Trigger error shake on current character.
    */
   triggerError() {
     if (!this._overlay) return;
-    const currentCharEl = this._overlay.querySelector('.char-current, .char-incorrect');
+    const currentCharEl = this._overlay.querySelector('.char-current');
     if (currentCharEl) {
       currentCharEl.classList.remove('char-error-shake');
       void currentCharEl.offsetWidth; // trigger reflow
       currentCharEl.classList.add('char-error-shake');
+    }
+    const caret = this._overlay.querySelector('#zen-smooth-caret');
+    if (caret) {
+      clearTimeout(this._caretErrorTimer);
+      caret.classList.remove('caret-error');
+      void caret.offsetWidth;
+      caret.classList.add('caret-error');
+      this._caretErrorTimer = setTimeout(() => caret?.classList.remove('caret-error'), 250);
     }
   }
 
@@ -825,7 +896,13 @@ class ZenModeManager {
       <div class="zen-typing-container">
         <div class="zen-typing-area">
           <div class="zen-typing-content">
-            <p class="zen-placeholder">Start typing to begin...</p>
+            <div id="zen-smooth-caret" class="zen-smooth-caret" aria-hidden="true">
+              <div class="smooth-caret-box"></div>
+              <div class="smooth-caret-line"></div>
+            </div>
+            <div id="zen-text-content" class="zen-text-content">
+              <p class="zen-placeholder">Start typing to begin...</p>
+            </div>
           </div>
         </div>
       </div>

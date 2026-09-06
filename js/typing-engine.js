@@ -272,6 +272,10 @@ export class TypingEngine {
   }
 
   handleKeyDown(e) {
+    // Intermediate IME input and keys belonging to form controls aren't attempts.
+    if (e.isComposing || e.keyCode === 229 || e.target?.closest?.(
+      'input, textarea, select, [contenteditable]:not([contenteditable="false"])'
+    )) return;
     // Ignore keyboard shortcuts with Command/Ctrl (e.g. Cmd+K, Cmd+R, Cmd+C, Ctrl+C)
     if (e.metaKey || e.ctrlKey) {
       return;

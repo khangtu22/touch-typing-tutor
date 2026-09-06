@@ -70,7 +70,12 @@ body.focus-mode-active .char-current {
   box-shadow: none;
 }
 
-body.focus-mode-active .char-caret {
+body.focus-mode-active .typing-smooth-caret .smooth-caret-box {
+  background: transparent;
+  box-shadow: none;
+}
+
+body.focus-mode-active .typing-smooth-caret .smooth-caret-line {
   top: -2px;
   bottom: auto;
   left: -2px;
@@ -299,6 +304,70 @@ body.focus-mode-active .hud-live-metrics {
   overflow-wrap: break-word;
   user-select: none;
   color: rgba(255, 255, 255, 0.9);
+  position: relative;
+}
+
+.zen-text-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+.zen-smooth-caret {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: transform 160ms cubic-bezier(0.25, 0.1, 0.25, 1),
+              width 160ms ease,
+              height 160ms ease,
+              opacity 0.12s ease;
+  will-change: transform, width, height;
+}
+
+.zen-smooth-caret.no-transition {
+  transition: none !important;
+}
+
+.zen-smooth-caret .smooth-caret-box {
+  position: absolute;
+  inset: 0;
+  background: rgba(124, 92, 252, 0.25);
+  border-radius: 3px;
+  box-shadow: 0 0 12px rgba(124, 92, 252, 0.4);
+}
+
+.zen-smooth-caret .smooth-caret-line {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #7C5CFC;
+  border-radius: 2px;
+  box-shadow: 0 0 8px #7C5CFC;
+  animation: caretBlink 1s infinite ease-in-out;
+}
+
+.zen-smooth-caret.is-typing .smooth-caret-line {
+  animation: none;
+  opacity: 1;
+}
+
+.zen-smooth-caret.caret-error .smooth-caret-box {
+  background: rgba(255, 92, 122, 0.35) !important;
+  box-shadow: 0 0 14px rgba(255, 92, 122, 0.6) !important;
+}
+
+.zen-smooth-caret.caret-error .smooth-caret-line {
+  background: #FF5C7A !important;
+  box-shadow: 0 0 10px rgba(255, 92, 122, 0.8) !important;
+}
+
+.zen-smooth-caret.caret-error .smooth-caret-box {
+  animation: keyShake 0.25s ease-in-out;
 }
 
 .zen-typing-content .zen-placeholder {
@@ -334,20 +403,10 @@ body.focus-mode-active .hud-live-metrics {
 .zen-typing-content .char-current {
   color: #FFFFFF;
   font-weight: 700;
-  background: rgba(124, 92, 252, 0.25);
-  border-radius: 3px;
 }
 
 .zen-typing-content .char-current .char-caret {
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: #7C5CFC;
-  border-radius: 2px;
-  box-shadow: 0 0 8px #7C5CFC;
-  animation: caretBlink 1s infinite ease-in-out;
+  display: none !important;
 }
 
 .zen-typing-content .char-incorrect {
@@ -2454,6 +2513,10 @@ body.focus-mode-active .hud-live-metrics {
    FEATURE 2: MISSED WORDS RESULTS CALLOUT
    =============================================== */
 .missed-words-callout {
+  /* Match adjacent results cards instead of sizing to the word count. */
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   background: rgba(255, 184, 107, 0.08);
   border: 1px solid rgba(255, 184, 107, 0.35);
   border-radius: var(--radius-md);
@@ -2474,6 +2537,8 @@ body.focus-mode-active .hud-live-metrics {
 }
 
 .missed-word-tag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   background: rgba(255, 92, 122, 0.15);
   border: 1px solid rgba(255, 92, 122, 0.35);
   color: var(--error-coral);

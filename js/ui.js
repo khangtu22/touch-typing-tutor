@@ -115,6 +115,25 @@ export class UIManager {
     this.hudTimerWrapper = document.getElementById('hud-timer-wrapper');
     this.hudTimerAnnouncementEl = document.getElementById('hud-timer-announcement');
     this.typingTextDisplay = document.getElementById('typing-text-display');
+    this.typingTextContent = document.getElementById('typing-text-content');
+    this.typingSmoothCaret = document.getElementById('typing-smooth-caret');
+
+    if (this.typingTextDisplay && (!this.typingTextContent || !this.typingSmoothCaret)) {
+      if (!this.typingSmoothCaret) {
+        this.typingSmoothCaret = document.createElement('div');
+        this.typingSmoothCaret.id = 'typing-smooth-caret';
+        this.typingSmoothCaret.className = 'typing-smooth-caret';
+        this.typingSmoothCaret.setAttribute('aria-hidden', 'true');
+        this.typingSmoothCaret.innerHTML = '<div class="smooth-caret-box"></div><div class="smooth-caret-line"></div>';
+        this.typingTextDisplay.prepend(this.typingSmoothCaret);
+      }
+      if (!this.typingTextContent) {
+        this.typingTextContent = document.createElement('div');
+        this.typingTextContent.id = 'typing-text-content';
+        this.typingTextContent.className = 'typing-text-content';
+        this.typingTextDisplay.appendChild(this.typingTextContent);
+      }
+    }
     this.hudCorrectionBadge = document.getElementById('hud-correction-badge');
     this.keyboardContainer = document.getElementById('keyboard-container');
     this.handGuideContainer = document.getElementById('hand-guide-container');
@@ -149,9 +168,22 @@ export class UIManager {
     if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
 
+    // Window Resize Handler for Smooth Caret and Viewport Alignment
+    window.addEventListener('resize', () => {
+      if (this.activeScreen === 'lesson' && typingEngine.currentText) {
+        this.updateTypingViewport(typingEngine.currentText, typingEngine.charIndex, true);
+        this.updateSmoothCaret(typingEngine.currentText, typingEngine.charIndex, true);
+      }
+    });
+
     // Global Keydown Handler
     window.addEventListener('keydown', (e) => {
       sound.resume();
+
+      // Dialog search and form controls own their keyboard input.
+      if (this.commandPalette?.isOpen || e.target?.closest?.(
+        'input, textarea, select, [contenteditable]:not([contenteditable="false"])'
+      ) && this.activeScreen === 'lesson') return;
 
       const isFocusModeShortcut = e.key.toLowerCase() === 'f' &&
         (e.shiftKey && (e.ctrlKey || e.metaKey) && !e.altKey);
@@ -3003,6 +3035,7 @@ export class UIManager {
       this.raceTrackContainer.style.display = state.settings.ghostMode === 'off' ? 'none' : 'flex';
     }
 
+    this.smoothCaretState = null;
     typingEngine.startLesson(lessonData);
   }
 
@@ -3104,11 +3137,21 @@ export class UIManager {
 
   renderTypingText(text, currentIndex, charStates = [], mistypedCharIndices = new Set(), charToWord = [], wordCorrectionMode = false) {
     if (!text) {
+      if (this.typingTextContent) {
+        this.typingTextContent.innerHTML = '';
+      } else if (this.typingTextDisplay) {
+        this.typingTextDisplay.innerHTML = '';
+      }
       if (this.typingTextDisplay) {
         this.typingTextDisplay.classList.remove('typing-window-animate');
         this.typingTextDisplay.style.setProperty('--typing-window-translate', '0px');
-        this.typingTextDisplay.innerHTML = '';
       }
+      if (this.typingSmoothCaret) {
+        this.typingSmoothCaret.style.opacity = '0';
+      }
+      this.smoothCaretState = null;
+      clearTimeout(this.smoothCaretErrorTimer);
+      this.typingSmoothCaret?.classList.remove('caret-error');
       this.typingViewportState = { text: null, currentIndex: null, windowStart: 0 };
       if (zenMode.isActive) zenMode.renderText('');
       return;
@@ -3138,7 +3181,7 @@ export class UIManager {
           charSpan = `<span class="char-token char-correct${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
         }
       } else if (i === currentIndex) {
-        charSpan = `<span class="char-token char-current${spaceClass}" ${charIndexAttribute}><span class="char-caret"></span>${displayChar}</span>`;
+        charSpan = `<span class="char-token char-current${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
       } else {
         charSpan = `<span class="char-token char-upcoming${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
       }
@@ -3163,8 +3206,13 @@ export class UIManager {
     }
 
     if (this.typingTextDisplay) {
-      this.typingTextDisplay.innerHTML = html;
+      if (this.typingTextContent) {
+        this.typingTextContent.innerHTML = html;
+      } else {
+        this.typingTextDisplay.innerHTML = html;
+      }
       this.updateTypingViewport(text, currentIndex);
+      this.updateSmoothCaret(text, currentIndex);
     }
 
     if (zenMode.isActive) {
@@ -3180,12 +3228,89 @@ export class UIManager {
   }
 
   /**
+   * Update the smooth sliding caret position.
+   * Glides smoothly horizontally and vertically when moving between characters,
+   * including line wraps, and pauses blink while actively typing.
+   */
+  updateSmoothCaret(text, currentIndex, forceSnap = false) {
+    if (!this.typingSmoothCaret || !this.typingTextDisplay) return;
+    if (!text || currentIndex === null || currentIndex === undefined) {
+      this.typingSmoothCaret.style.opacity = '0';
+      return;
+    }
+
+    const boundedIndex = Math.min(Math.max(Number(currentIndex) || 0, 0), Math.max(0, text.length - 1));
+    const target = this.typingTextDisplay.querySelector(`[data-char-index="${boundedIndex}"]`);
+    if (!target) {
+      this.typingSmoothCaret.style.opacity = '0';
+      return;
+    }
+
+    let x, y;
+    if (target.offsetParent === this.typingTextDisplay) {
+      x = target.offsetLeft;
+      y = target.offsetTop;
+    } else {
+      const displayRect = this.typingTextDisplay.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      x = targetRect.left - displayRect.left;
+      y = targetRect.top - displayRect.top;
+    }
+
+    let width = target.offsetWidth;
+    let height = target.offsetHeight;
+
+    if (currentIndex >= text.length) {
+      x += width;
+      width = 3;
+    }
+
+    const prevState = this.smoothCaretState || { x: null, y: null, text: null };
+    if (prevState.text !== text || prevState.currentIndex !== currentIndex) {
+      clearTimeout(this.smoothCaretErrorTimer);
+      this.typingSmoothCaret.classList.remove('caret-error');
+    }
+    // Telemetry refreshes must not restart the caret's idle timer or animation.
+    if (!forceSnap && prevState.text === text && prevState.currentIndex === currentIndex &&
+        prevState.x === x && prevState.y === y) return;
+    const isNewRound = prevState.text !== text;
+    const shouldSnap = forceSnap || isNewRound || prevState.x === null;
+
+    if (shouldSnap) {
+      this.typingSmoothCaret.classList.add('no-transition');
+    } else {
+      this.typingSmoothCaret.classList.remove('no-transition');
+      // Commit the existing position before retargeting, even when multiple
+      // keystrokes arrive before the browser's next paint.
+      void this.typingSmoothCaret.offsetWidth;
+    }
+
+    this.typingSmoothCaret.style.width = `${Math.round(width)}px`;
+    this.typingSmoothCaret.style.height = `${Math.round(height)}px`;
+    this.typingSmoothCaret.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
+    this.typingSmoothCaret.style.opacity = '1';
+
+    if (shouldSnap) {
+      void this.typingSmoothCaret.offsetWidth; // Force reflow so snap applies immediately
+      this.typingSmoothCaret.classList.remove('no-transition');
+    }
+
+    this.typingSmoothCaret.classList.add('is-typing');
+    clearTimeout(this.smoothCaretIdleTimer);
+    this.smoothCaretIdleTimer = setTimeout(() => {
+      this.typingSmoothCaret?.classList.remove('is-typing');
+    }, 450);
+
+    this.smoothCaretState = { x, y, text, currentIndex };
+  }
+
+  /**
    * Keep the active character inside a three-line window. The offset is
    * intentionally based on the caret's actual rendered line instead of a
    * character-count guess, so it remains correct at every viewport width and
    * font size. It only animates when typing crosses the window boundary.
    */
-  updateTypingViewport(text, currentIndex) {
+  updateTypingViewport(text, currentIndex, forceSnap = false) {
     const display = this.typingTextDisplay;
     if (!display) return;
 
@@ -3208,10 +3333,15 @@ export class UIManager {
     const movedToAnotherWindow = isSameText && previousState.windowStart !== windowStart;
     const movedCaret = isSameText && previousState.currentIndex !== null && previousState.currentIndex !== currentIndex;
 
-    // Remove the transition before resetting a new round or recalculating a
-    // stable position. This prevents an idle render from making the text move.
-    display.classList.toggle('typing-window-animate', movedToAnotherWindow && movedCaret);
+    // Keep an in-flight scroll alive across rapid keystrokes and telemetry
+    // refreshes. Only a new round or explicit layout reset should snap.
+    if (!isSameText || forceSnap) {
+      display.classList.remove('typing-window-animate');
+    } else if (movedToAnotherWindow && movedCaret) {
+      display.classList.add('typing-window-animate');
+    }
     display.style.setProperty('--typing-window-translate', `${-windowStart * lineHeight}px`);
+    if (!isSameText || forceSnap) void display.offsetHeight;
     this.typingViewportState = { text, currentIndex, windowStart };
   }
 
@@ -3220,10 +3350,18 @@ export class UIManager {
       this.keyboardRenderer.triggerError(data.typedKey);
     }
 
-    const currentCharEl = this.typingTextDisplay?.querySelector('.char-current, .char-incorrect');
+    const currentCharEl = this.typingTextDisplay?.querySelector('.char-current');
     if (currentCharEl) {
       currentCharEl.classList.add('char-error-shake');
       setTimeout(() => currentCharEl.classList.remove('char-error-shake'), 250);
+    }
+
+    if (this.typingSmoothCaret) {
+      clearTimeout(this.smoothCaretErrorTimer);
+      this.typingSmoothCaret.classList.remove('caret-error');
+      void this.typingSmoothCaret.offsetWidth;
+      this.typingSmoothCaret.classList.add('caret-error');
+      this.smoothCaretErrorTimer = setTimeout(() => this.typingSmoothCaret?.classList.remove('caret-error'), 250);
     }
 
     if (data.requiresCorrection) {

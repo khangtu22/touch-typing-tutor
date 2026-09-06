@@ -216,12 +216,20 @@
   word-break: normal;
   overflow-wrap: break-word;
   user-select: none;
+  position: relative;
   transform: translate3d(0, var(--typing-window-translate, 0px), 0);
   will-change: transform;
 }
 
 .typing-text-display.typing-window-animate {
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.typing-text-content {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
 }
 
 /* Word Token Wrapper - Keeps words intact as single units so words never break across lines */
@@ -238,10 +246,6 @@
 .char-newline-token .char-current {
   opacity: 1;
   color: var(--accent-primary);
-  background: rgba(124, 92, 252, 0.32);
-  box-shadow: 0 0 12px var(--accent-glow);
-  padding: 0 4px;
-  border-radius: 4px;
   font-weight: 800;
 }
 
@@ -249,7 +253,7 @@
 .char-token {
   display: inline-block;
   position: relative;
-  transition: color 0.08s ease, background 0.08s ease;
+  transition: color 0.08s ease;
 }
 
 .char-upcoming {
@@ -278,10 +282,7 @@
 
 .char-current {
   color: var(--text-primary);
-  background: rgba(124, 92, 252, 0.22);
-  border-radius: 3px;
   font-weight: 700;
-  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 /* Mode indicator in HUD */
@@ -301,8 +302,37 @@
   align-items: center;
 }
 
-/* Caret Cursor Indicator */
-.char-caret {
+/* Smooth Sliding Caret System */
+.typing-smooth-caret {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: transform 160ms cubic-bezier(0.25, 0.1, 0.25, 1),
+              width 160ms ease,
+              height 160ms ease,
+              opacity 0.12s ease;
+  will-change: transform, width, height;
+}
+
+.typing-smooth-caret.no-transition {
+  transition: none !important;
+}
+
+/* Caret Box: glowing highlight around current character token */
+.typing-smooth-caret .smooth-caret-box {
+  position: absolute;
+  inset: 0;
+  background: rgba(124, 92, 252, 0.22);
+  border-radius: 3px;
+  box-shadow: 0 0 10px var(--accent-glow);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Caret Underline: glowing bar at the base of current character */
+.typing-smooth-caret .smooth-caret-line {
   position: absolute;
   bottom: -2px;
   left: 0;
@@ -312,6 +342,33 @@
   border-radius: 2px;
   box-shadow: 0 0 8px var(--accent-glow);
   animation: caretBlink 1s infinite ease-in-out;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Keep line solid while actively typing for silky smooth visual tracking */
+.typing-smooth-caret.is-typing .smooth-caret-line {
+  animation: none;
+  opacity: 1;
+}
+
+/* Error feedback state */
+.typing-smooth-caret.caret-error .smooth-caret-box {
+  background: rgba(255, 92, 122, 0.35) !important;
+  box-shadow: 0 0 12px var(--error-glow) !important;
+}
+
+.typing-smooth-caret.caret-error .smooth-caret-line {
+  background: var(--error-coral) !important;
+  box-shadow: 0 0 10px var(--error-glow) !important;
+}
+
+.typing-smooth-caret.caret-error .smooth-caret-box {
+  animation: keyShake 0.25s ease-in-out;
+}
+
+/* Legacy inner caret span hidden in favor of smooth sliding caret */
+.char-caret {
+  display: none !important;
 }
 
 @keyframes caretBlink {
@@ -323,6 +380,19 @@
   color: var(--error-coral) !important;
   background: rgba(255, 92, 122, 0.35) !important;
   animation: keyShake 0.25s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-text-display.typing-window-animate {
+    transition: none !important;
+  }
+}
+
+/* Functional caret tracking remains available with OS reduced motion;
+   the app's explicit Reduced Motion setting disables it. */
+body.reduced-motion .typing-smooth-caret,
+body.reduced-motion .typing-text-display.typing-window-animate {
+  transition: none !important;
 }
 
 /* Responsive Lesson HUD */
