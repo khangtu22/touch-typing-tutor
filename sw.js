@@ -2,7 +2,7 @@
  * KeyFlow Service Worker (v3.8.1 - Premium Edition)
  */
 
-const CACHE_NAME = 'keyflow-v3.8.1';
+const CACHE_NAME = 'keyflow-v3.8.2-hands';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
   './js/typing-engine.js',
   './js/keyboard-renderer.js',
   './js/hand-renderer.js',
+  './js/hand-model.js',
   './js/analytics.js',
   './js/achievements.js',
   './js/streak-challenge.js',

@@ -1,10 +1,10 @@
 /**
- * Sculpted SVG hand guide. Continuous contours and matte lighting suggest
- * volume; projected joint arches, reach arcs, and coordinated palm translation
- * provide a lightweight depth effect without a WebGL dependency.
+ * Articulated hand guide with a continuous WebGL skin surface and an SVG
+ * fallback. Both renderers share the same key-aligned joints and reach motion.
  */
 
 import { FINGERS } from './finger-mapping.js?v=3.8.1';
+import { HandModel } from './hand-model.js?v=3.8.2';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const lerp = (a, b, amount) => a + (b - a) * amount;
@@ -186,6 +186,7 @@ export class HandRenderer {
 
   render() {
     if (!this.container) return;
+    this.handModel?.destroy();
     this.container.innerHTML = '';
     this.fingerNodes.clear();
     this.motionStates.clear();
@@ -337,6 +338,7 @@ export class HandRenderer {
     `;
 
     this.container.appendChild(wrapper);
+    this.handModel = new HandModel(wrapper.querySelector('#keyboard-stage'), () => this.updateFingers());
 
     this.svgOverlay = wrapper.querySelector('#keyboard-hand-svg');
     this.reachBanner = wrapper.querySelector('#keyboard-reach-banner');
@@ -443,22 +445,20 @@ export class HandRenderer {
     const sway = clamp(horizontalReach * 0.18 + outward * 3.5, -22, 22);
     const length = Math.max(1, Math.hypot(target.x - knuckle.x, target.y - knuckle.y));
 
-    // True anatomical finger widths [Base, PIP Joint, DIP Joint, Tip Pad]
+    // MCP, PIP, DIP and fingertip widths taper through the finger's soft tissue.
     const sizeMap = {
-      'left-pinky': [18.5, 15.5, 13, 19.5],
-      'right-pinky': [18.5, 15.5, 13, 19.5],
-      'left-ring': [20.5, 17, 14.5, 21],
-      'right-ring': [20.5, 17, 14.5, 21],
-      'left-middle': [22, 18.5, 15.5, 22.5],
-      'right-middle': [22, 18.5, 15.5, 22.5],
-      'left-index': [21.5, 18, 15, 22],
-      'right-index': [21.5, 18, 15, 22],
-      thumbs: [23, 19, 16.5, 23]
+      'left-pinky': [25, 23, 20, 18],
+      'right-pinky': [25, 23, 20, 18],
+      'left-ring': [29, 26, 23, 21],
+      'right-ring': [29, 26, 23, 21],
+      'left-middle': [32, 28, 25, 23],
+      'right-middle': [32, 28, 25, 23],
+      'left-index': [31, 28, 24, 22],
+      'right-index': [31, 28, 24, 22]
     };
-    const sourceWidths = sizeMap[fingerId] || [21, 17, 14.5, 21];
+    const sourceWidths = sizeMap[fingerId] || [31, 28, 24, 22];
     const scale = this.geometryScale || 1;
-    const widths = [sourceWidths[0] * 1.65, sourceWidths[1] * 1.8,
-      sourceWidths[2] * 1.8, sourceWidths[3] * 1.12].map(w => w * scale);
+    const widths = sourceWidths.map(w => w * scale);
 
     // Joints along natural finger length
     // Project an arched finger: the proximal joint stays raised while the
@@ -477,7 +477,7 @@ export class HandRenderer {
         jointOne: pointOnLine(knuckle, target, .38, 0, -5 * scale),
         jointTwo: pointOnLine(knuckle, target, .75, 0, -4 * scale),
         tip: target,
-        widths: [48, 37, 29, 24].map(w => w * scale),
+        widths: [43, 36, 29, 24].map(w => w * scale),
         elevation, sway
       };
     }
@@ -494,6 +494,12 @@ export class HandRenderer {
   }
 
   applyFingerPose(node, pose) {
+    this.handModel?.setFinger(node.group.id, pose);
+    const tipScale = ((this.geometryScale || 1) * (1 + pose.elevation * 0.025)).toFixed(3);
+    const angle = Math.atan2(pose.tip.x - pose.jointTwo.x, -(pose.tip.y - pose.jointTwo.y)) * 180 / Math.PI;
+    node.tipAssembly?.setAttribute('transform', `translate(${pose.tip.x.toFixed(2)}, ${pose.tip.y.toFixed(2)}) rotate(${angle.toFixed(2)}) scale(${tipScale})`);
+    // Only the teaching rings need SVG updates while the 3D surface is active.
+    if (this.handModel?.ready) return;
     if (node.rootBlend) {
       node.rootBlend.setAttribute('x1', pose.knuckle.x);
       node.rootBlend.setAttribute('y1', pose.knuckle.y);
@@ -545,13 +551,6 @@ export class HandRenderer {
       node.knuckles.mid.setAttribute('transform', `translate(${pose.jointTwo.x.toFixed(2)}, ${pose.jointTwo.y.toFixed(2)})`);
     }
 
-    // 6. 3D Fingertip Assembly
-    if (node.tipAssembly) {
-      const tipScale = ((this.geometryScale || 1) * (1 + pose.elevation * 0.025)).toFixed(3);
-      const angle = Math.atan2(pose.tip.x - pose.jointTwo.x, -(pose.tip.y - pose.jointTwo.y)) * 180 / Math.PI;
-      node.tipAssembly.setAttribute('transform', `translate(${pose.tip.x.toFixed(2)}, ${pose.tip.y.toFixed(2)}) rotate(${angle.toFixed(2)}) scale(${tipScale})`);
-    }
-
     // 7. Tactile Homing Nub on index keys
     if (node.nubBase) {
       node.nubBase.setAttribute('x', -6);
@@ -583,6 +582,7 @@ export class HandRenderer {
    */
   animateHands(timestamp) {
     this.motionFrame = null;
+    if (!this.container.isConnected) return;
     let hasActiveMotion = false;
     const dt = Math.min(50, this.lastFrameTime === null ? 16.67 : timestamp - this.lastFrameTime);
     this.lastFrameTime = timestamp;
@@ -672,6 +672,8 @@ export class HandRenderer {
       }
     });
 
+    this.handModel?.draw({ left: this.leftPalmOffset, right: this.rightPalmOffset });
+
     if (hasActiveMotion || !samePoint(this.leftPalmOffset, this.leftPalmTarget) || !samePoint(this.rightPalmOffset, this.rightPalmTarget)) {
       this.requestMotionFrame();
     } else {
@@ -750,11 +752,23 @@ export class HandRenderer {
     const slot = this.container?.querySelector('#mech-kb-slot');
     if (!slot) return;
 
-    const width = slot.offsetWidth || 960;
-    const height = slot.offsetHeight || 320;
-    this.geometryScale = clamp(width / 960, 0.45, 1);
-    this.svgOverlay.setAttribute('viewBox', `0 0 ${width} ${height + 130}`);
-    this.svgOverlay.style.height = `${height + 130}px`;
+    const width = slot.offsetWidth;
+    const height = slot.offsetHeight;
+    if (!width || !height) return;
+    const s = this.geometryScale = Math.min(width / 960, 1);
+    if (this.lastWidth !== width || this.lastHeight !== height) {
+      // A responsive relayout is a new coordinate system, not a finger reach.
+      this.motionStates.clear();
+      this.leftPalmOffset = { x: 0, y: 0 };
+      this.rightPalmOffset = { x: 0, y: 0 };
+      this.lastWidth = width;
+      this.lastHeight = height;
+    }
+    const overlayHeight = height + 130 * s;
+    this.svgOverlay.setAttribute('viewBox', `0 0 ${width} ${overlayHeight}`);
+    this.svgOverlay.style.height = `${overlayHeight}px`;
+    this.container.querySelector('#keyboard-stage').style.setProperty('--hand-overhang', `${110 * s}px`);
+    this.handModel?.resize(width, overlayHeight, s);
 
     // Dynamic keycap center coordinates
     const space = this.getKeyCenter('Space', { x: width / 2, y: 260 });
@@ -763,8 +777,8 @@ export class HandRenderer {
       'left-ring': this.getKeyCenter('KeyS', { x: 242, y: 155 }),
       'left-middle': this.getKeyCenter('KeyD', { x: 294, y: 155 }),
       'left-index': this.getKeyCenter('KeyF', { x: 346, y: 155 }),
-      'left-thumb': { x: space.x - 48, y: space.y - 4 },
-      'right-thumb': { x: space.x + 48, y: space.y - 4 },
+      'left-thumb': { x: space.x - 48 * s, y: space.y - 4 * s },
+      'right-thumb': { x: space.x + 48 * s, y: space.y - 4 * s },
       'right-index': this.getKeyCenter('KeyJ', { x: 554, y: 155 }),
       'right-middle': this.getKeyCenter('KeyK', { x: 606, y: 155 }),
       'right-ring': this.getKeyCenter('KeyL', { x: 658, y: 155 }),
@@ -776,19 +790,19 @@ export class HandRenderer {
     // Distance from home key to knuckle is ~60px (proportional)
     // ========================================================
     const leftKnuckles = {
-      'left-pinky': { x: homePositions['left-pinky'].x - 5, y: homePositions['left-pinky'].y + 66 },
-      'left-ring': { x: homePositions['left-ring'].x - 2, y: homePositions['left-ring'].y + 61 },
-      'left-middle': { x: homePositions['left-middle'].x, y: homePositions['left-middle'].y + 57 },
-      'left-index': { x: homePositions['left-index'].x + 2, y: homePositions['left-index'].y + 59 },
-      'left-thumb': { x: homePositions['left-index'].x + 4, y: space.y + 40 * this.geometryScale }
+      'left-pinky': { x: homePositions['left-pinky'].x - 5 * s, y: homePositions['left-pinky'].y + 66 * s },
+      'left-ring': { x: homePositions['left-ring'].x - 2 * s, y: homePositions['left-ring'].y + 70 * s },
+      'left-middle': { x: homePositions['left-middle'].x, y: homePositions['left-middle'].y + 73 * s },
+      'left-index': { x: homePositions['left-index'].x + 2 * s, y: homePositions['left-index'].y + 69 * s },
+      'left-thumb': { x: homePositions['left-index'].x + 4 * s, y: space.y + 40 * s }
     };
 
     const rightKnuckles = {
-      'right-thumb': { x: homePositions['right-index'].x - 4, y: space.y + 40 * this.geometryScale },
-      'right-index': { x: homePositions['right-index'].x - 2, y: homePositions['right-index'].y + 59 },
-      'right-middle': { x: homePositions['right-middle'].x, y: homePositions['right-middle'].y + 57 },
-      'right-ring': { x: homePositions['right-ring'].x + 2, y: homePositions['right-ring'].y + 61 },
-      'right-pinky': { x: homePositions['right-pinky'].x + 5, y: homePositions['right-pinky'].y + 66 }
+      'right-thumb': { x: homePositions['right-index'].x - 4 * s, y: space.y + 40 * s },
+      'right-index': { x: homePositions['right-index'].x - 2 * s, y: homePositions['right-index'].y + 69 * s },
+      'right-middle': { x: homePositions['right-middle'].x, y: homePositions['right-middle'].y + 73 * s },
+      'right-ring': { x: homePositions['right-ring'].x + 2 * s, y: homePositions['right-ring'].y + 70 * s },
+      'right-pinky': { x: homePositions['right-pinky'].x + 5 * s, y: homePositions['right-pinky'].y + 66 * s }
     };
 
     // Mirror thumb opposition around each index root, not the spacebar center;
@@ -809,6 +823,8 @@ export class HandRenderer {
 
     this.renderSculptedPalm('left', leftKnuckles, homePositions, height);
     this.renderSculptedPalm('right', rightKnuckles, homePositions, height);
+    this.handModel?.setPalm('left', leftKnuckles);
+    this.handModel?.setPalm('right', rightKnuckles);
 
     // Compute IK Palm Target Glide & Wrist Tilt
     this.leftPalmTarget = { x: 0, y: 0 };
@@ -821,7 +837,7 @@ export class HandRenderer {
       if (!node) return;
 
       let target = defaultHome;
-      const isActive = this.activeFingerId === node.fingerId;
+      const isActive = this.activeFingerId === node.fingerId && !(node.fingerId === 'thumbs' && isLeft);
 
       if (isActive && this.activeChar && node.fingerId !== 'thumbs') {
         target = this.getCharKeyCenter(this.activeChar, defaultHome);
@@ -830,12 +846,12 @@ export class HandRenderer {
 
         // IK Palm Response: Palm glides forward slightly when reaching for upper rows
         if (isLeft) {
-          this.leftPalmTarget.x = clamp(reachDeltaX * 0.22, -14, 14);
-          this.leftPalmTarget.y = clamp(reachDeltaY * 0.25, -22, 10);
+          this.leftPalmTarget.x = clamp(reachDeltaX * 0.22, -14 * s, 14 * s);
+          this.leftPalmTarget.y = clamp(reachDeltaY * 0.25, -22 * s, 10 * s);
           this.targetTilt.left = clamp(reachDeltaX * 0.045, -3.5, 3.5);
         } else {
-          this.rightPalmTarget.x = clamp(reachDeltaX * 0.22, -14, 14);
-          this.rightPalmTarget.y = clamp(reachDeltaY * 0.25, -22, 10);
+          this.rightPalmTarget.x = clamp(reachDeltaX * 0.22, -14 * s, 14 * s);
+          this.rightPalmTarget.y = clamp(reachDeltaY * 0.25, -22 * s, 10 * s);
           this.targetTilt.right = clamp(reachDeltaX * 0.045, -3.5, 3.5);
         }
       }
@@ -846,13 +862,13 @@ export class HandRenderer {
 
       if (this.shiftNeeded === 'ShiftLeft' && nodeId === 'fg-left-pinky') {
         target = this.getKeyCenter('ShiftLeft', { x: 140, y: 210 });
-        this.leftPalmTarget.x = -12;
-        this.leftPalmTarget.y = 8;
+        this.leftPalmTarget.x = -12 * s;
+        this.leftPalmTarget.y = 8 * s;
         this.targetTilt.left = -2.8;
       } else if (this.shiftNeeded === 'ShiftRight' && nodeId === 'fg-right-pinky') {
         target = this.getKeyCenter('ShiftRight', { x: 760, y: 210 });
-        this.rightPalmTarget.x = 12;
-        this.rightPalmTarget.y = 8;
+        this.rightPalmTarget.x = 12 * s;
+        this.rightPalmTarget.y = 8 * s;
         this.targetTilt.right = 2.8;
       }
 
@@ -902,7 +918,7 @@ export class HandRenderer {
       surface?.setAttribute('clip-path', `url(#${hand}-palm-clip)`);
     }
 
-    const bottom = height + 100;
+    const bottom = height + 125 * (this.geometryScale || 1);
 
     // Interdigital web dips between adjacent knuckles
     const webPR = { x: lerp(pinkyK.x, ringK.x, 0.5), y: lerp(pinkyK.y, ringK.y, 0.5) + 6 };
@@ -991,5 +1007,14 @@ export class HandRenderer {
     this.reachBanner?.classList.remove('reach-active');
     const mode = this.reachBanner?.querySelector('.reach-mode-pill');
     if (mode) mode.textContent = 'Home Rest';
+  }
+
+  destroy() {
+    if (this.motionFrame !== null) cancelAnimationFrame(this.motionFrame);
+    this.motionFrame = null;
+    this.resizeObserver?.disconnect();
+    this.handModel?.destroy();
+    this.motionStates.clear();
+    this.fingerNodes.clear();
   }
 }
