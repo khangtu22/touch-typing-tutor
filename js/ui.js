@@ -1,35 +1,35 @@
 /**
- * UI & Screen Coordinator (Expanded Suite v3.8.0 — Premium Edition)
+ * UI & Screen Coordinator (Expanded Suite v3.8.1 — Premium Edition)
  * Manages view routing, Custom Arena, Ghost Racing HUD, Theme live switcher,
  * Multi-layout key remapping, JSON Backup & Restore, and all Premium Features:
  * Focus Mode, Zen Mode, Quote Vault, Goal Rings, Theme Studio, Advanced Analytics.
  */
 
-import { store, getLevelProgress, getLocalDateKey } from './state.js';
-import { CURRICULUM, CURRICULUM_LEVELS, generateWeakKeysLesson, generateWeakFingerLesson } from './curriculum.js';
-import { typingEngine } from './typing-engine.js';
-import { KeyboardRenderer } from './keyboard-renderer.js';
-import { HandRenderer } from './hand-renderer.js';
-import { AnalyticsEngine } from './analytics.js';
-import { ACHIEVEMENTS, AchievementEngine } from './achievements.js';
-import { StreakEngine } from './streak-challenge.js';
-import { sound } from './sound-engine.js';
-import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js';
-import { ghostRacer } from './ghost-racer.js';
-import { CODE_PRESETS, createPlacementLesson, CustomPracticeManager } from './custom-practice.js';
-import { LAYOUTS } from './layouts.js';
-import { getLessonMastery, getPlacementRecommendation, getReviewQueue } from './mastery.js';
-import { focusMode, zenMode } from './focus-zen.js';
-import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js';
-import { themeStudio, renderThemeStudioUI } from './theme-studio.js';
-import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js';
-import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js';
-import { ArcadeHubManager } from './arcade-games.js';
-import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js';
-import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js';
-import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js';
-import { CommandPalette } from './command-palette.js';
-import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js';
+import { store, getLevelProgress, getLocalDateKey } from './state.js?v=3.8.1';
+import { CURRICULUM, CURRICULUM_LEVELS, generateWeakKeysLesson, generateWeakFingerLesson } from './curriculum.js?v=3.8.1';
+import { typingEngine } from './typing-engine.js?v=3.8.1';
+import { KeyboardRenderer } from './keyboard-renderer.js?v=3.8.1';
+import { HandRenderer } from './hand-renderer.js?v=3.8.1';
+import { AnalyticsEngine } from './analytics.js?v=3.8.1';
+import { ACHIEVEMENTS, AchievementEngine } from './achievements.js?v=3.8.1';
+import { StreakEngine } from './streak-challenge.js?v=3.8.1';
+import { sound } from './sound-engine.js?v=3.8.1';
+import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js?v=3.8.1';
+import { ghostRacer } from './ghost-racer.js?v=3.8.1';
+import { CODE_PRESETS, createPlacementLesson, CustomPracticeManager } from './custom-practice.js?v=3.8.1';
+import { LAYOUTS } from './layouts.js?v=3.8.1';
+import { getLessonMastery, getPlacementRecommendation, getReviewQueue } from './mastery.js?v=3.8.1';
+import { focusMode, zenMode } from './focus-zen.js?v=3.8.1';
+import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js?v=3.8.1';
+import { themeStudio, renderThemeStudioUI } from './theme-studio.js?v=3.8.1';
+import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=3.8.1';
+import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js?v=3.8.1';
+import { ArcadeHubManager } from './arcade-games.js?v=3.8.1';
+import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js?v=3.8.1';
+import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js?v=3.8.1';
+import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.8.1';
+import { CommandPalette } from './command-palette.js?v=3.8.1';
+import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js?v=3.8.1';
 
 const escapeHtml = value => String(value)
   .replace(/&/g, '&amp;')
@@ -152,6 +152,20 @@ export class UIManager {
     // Global Keydown Handler
     window.addEventListener('keydown', (e) => {
       sound.resume();
+
+      const isFocusModeShortcut = e.key.toLowerCase() === 'f' &&
+        (e.shiftKey && (e.ctrlKey || e.metaKey) && !e.altKey);
+      const focusModeShortcutEnabled = store.getState().settings?.wellness?.focusModeShortcut !== false;
+      if (
+        isFocusModeShortcut &&
+        focusModeShortcutEnabled &&
+        this.activeScreen === 'lesson' &&
+        !zenMode.isActive
+      ) {
+        e.preventDefault();
+        this.toggleFocusMode();
+        return;
+      }
 
       if (e.key === 'Escape' && this.activeScreen === 'lesson') {
         e.preventDefault();
@@ -323,13 +337,6 @@ export class UIManager {
             e.preventDefault();
             this.navigateTo('code');
             break;
-          case 'f': {
-            const state = store.getState();
-            if (state.settings?.wellness?.focusModeShortcut !== false) {
-              e.preventDefault();
-            }
-            break;
-          }
           case 'a':
             e.preventDefault();
             this.navigateTo('profile');
@@ -401,7 +408,9 @@ export class UIManager {
         themeStudio.resetToBuiltIn();
       }
 
-      document.body.className = '';
+      const activeThemeClasses = Array.from(document.body.classList)
+        .filter(className => className.startsWith('theme-'));
+      document.body.classList.remove(...activeThemeClasses);
       document.body.classList.add(`theme-${state.settings.theme || 'dark'}`);
       document.body.classList.toggle('high-contrast', !!state.settings.highContrast);
       document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion);
@@ -414,6 +423,10 @@ export class UIManager {
       document.body.classList.toggle('keyboard-hidden', !keyboardVisible);
       document.body.classList.toggle('hand-guide-hidden', !handGuideVisible);
       document.body.classList.toggle('reach-banner-hidden', !reachBannerVisible);
+      document.body.classList.toggle(
+        'blind-mode-active',
+        this.activeScreen === 'lesson' && !!state.settings.blindMode
+      );
 
       if (this.keyboardRenderer) {
         this.keyboardRenderer.setLayout(state.settings.layout || 'qwerty');
@@ -454,8 +467,12 @@ export class UIManager {
   navigateTo(screenName) {
     if (this.activeScreen === 'arcade' && screenName !== 'arcade') {
       this.arcadeManager?.activeGame?.destroy?.();
+      if (this.arcadeManager) this.arcadeManager.activeGame = null;
+      this.screens.arcade?.replaceChildren();
     }
     if (this.activeScreen === 'lesson' && screenName !== 'lesson') {
+      if (this.isFocusModeActive) this.exitFocusMode();
+      document.body.classList.remove('blind-mode-active');
       try { goalsManager.setPracticeActive(false); } catch (e) {}
       try { typingEngine.destroy(); } catch (e) {}
       try { ghostRacer.stopRace(); } catch (e) {}
@@ -2177,11 +2194,8 @@ export class UIManager {
                 autocomplete="off"
                 aria-label="Search passages by author, work, or keyword"
               />
-              ${this.activeQuoteSearch ? `
-                <button id="quote-search-clear-btn" class="quote-search-clear" aria-label="Clear search">✕</button>
-              ` : `
-                <kbd class="quote-search-kbd">/</kbd>
-              `}
+              <button id="quote-search-clear-btn" class="quote-search-clear" aria-label="Clear search" style="${this.activeQuoteSearch ? '' : 'display: none;'}">✕</button>
+              <kbd class="quote-search-kbd" style="${this.activeQuoteSearch ? 'display: none;' : ''}">/</kbd>
             </div>
 
             <!-- Status Filter Pills -->
@@ -2350,6 +2364,13 @@ export class UIManager {
     const gridContainer = document.getElementById('quotes-grid-container');
     const statusContainer = document.getElementById('quote-results-status');
     if (!gridContainer) return;
+
+    const quoteControls = this.screens.quotes || document;
+    const clearSearchBtn = quoteControls.querySelector('#quote-search-clear-btn');
+    const searchShortcutHint = quoteControls.querySelector('.quote-search-kbd');
+    const hasSearch = Boolean(this.activeQuoteSearch);
+    if (clearSearchBtn) clearSearchBtn.style.display = hasSearch ? '' : 'none';
+    if (searchShortcutHint) searchShortcutHint.style.display = hasSearch ? 'none' : '';
 
     const state = store.getState();
     const practicedList = state.quotesPracticed || [];
@@ -4223,8 +4244,8 @@ export class UIManager {
 
             <div class="setting-row">
               <div>
-                <label class="setting-label">Focus Mode Shortcut (F)</label>
-                <p class="setting-desc">Pressing 'F' during a lesson toggles minimalist zero-distraction layout</p>
+                <label class="setting-label">Focus Mode Shortcut (⌘/Ctrl + Shift + F)</label>
+                <p class="setting-desc">Press ⌘/Ctrl + Shift + F during a lesson to toggle the minimalist zero-distraction layout</p>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="setting-focus-shortcut-toggle" ${settings.wellness?.focusModeShortcut !== false ? 'checked' : ''}>
@@ -4950,7 +4971,7 @@ export class UIManager {
                 <td>Retry current lesson on completion page</td>
               </tr>
               <tr>
-                <td><span class="shortcut-kbd">F</span></td>
+                <td><span class="shortcut-kbd">⌘/Ctrl + Shift + F</span></td>
                 <td>Toggle Focus Mode (zero-distraction layout)</td>
               </tr>
               <tr>

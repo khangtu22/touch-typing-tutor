@@ -4,11 +4,11 @@
  * Metronome cadence synchronization, and timed sprint trials.
  */
 
-import { sound } from './sound-engine.js';
-import { getFingerForKey, getOppositeShift, isShiftRequired } from './finger-mapping.js';
-import { store } from './state.js';
-import { calculateMastery } from './mastery.js';
-import { calculateConsistency } from './speed-test.js';
+import { sound } from './sound-engine.js?v=3.8.1';
+import { getFingerForKey, getOppositeShift, isShiftRequired } from './finger-mapping.js?v=3.8.1';
+import { store } from './state.js?v=3.8.1';
+import { calculateMastery } from './mastery.js?v=3.8.1';
+import { calculateConsistency } from './speed-test.js?v=3.8.1';
 
 export function buildWordIndexMap(text) {
   if (!text) return { charToWord: [], words: [] };

@@ -3,8 +3,8 @@
  * Focus Mode: minimal UI overlay hiding non-essential elements
  * Zen Mode: fullscreen ambient environment with procedural soundscapes
  */
-import { store } from './state.js';
-import { sound } from './sound-engine.js';
+import { store } from './state.js?v=3.8.1';
+import { sound } from './sound-engine.js?v=3.8.1';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZenSoundEngine — All audio generated procedurally via Web Audio API.

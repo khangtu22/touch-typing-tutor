@@ -4,10 +4,10 @@
  * JSON backup/restore portability, and extended customization settings.
  */
 
-import { MASTERED_STARS, PASSING_STARS, PERFECT_STARS } from './mastery.js';
+import { MASTERED_STARS, PASSING_STARS, PERFECT_STARS } from './mastery.js?v=3.8.1';
 
 const STORAGE_KEY = 'typing_tutor_progress';
-export const APP_VERSION = '3.8.0';
+export const APP_VERSION = '3.8.1';
 export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
@@ -249,6 +249,7 @@ class StateStore {
         .filter(s => s && typeof s === 'object')
         .map(s => {
           const rawDate = s.date || s.recordedAt || s.timestamp;
+          const rawAccuracy = Number(s.accuracy);
           let isoDate;
           try {
             const d = new Date(rawDate);
@@ -261,7 +262,7 @@ class StateStore {
             lessonId: s.lessonId ?? 'practice',
             lessonTitle: s.lessonTitle || (s.lessonId ? `Lesson ${s.lessonId}` : 'Practice Session'),
             wpm: Math.max(0, Math.round(Number(s.wpm) || 0)),
-            accuracy: Math.max(0, Math.min(100, Math.round(Number(s.accuracy) || 100))),
+            accuracy: Math.max(0, Math.min(100, Math.round(Number.isFinite(rawAccuracy) ? rawAccuracy : 100))),
             durationSec: Math.max(0, Math.round(Number(s.durationSec) || 0)),
             stars: Math.max(1, Math.min(PERFECT_STARS, Math.round(Number(s.stars) || 1))),
             xpEarned: Math.max(0, Math.round(Number(s.xpEarned) || 0)),

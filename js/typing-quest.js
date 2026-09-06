@@ -1,6 +1,6 @@
 /** A self-paced, five-room typing adventure. The fifth room is the boss. */
-import { store } from './state.js';
-import { getWeakKeyAnalysis } from './weakness-engine.js';
+import { store } from './state.js?v=3.8.1';
+import { getWeakKeyAnalysis } from './weakness-engine.js?v=3.8.1';
 
 const WORDS = `
 air ant arm art ash bag bat bay bed bee big bird blue boat book box brave

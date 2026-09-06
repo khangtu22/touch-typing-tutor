@@ -3,7 +3,7 @@
  * Spotlight modal for keyboard-first navigation, mode switching, themes, and actions.
  */
 
-import { sound } from './sound-engine.js';
+import { sound } from './sound-engine.js?v=3.8.1';
 
 export class CommandPalette {
   constructor(uiManager, store) {
@@ -13,6 +13,7 @@ export class CommandPalette {
     this.selectedIndex = 0;
     this.filteredCommands = [];
     this.overlayEl = null;
+    this.previouslyFocusedElement = null;
 
     this.commands = [
       // --- Navigation ---
@@ -103,7 +104,6 @@ export class CommandPalette {
       ...prev,
       settings: { ...prev.settings, theme: themeName }
     }));
-    document.body.className = `theme-${themeName}`;
     this.ui.showToast(`Theme changed to ${themeName}`, 'accent');
   }
 
@@ -195,6 +195,12 @@ export class CommandPalette {
   }
 
   open() {
+    const activeElement = document.activeElement;
+    this.previouslyFocusedElement = activeElement &&
+      activeElement !== document.body &&
+      !this.overlayEl?.contains(activeElement)
+      ? activeElement
+      : null;
     this.isOpen = true;
     this.selectedIndex = 0;
     this.filteredCommands = [...this.commands];
@@ -210,9 +216,15 @@ export class CommandPalette {
   }
 
   close() {
+    const wasOpen = this.isOpen;
     this.isOpen = false;
     if (this.overlayEl) {
       this.overlayEl.style.display = 'none';
+    }
+    const focusTarget = this.previouslyFocusedElement;
+    this.previouslyFocusedElement = null;
+    if (wasOpen && focusTarget?.isConnected) {
+      focusTarget.focus({ preventScroll: true });
     }
   }
 

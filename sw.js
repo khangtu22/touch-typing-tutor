@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.8.0 - Premium Edition)
+ * KeyFlow Service Worker (v3.8.1 - Premium Edition)
  */
 
-const CACHE_NAME = 'keyflow-v3.8.0';
+const CACHE_NAME = 'keyflow-v3.8.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

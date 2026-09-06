@@ -1,5 +1,5 @@
 /**
- * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.8.0)
+ * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.8.1)
  * Featuring 5 Distinct Arcade Game Modes with Easy / Med / Hard Controls:
  * 1. Type Invaders: Orbit Defense (Laser turret, wave spawner, power-ups, boss battle)
  * 2. Nitro Sprint: 60s Speed Drag Race (Analog speedometer physics, turbo bursts, ghost racer)
@@ -8,9 +8,9 @@
  * 5. Typing Quest (Self-paced dungeon adventure and weak-key practice)
  */
 
-import { sound } from './sound-engine.js';
-import { store } from './state.js';
-import { TypingQuestGame } from './typing-quest.js';
+import { sound } from './sound-engine.js?v=3.8.1';
+import { store } from './state.js?v=3.8.1';
+import { TypingQuestGame } from './typing-quest.js?v=3.8.1';
 
 // ==========================================
 // ADAPTIVE WORD BANKS FOR ARCADE GAMEPLAY
@@ -124,6 +124,7 @@ export class TypeInvadersGame {
     this.particles = [];
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleResize = this.resizeCanvas.bind(this);
   }
 
   mount() {
@@ -238,7 +239,7 @@ export class TypeInvadersGame {
     this.reticleEl = this.container.querySelector('#arcade-target-reticle');
 
     this.resizeCanvas();
-    window.addEventListener('resize', () => this.resizeCanvas());
+    window.addEventListener('resize', this.handleResize);
     window.addEventListener('keydown', this.handleKeyDown);
 
     // Wire HUD Controls
@@ -810,8 +811,7 @@ export class TypeInvadersGame {
   }
 
   handleGameOver() {
-    this.state.running = false;
-    cancelAnimationFrame(this.animationId);
+    this.destroy();
 
     const accuracy = this.state.totalKeystrokes > 0
       ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
@@ -838,8 +838,7 @@ export class TypeInvadersGame {
   }
 
   handleBossDefeated() {
-    this.state.running = false;
-    cancelAnimationFrame(this.animationId);
+    this.destroy();
 
     const accuracy = this.state.totalKeystrokes > 0
       ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
@@ -917,10 +916,20 @@ export class TypeInvadersGame {
     });
   }
 
-  quitGame() {
+  destroy() {
     this.state.running = false;
+    this.state.paused = true;
     cancelAnimationFrame(this.animationId);
+    this.animationId = null;
+    clearTimeout(this.state.freezeTimer);
+    this.state.freezeTimer = null;
+    this.state.isFrozen = false;
     window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('resize', this.handleResize);
+  }
+
+  quitGame() {
+    this.destroy();
     this.onExit();
   }
 }
@@ -953,6 +962,7 @@ export class NitroSprintGame {
     };
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.nitroTimer = null;
   }
 
   mount() {
@@ -1129,8 +1139,10 @@ export class NitroSprintGame {
     const track = this.container.querySelector('.nitro-track-arena');
     if (track) track.classList.add('nitro-turbo-active');
 
-    setTimeout(() => {
+    clearTimeout(this.nitroTimer);
+    this.nitroTimer = setTimeout(() => {
       this.state.nitroActive = false;
+      this.nitroTimer = null;
       if (track) track.classList.remove('nitro-turbo-active');
     }, 4000);
   }
@@ -1154,9 +1166,7 @@ export class NitroSprintGame {
   }
 
   finishRace() {
-    this.state.running = false;
-    clearInterval(this.state.timer);
-    window.removeEventListener('keydown', this.handleKeyDown);
+    this.destroy();
 
     const accuracy = this.state.totalKeystrokes > 0
       ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
@@ -1221,10 +1231,17 @@ export class NitroSprintGame {
     });
   }
 
-  quitGame() {
+  destroy() {
     this.state.running = false;
     clearInterval(this.state.timer);
+    this.state.timer = null;
+    clearTimeout(this.nitroTimer);
+    this.nitroTimer = null;
     window.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  quitGame() {
+    this.destroy();
     this.onExit();
   }
 }
@@ -1264,6 +1281,7 @@ export class MatrixRainGame {
     this.matrixDrops = [];
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleResize = this.initMatrixRainCanvas.bind(this);
   }
 
   mount() {
@@ -1344,7 +1362,7 @@ export class MatrixRainGame {
     this.tokensLayer = this.container.querySelector('#matrix-tokens-layer');
 
     this.initMatrixRainCanvas();
-    window.addEventListener('resize', () => this.initMatrixRainCanvas());
+    window.addEventListener('resize', this.handleResize);
     window.addEventListener('keydown', this.handleKeyDown);
 
     this.container.querySelector('#btn-matrix-purge')?.addEventListener('click', () => this.triggerBufferPurge());
@@ -1650,9 +1668,7 @@ export class MatrixRainGame {
   }
 
   handleMainframeBreached() {
-    this.state.running = false;
-    cancelAnimationFrame(this.animationId);
-    window.removeEventListener('keydown', this.handleKeyDown);
+    this.destroy();
 
     const accuracy = this.state.totalKeystrokes > 0
       ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
@@ -1718,10 +1734,16 @@ export class MatrixRainGame {
     });
   }
 
-  quitGame() {
+  destroy() {
     this.state.running = false;
     cancelAnimationFrame(this.animationId);
+    this.animationId = null;
     window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('resize', this.handleResize);
+  }
+
+  quitGame() {
+    this.destroy();
     this.onExit();
   }
 }
@@ -2110,10 +2132,17 @@ export class KeyBeatsGame {
     if (pauseBtn) pauseBtn.textContent = this.state.paused ? '▶' : '⏸';
   }
 
-  quitGame() {
+  destroy() {
     this.state.running = false;
     cancelAnimationFrame(this.animationId);
+    this.animationId = null;
+    clearTimeout(this.state.feverTimer);
+    this.state.feverTimer = null;
     window.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  quitGame() {
+    this.destroy();
 
     const accuracy = this.state.totalKeystrokes > 0
       ? Math.round(((this.state.totalKeystrokes - this.state.totalErrors) / this.state.totalKeystrokes) * 100)
@@ -2149,9 +2178,13 @@ export class ArcadeHubManager {
     };
   }
 
-  renderLobby() {
+  destroyActiveGame() {
     this.activeGame?.destroy?.();
     this.activeGame = null;
+  }
+
+  renderLobby() {
+    this.destroyActiveGame();
     const state = store.getState();
     const stats = state.arcadeStats || {
       invadersHighScore: 0,
@@ -2430,6 +2463,7 @@ export class ArcadeHubManager {
   }
 
   launchTypeInvaders(difficulty = 'medium') {
+    this.destroyActiveGame();
     this.activeGame = new TypeInvadersGame(this.container, {
       difficulty,
       onExit: () => this.renderLobby()
@@ -2438,7 +2472,7 @@ export class ArcadeHubManager {
   }
 
   launchTypingQuest(difficulty = 'medium') {
-    this.activeGame?.destroy?.();
+    this.destroyActiveGame();
     this.activeGame = new TypingQuestGame(this.container, {
       difficulty,
       onExit: () => this.renderLobby()
@@ -2447,6 +2481,7 @@ export class ArcadeHubManager {
   }
 
   launchNitroSprint(difficulty = 'medium') {
+    this.destroyActiveGame();
     this.activeGame = new NitroSprintGame(this.container, {
       durationSec: 60,
       difficulty,
@@ -2456,6 +2491,7 @@ export class ArcadeHubManager {
   }
 
   launchMatrixRain(difficulty = 'medium') {
+    this.destroyActiveGame();
     this.activeGame = new MatrixRainGame(this.container, {
       difficulty,
       onExit: () => this.renderLobby()
@@ -2464,6 +2500,7 @@ export class ArcadeHubManager {
   }
 
   launchKeyBeats(difficulty = 'medium') {
+    this.destroyActiveGame();
     this.activeGame = new KeyBeatsGame(this.container, {
       difficulty,
       onExit: () => this.renderLobby()

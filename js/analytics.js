@@ -4,7 +4,7 @@
  * smart actionable recommendations, and lightweight SVG sparklines.
  */
 
-import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js';
+import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js?v=3.8.1';
 
 let sparklineInstanceId = 0;
 

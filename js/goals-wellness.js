@@ -7,7 +7,7 @@
  *  - Browser Notification-based daily practice nudges
  */
 
-import { store } from './state.js';
+import { store } from './state.js?v=3.8.1';
 
 // ---------------------------------------------------------------------------
 // Constants

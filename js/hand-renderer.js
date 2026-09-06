@@ -4,7 +4,7 @@
  * provide a lightweight depth effect without a WebGL dependency.
  */
 
-import { FINGERS } from './finger-mapping.js';
+import { FINGERS } from './finger-mapping.js?v=3.8.1';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const lerp = (a, b, amount) => a + (b - a) * amount;

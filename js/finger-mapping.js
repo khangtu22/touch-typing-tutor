@@ -3,7 +3,7 @@
  * Defines the standard 10-finger touch typing positions, colors, and key associations.
  */
 
-import { getLayoutKeycaps } from './layouts.js';
+import { getLayoutKeycaps } from './layouts.js?v=3.8.1';
 
 const LAYOUT_KEYCAP_CACHE = new Map();
 

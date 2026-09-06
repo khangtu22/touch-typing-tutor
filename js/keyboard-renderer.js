@@ -4,8 +4,8 @@
  * tactile bumps, active finger color glows, blind mode support, and heatmap visualization.
  */
 
-import { FINGERS } from './finger-mapping.js';
-import { getLayoutKeycaps } from './layouts.js';
+import { FINGERS } from './finger-mapping.js?v=3.8.1';
+import { getLayoutKeycaps } from './layouts.js?v=3.8.1';
 
 export class KeyboardRenderer {
   constructor(containerEl, options = {}) {

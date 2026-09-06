@@ -3,10 +3,10 @@
  * Bootstraps the UI, initializes sound hooks, registers offline PWA worker, and dev tools.
  */
 
-import { store, APP_VERSION } from './state.js';
-import { sound } from './sound-engine.js';
-import { UIManager } from './ui.js';
-import { goalsManager } from './goals-wellness.js';
+import { store, APP_VERSION } from './state.js?v=3.8.1';
+import { sound } from './sound-engine.js?v=3.8.1';
+import { UIManager } from './ui.js?v=3.8.1';
+import { goalsManager } from './goals-wellness.js?v=3.8.1';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Register PWA Service Worker for Offline Execution

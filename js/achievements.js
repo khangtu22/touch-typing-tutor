@@ -3,10 +3,10 @@
  * Evaluates unlock conditions, tracks progress, and triggers celebrations.
  */
 
-import { sound } from './sound-engine.js';
-import { AnalyticsEngine } from './analytics.js';
-import { getLocalDateKey } from './state.js';
-import { QUOTE_VAULT } from './premium-features.js';
+import { sound } from './sound-engine.js?v=3.8.1';
+import { AnalyticsEngine } from './analytics.js?v=3.8.1';
+import { getLocalDateKey } from './state.js?v=3.8.1';
+import { QUOTE_VAULT } from './premium-features.js?v=3.8.1';
 
 export const ACHIEVEMENTS = [
   {
