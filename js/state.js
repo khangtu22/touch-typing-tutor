@@ -168,7 +168,9 @@ const DEFAULT_STATE = {
       breakEnabled: false,
       breakInterval: 30,        // minutes
       eyeCareEnabled: false,
-      focusModeShortcut: true
+      focusModeShortcut: true,
+      afkDetectionEnabled: true,
+      afkTimeoutSec: 30
     }
   },
   dailyChallengeState: {

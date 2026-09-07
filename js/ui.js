@@ -30,6 +30,7 @@ import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } f
 import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.8.1';
 import { CommandPalette } from './command-palette.js?v=3.8.1';
 import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js?v=3.8.1';
+import { AFKDetector, DEFAULT_AFK_TIMEOUT_MS } from './afk-detector.js?v=3.8.3';
 
 const escapeHtml = value => String(value)
   .replace(/&/g, '&amp;')
@@ -63,8 +64,26 @@ export class UIManager {
     };
     this.dashboardStageFilter = 'all'; // 'all' | '1' | '2' | '3' | '4' | '5'
     this.dashboardSearchQuery = '';
+    this.pauseReason = null;
 
     this.initElements();
+    this.afkDetector = new AFKDetector({
+      isSessionActive: () => (
+        this.activeScreen === 'lesson' &&
+        typingEngine.isActive &&
+        !typingEngine.isPaused &&
+        !!typingEngine.startTime
+      ),
+      getConfig: () => {
+        const wellness = store.getState().settings?.wellness || {};
+        return {
+          enabled: wellness.afkDetectionEnabled !== false,
+          timeoutMs: (Number(wellness.afkTimeoutSec) || 30) * 1000
+        };
+      },
+      onIdle: details => this.handleAFKDetected(details)
+    });
+    this.afkDetector.start();
     this.initEventListeners();
     this.subscribeToStore();
   }
@@ -509,6 +528,7 @@ export class UIManager {
       this.screens.arcade?.replaceChildren();
     }
     if (this.activeScreen === 'lesson' && screenName !== 'lesson') {
+      this.hidePauseModal();
       if (this.isFocusModeActive) this.exitFocusMode();
       document.body.classList.remove('blind-mode-active');
       try { goalsManager.setPracticeActive(false); } catch (e) {}
@@ -522,6 +542,7 @@ export class UIManager {
     }
 
     this.activeScreen = screenName;
+    this.afkDetector?.sync();
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch (e) {}
 
     Object.entries(this.screens).forEach(([name, el]) => {
@@ -3049,6 +3070,7 @@ export class UIManager {
   }
 
   handleTypingEngineState(data) {
+    this.afkDetector?.sync();
     if (this.lessonTitleEl) {
       this.lessonTitleEl.textContent = data.lesson.title;
       this.lessonTitleEl.title = data.lesson.title || '';
@@ -3547,28 +3569,63 @@ export class UIManager {
     this.renderResults(summary);
   }
 
+  handleAFKDetected(details = {}) {
+    if (
+      this.activeScreen !== 'lesson' ||
+      !typingEngine.isActive ||
+      typingEngine.isPaused ||
+      !typingEngine.startTime
+    ) return;
+
+    this.pauseReason = 'afk';
+    typingEngine.pause();
+    goalsManager.setPracticeActive(false);
+    this.showPauseModal('afk', details);
+  }
+
   toggleLessonPause() {
     if (typingEngine.isPaused) {
       typingEngine.resume();
       goalsManager.setPracticeActive(true);
+      this.afkDetector?.notifyActivity();
+      this.pauseReason = null;
       this.hidePauseModal();
     } else {
+      this.pauseReason = 'manual';
       typingEngine.pause();
       goalsManager.setPracticeActive(false);
-      this.showPauseModal();
+      this.showPauseModal('manual');
     }
   }
 
-  showPauseModal() {
+  showPauseModal(reason = 'manual', details = {}) {
+    this.pauseReason = reason;
     let modal = document.getElementById('pause-modal');
+    const copy = reason === 'afk'
+      ? {
+          kicker: 'AFK AUTO-PAUSE',
+          title: 'You stepped away',
+          description: `The lesson paused after ${Math.round((details.timeoutMs || DEFAULT_AFK_TIMEOUT_MS) / 1000)} seconds without activity. Your progress and active time are safe.`
+        }
+      : {
+          kicker: '',
+          title: 'Lesson Paused',
+          description: 'Take a breath, relax your shoulders, and maintain hand posture.'
+        };
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'pause-modal';
       modal.className = 'modal-overlay modal-active';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-hidden', 'false');
+      modal.setAttribute('aria-labelledby', 'pause-modal-title');
+      modal.setAttribute('aria-describedby', 'pause-modal-desc');
       modal.innerHTML = `
         <div class="modal-card">
-          <h2 class="modal-title">Lesson Paused</h2>
-          <p class="modal-desc">Take a breath, relax your shoulders, and maintain hand posture.</p>
+          <span id="pause-modal-kicker" class="pause-modal-kicker" hidden></span>
+          <h2 id="pause-modal-title" class="modal-title">${copy.title}</h2>
+          <p id="pause-modal-desc" class="modal-desc">${copy.description}</p>
           <div class="modal-actions">
             <button id="resume-lesson-btn" class="btn btn-primary">Resume (Esc)</button>
             <button id="restart-lesson-btn" class="btn btn-secondary">Restart Round (R)</button>
@@ -3590,11 +3647,27 @@ export class UIManager {
     } else {
       modal.classList.add('modal-active');
     }
+    modal.setAttribute('aria-hidden', 'false');
+
+    const kicker = modal.querySelector('#pause-modal-kicker');
+    const title = modal.querySelector('#pause-modal-title');
+    const description = modal.querySelector('#pause-modal-desc');
+    if (kicker) {
+      kicker.textContent = copy.kicker;
+      kicker.hidden = !copy.kicker;
+    }
+    if (title) title.textContent = copy.title;
+    if (description) description.textContent = copy.description;
+    modal.classList.toggle('afk-pause-modal', reason === 'afk');
   }
 
   hidePauseModal() {
     const modal = document.getElementById('pause-modal');
-    if (modal) modal.classList.remove('modal-active');
+    if (modal) {
+      modal.classList.remove('modal-active');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    this.pauseReason = null;
   }
 
   // ==========================================
@@ -4399,6 +4472,29 @@ export class UIManager {
                 <span class="toggle-slider"></span>
               </label>
             </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">AFK Auto-Pause</label>
+                <p class="setting-desc">Pause a started lesson when there is no keyboard or pointer activity</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-afk-toggle" ${settings.wellness?.afkDetectionEnabled !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <label class="setting-label">AFK Timeout</label>
+                <p class="setting-desc">How long a lesson can remain idle before it pauses</p>
+              </div>
+              <select id="setting-afk-timeout" class="select-input" style="width: 140px;">
+                <option value="15" ${(settings.wellness?.afkTimeoutSec || 30) === 15 ? 'selected' : ''}>After 15 secs</option>
+                <option value="30" ${(settings.wellness?.afkTimeoutSec || 30) === 30 ? 'selected' : ''}>After 30 secs</option>
+                <option value="60" ${(settings.wellness?.afkTimeoutSec || 30) === 60 ? 'selected' : ''}>After 60 secs</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -4762,6 +4858,31 @@ export class UIManager {
           wellness: { ...(prev.settings.wellness || {}), focusModeShortcut: e.target.checked }
         }
       }));
+    });
+
+    document.getElementById('setting-afk-toggle')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          wellness: { ...(prev.settings.wellness || {}), afkDetectionEnabled: enabled }
+        }
+      }));
+      this.afkDetector?.sync();
+      this.showToast(enabled ? '⏸ AFK auto-pause enabled.' : 'AFK auto-pause disabled.', enabled ? 'teal' : 'amber');
+    });
+
+    document.getElementById('setting-afk-timeout')?.addEventListener('change', (e) => {
+      const timeoutSec = Math.max(5, Math.min(600, parseInt(e.target.value, 10) || 30));
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          wellness: { ...(prev.settings.wellness || {}), afkTimeoutSec: timeoutSec }
+        }
+      }));
+      this.afkDetector?.sync();
     });
 
     // Sound profile

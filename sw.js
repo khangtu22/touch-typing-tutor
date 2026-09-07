@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.8.1 - Premium Edition)
+ * KeyFlow Service Worker (v3.8.3 - AFK detection)
  */
 
-const CACHE_NAME = 'keyflow-v3.8.2-hands';
+const CACHE_NAME = 'keyflow-v3.8.3-afk';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -31,6 +31,7 @@ const ASSETS_TO_CACHE = [
   './js/keyboard-renderer.js',
   './js/hand-renderer.js',
   './js/hand-model.js',
+  './js/afk-detector.js',
   './js/analytics.js',
   './js/achievements.js',
   './js/streak-challenge.js',

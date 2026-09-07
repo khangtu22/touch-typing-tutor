@@ -788,6 +788,23 @@ input:checked + .toggle-slider:before {
   color: var(--text-secondary);
 }
 
+.pause-modal-kicker {
+  color: var(--reward-amber, #ffb86b);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#pause-modal.afk-pause-modal .modal-card {
+  border-color: rgba(255, 184, 107, 0.45);
+  box-shadow: 0 0 28px rgba(255, 184, 107, 0.12), var(--shadow-lg);
+}
+
+#pause-modal.afk-pause-modal .modal-title {
+  color: var(--reward-amber, #ffb86b);
+}
+
 .modal-actions {
   display: flex;
   gap: 12px;

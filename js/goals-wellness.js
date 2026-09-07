@@ -28,7 +28,9 @@ export const DEFAULT_WELLNESS = {
   breakInterval: 30,          // minutes between break reminders
   breakEnabled: false,
   eyeCareEnabled: false,      // 20-20-20 rule reminders
-  focusModeShortcut: true     // enable 'F' shortcut for focus mode
+  focusModeShortcut: true,     // enable 'F' shortcut for focus mode
+  afkDetectionEnabled: true,
+  afkTimeoutSec: 30
 };
 
 // Design-token colours that match the app's CSS variables
