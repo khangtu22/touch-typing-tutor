@@ -96,7 +96,8 @@ body.theme-dark .typing-box-card {
 }
 
 body.theme-dark .char-upcoming {
-  color: var(--text-muted);
+  color: #9AA3B2;
+  font-weight: 500;
 }
 
 body.theme-dark .char-current {
@@ -397,7 +398,7 @@ body.theme-retro .typing-box-card::before {
   );
   pointer-events: none;
   z-index: 1;
-  opacity: 0.65;
+  opacity: 0.22;
 }
 
 /* CRT Vignette Depth */
@@ -407,8 +408,8 @@ body.theme-retro .typing-box-card::after {
   inset: 0;
   background: radial-gradient(
     circle at 50% 50%,
-    transparent 65%,
-    rgba(0, 0, 0, 0.55) 100%
+    transparent 75%,
+    rgba(0, 0, 0, 0.35) 100%
   );
   pointer-events: none;
   z-index: 1;
@@ -416,13 +417,14 @@ body.theme-retro .typing-box-card::after {
 
 /* Amber CRT Character Styling */
 body.theme-retro .char-upcoming {
-  color: var(--text-secondary);
-  text-shadow: 0 0 1px rgba(255, 242, 204, 0.18);
+  color: #D8CEBC;
+  text-shadow: 0 0 1px rgba(255, 242, 204, 0.25);
+  font-weight: 500;
 }
 
 body.theme-retro .char-current {
-  color: #FFF2CC;
-  text-shadow: 0 0 10px rgba(255, 212, 128, 0.85);
+  color: #FFF6DE;
+  text-shadow: 0 0 12px rgba(255, 212, 128, 0.95);
   font-weight: 800;
 }
 
@@ -650,8 +652,9 @@ body.theme-cyberpunk .typing-box-card {
               0 14px 36px rgba(0, 0, 0, 0.75);
 }
 body.theme-cyberpunk .char-upcoming {
-  color: var(--text-secondary);
-  text-shadow: 0 0 1px rgba(224, 247, 255, 0.22);
+  color: #C2AEF0;
+  text-shadow: 0 0 2px rgba(194, 174, 240, 0.3);
+  font-weight: 500;
 }
 body.theme-cyberpunk .char-current {
   color: #FFFFFF;
@@ -854,8 +857,9 @@ body.theme-botanical .typing-box-card {
               0 14px 34px rgba(0, 0, 0, 0.65);
 }
 body.theme-botanical .char-upcoming {
-  color: var(--text-secondary);
-  text-shadow: 0 0 1px rgba(238, 248, 241, 0.16);
+  color: #C0DECB;
+  text-shadow: 0 0 2px rgba(192, 222, 203, 0.2);
+  font-weight: 500;
 }
 body.theme-botanical .char-current {
   color: #FFFFFF;
@@ -1057,8 +1061,9 @@ body.theme-tokyo .typing-box-card {
               0 14px 34px rgba(0, 0, 0, 0.65);
 }
 body.theme-tokyo .char-upcoming {
-  color: var(--text-secondary);
-  text-shadow: 0 0 1px rgba(240, 241, 251, 0.18);
+  color: #B9C0E2;
+  text-shadow: 0 0 2px rgba(185, 192, 226, 0.2);
+  font-weight: 500;
 }
 body.theme-tokyo .char-current {
   color: #FFFFFF;

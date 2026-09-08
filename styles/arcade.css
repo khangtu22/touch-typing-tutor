@@ -829,7 +829,8 @@
 }
 
 .nitro-text-display .char-upcoming {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 500;
 }
 
 

@@ -183,6 +183,8 @@ class ThemeStudio {
 
     set('--text-primary',   theme.textPrimary);
     set('--text-secondary', theme.textSecondary);
+    set('--text-muted',     lightenHex(theme.surface2, 0.45));
+    set('--typing-upcoming-color', theme.textSecondary);
 
     // Keycap-specific variables (consumed by keyboard.css)
     set('--keycap-bg',      theme.keycapBg);
@@ -204,7 +206,7 @@ class ThemeStudio {
       '--bg-base', '--surface-1', '--surface-2', '--surface-3', '--surface-glass',
       '--accent-primary', '--accent-primary-hover', '--accent-glow',
       '--success-teal', '--success-glow',
-      '--text-primary', '--text-secondary',
+      '--text-primary', '--text-secondary', '--text-muted', '--typing-upcoming-color',
       '--keycap-bg', '--keycap-legend',
       '--border-subtle', '--border-light', '--border-active'
     ];

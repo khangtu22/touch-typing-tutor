@@ -204,6 +204,7 @@
   overflow: hidden;
   position: relative;
   font-size: var(--typing-font-size, 28px);
+  z-index: 2;
 }
 
 .typing-text-display {
@@ -257,7 +258,8 @@
 }
 
 .char-upcoming {
-  color: var(--text-muted);
+  color: var(--typing-upcoming-color, var(--text-secondary, #9AA3B2));
+  font-weight: 500;
 }
 
 .char-correct {

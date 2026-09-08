@@ -387,7 +387,8 @@ body.focus-mode-active .hud-live-metrics {
 }
 
 .zen-typing-content .char-upcoming {
-  color: rgba(255, 255, 255, 0.32);
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 500;
 }
 
 .zen-typing-content .char-correct {
