@@ -167,6 +167,10 @@ export class UIManager {
     this.raceCompetitorMarker = document.getElementById('race-competitor-marker');
     this.hudDistractionFreeBtn = document.getElementById('hud-distraction-free-btn');
     this.lessonHud = document.querySelector('.lesson-hud');
+    this.speedHints = new Map();
+    this.lastSpeedHintIndex = 0;
+    this.speedHintStep = 20;
+    this.lastSpeedHintRoundIdx = null;
   }
 
   initEventListeners() {
@@ -546,6 +550,9 @@ export class UIManager {
       if (this.isFocusModeActive) this.exitFocusMode();
       if (this.screens.lesson) this.screens.lesson.classList.remove('distraction-free-typing');
       document.body.classList.remove('blind-mode-active');
+      if (this.speedHints) this.speedHints.clear();
+      this.lastSpeedHintIndex = 0;
+      this.lastSpeedHintRoundIdx = null;
       try { goalsManager.setPracticeActive(false); } catch (e) {}
       try { typingEngine.destroy(); } catch (e) {}
       try { ghostRacer.stopRace(); } catch (e) {}
@@ -3102,6 +3109,9 @@ export class UIManager {
     if (this.screens.lesson) {
       this.screens.lesson.classList.remove('distraction-free-typing');
     }
+    if (this.speedHints) this.speedHints.clear();
+    this.lastSpeedHintIndex = 0;
+    this.lastSpeedHintRoundIdx = null;
     this.syncDistractionFreeMode();
 
     this.smoothCaretState = null;
@@ -3196,6 +3206,35 @@ export class UIManager {
       this.hudCorrectionBadge.style.display = data.wordCorrectionMode ? 'inline-flex' : 'none';
     }
 
+    // Distraction-Free Speed Milestone Hints
+    const state = store.getState();
+    const isDistractionFree = !!state.settings?.distractionFreeMode;
+    const speedHintsEnabled = state.settings?.distractionFreeSpeedHints !== false;
+    const isCurrentlyTyping = isDistractionFree && !!data.isStarted && !data.isPaused;
+    const currentWpm = Math.round(data.wpm || 0);
+
+    if (this.lastSpeedHintRoundIdx !== data.roundIdx) {
+      if (this.speedHints) this.speedHints.clear();
+      this.lastSpeedHintIndex = 0;
+      this.lastSpeedHintRoundIdx = data.roundIdx;
+    }
+
+    if (isCurrentlyTyping && speedHintsEnabled && currentWpm > 0) {
+      if (!this.speedHints) this.speedHints = new Map();
+      const step = this.speedHintStep || 20;
+      const lastIndex = this.lastSpeedHintIndex || 0;
+      const minThreshold = lastIndex === 0 ? Math.min(step, 18) : lastIndex + step;
+
+      if (data.charIndex >= minThreshold) {
+        const char = data.currentText?.[data.charIndex];
+        // Snap to non-space character so hint sits neatly above a visible glyph
+        if (char && char !== ' ' && char !== '\n' && char !== '\t') {
+          this.speedHints.set(data.charIndex, currentWpm);
+          this.lastSpeedHintIndex = data.charIndex;
+        }
+      }
+    }
+
     this.renderTypingText(
       data.currentText,
       data.charIndex,
@@ -3217,10 +3256,7 @@ export class UIManager {
     }
 
     // Distraction-Free Mode: dynamically toggle when actively typing
-    const state = store.getState();
-    const isDistractionFree = !!state.settings?.distractionFreeMode;
     const hasCountdown = data.timeRemainingSec !== null && data.timeRemainingSec !== undefined;
-    const isCurrentlyTyping = isDistractionFree && !!data.isStarted && !data.isPaused;
 
     if (this.screens.lesson) {
       this.screens.lesson.classList.toggle('distraction-free-active', isDistractionFree);
@@ -3278,18 +3314,23 @@ export class UIManager {
       const charIndexAttribute = `data-char-index="${i}"`;
 
       let charSpan = '';
+      const speedHint = this.speedHints && this.speedHints.get(i);
+      const speedHintHtml = speedHint !== undefined
+        ? `<span class="char-speed-hint" aria-hidden="true">${speedHint}<span class="speed-unit">wpm</span></span>`
+        : '';
+
       if (i < currentIndex) {
         if (stateObj && stateObj.status === 'incorrect') {
-          charSpan = `<span class="char-token char-incorrect${spaceClass}" ${charIndexAttribute} data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-incorrect${spaceClass}" ${charIndexAttribute} data-expected="${escapeHtml(char)}" title="Mistyped: '${stateObj.typed}' (expected '${char}')">${displayChar}${speedHintHtml}</span>`;
         } else if (isCharMistyped) {
-          charSpan = `<span class="char-token char-word-error${spaceClass}" ${charIndexAttribute} title="Corrected character">${displayChar}</span>`;
+          charSpan = `<span class="char-token char-word-error${spaceClass}" ${charIndexAttribute} title="Corrected character">${displayChar}${speedHintHtml}</span>`;
         } else {
-          charSpan = `<span class="char-token char-correct${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
+          charSpan = `<span class="char-token char-correct${spaceClass}" ${charIndexAttribute}>${displayChar}${speedHintHtml}</span>`;
         }
       } else if (i === currentIndex) {
-        charSpan = `<span class="char-token char-current${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
+        charSpan = `<span class="char-token char-current${spaceClass}" ${charIndexAttribute}>${displayChar}${speedHintHtml}</span>`;
       } else {
-        charSpan = `<span class="char-token char-upcoming${spaceClass}" ${charIndexAttribute}>${displayChar}</span>`;
+        charSpan = `<span class="char-token char-upcoming${spaceClass}" ${charIndexAttribute}>${displayChar}${speedHintHtml}</span>`;
       }
 
       if (isNewline) {
@@ -3480,6 +3521,9 @@ export class UIManager {
   }
 
   handleRoundFinished(data) {
+    if (this.speedHints) this.speedHints.clear();
+    this.lastSpeedHintIndex = 0;
+    this.lastSpeedHintRoundIdx = data?.roundIdx !== undefined ? data.roundIdx + 1 : null;
     this.showToast(`Round ${data.roundIdx + 1} Complete!`, 'teal');
   }
 
@@ -3500,6 +3544,9 @@ export class UIManager {
     if (this.screens.lesson) {
       this.screens.lesson.classList.remove('distraction-free-typing');
     }
+    if (this.speedHints) this.speedHints.clear();
+    this.lastSpeedHintIndex = 0;
+    this.lastSpeedHintRoundIdx = null;
 
     try {
       if (zenMode?.isActive) {
@@ -4573,6 +4620,17 @@ export class UIManager {
               </label>
             </div>
 
+            <div class="setting-row" id="row-distraction-speed-hints-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
+              <div>
+                <label class="setting-label">Speed Milestone Hints</label>
+                <p class="setting-desc">Display subtle speed hints above characters at intervals while typing in distraction-free mode</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-distraction-speed-hints-toggle" ${settings.distractionFreeSpeedHints !== false ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
             <div class="setting-row">
               <div>
                 <label class="setting-label">AFK Auto-Pause</label>
@@ -4966,6 +5024,11 @@ export class UIManager {
       const collapseToggle = document.getElementById('setting-distraction-collapse-toggle');
       if (collapseRow) collapseRow.style.opacity = e.target.checked ? '1' : '0.5';
       if (collapseToggle) collapseToggle.disabled = !e.target.checked;
+
+      const speedHintsRow = document.getElementById('row-distraction-speed-hints-toggle');
+      const speedHintsToggle = document.getElementById('setting-distraction-speed-hints-toggle');
+      if (speedHintsRow) speedHintsRow.style.opacity = e.target.checked ? '1' : '0.5';
+      if (speedHintsToggle) speedHintsToggle.disabled = !e.target.checked;
     });
 
     document.getElementById('setting-distraction-collapse-toggle')?.addEventListener('change', (e) => {
@@ -4978,6 +5041,31 @@ export class UIManager {
         }
       }));
       document.body.classList.toggle('distraction-free-collapse', enabled);
+    });
+
+    document.getElementById('setting-distraction-speed-hints-toggle')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          distractionFreeSpeedHints: enabled
+        }
+      }));
+      if (!enabled && this.speedHints && this.speedHints.size > 0) {
+        this.speedHints.clear();
+        this.lastSpeedHintIndex = 0;
+        if (this.activeScreen === 'lesson' && typingEngine.isActive && typingEngine.currentText) {
+          this.renderTypingText(
+            typingEngine.currentText,
+            typingEngine.charIndex,
+            typingEngine.charStates,
+            typingEngine.mistypedCharIndices,
+            typingEngine.charToWord,
+            typingEngine.wordCorrectionMode
+          );
+        }
+      }
     });
 
     document.getElementById('setting-afk-toggle')?.addEventListener('change', (e) => {
@@ -5393,6 +5481,30 @@ export class UIManager {
     if (collapseToggle) {
       collapseToggle.disabled = !isEnabled;
       collapseToggle.checked = isCollapse;
+    }
+
+    const speedHintsRow = document.getElementById('row-distraction-speed-hints-toggle');
+    if (speedHintsRow) speedHintsRow.style.opacity = isEnabled ? '1' : '0.5';
+    const speedHintsToggle = document.getElementById('setting-distraction-speed-hints-toggle');
+    if (speedHintsToggle) {
+      speedHintsToggle.disabled = !isEnabled;
+      speedHintsToggle.checked = state.settings?.distractionFreeSpeedHints !== false;
+    }
+
+    if (!isEnabled && this.speedHints && this.speedHints.size > 0) {
+      this.speedHints.clear();
+      this.lastSpeedHintIndex = 0;
+      this.lastSpeedHintRoundIdx = null;
+      if (this.activeScreen === 'lesson' && typingEngine.isActive && typingEngine.currentText) {
+        this.renderTypingText(
+          typingEngine.currentText,
+          typingEngine.charIndex,
+          typingEngine.charStates,
+          typingEngine.mistypedCharIndices,
+          typingEngine.charToWord,
+          typingEngine.wordCorrectionMode
+        );
+      }
     }
 
     if (typingEngine.isActive) {

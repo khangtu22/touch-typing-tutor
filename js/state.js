@@ -158,6 +158,7 @@ export const DEFAULT_STATE = {
     metronomeBpm: 100,
     distractionFreeMode: false,
     distractionFreeCollapse: false,
+    distractionFreeSpeedHints: true,
     // --- Premium Feature Settings ---
     isPremium: true,          // All features are included for every user.
     practiceLanguage: 'en',  // For multi-language practice
