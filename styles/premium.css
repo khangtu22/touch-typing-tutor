@@ -12,6 +12,9 @@ body.focus-mode-active .nav-actions,
 body.focus-mode-active .nav-center-stats,
 body.focus-mode-active #race-track-container,
 body.focus-mode-active #keyboard-container,
+body.focus-mode-active .lesson-session-toolbar,
+body.focus-mode-active .lesson-session-footer,
+body.focus-mode-active .typing-card-heading,
 body.focus-mode-active .lesson-hud .hud-meta,
 body.focus-mode-active .hud-live-metrics .combo-pill {
   display: none !important;
@@ -2194,120 +2197,6 @@ body.focus-mode-active .hud-live-metrics {
   height: 36px;
   background: linear-gradient(transparent, #0D1117);
 }
-
-/* ================================================
-   FEATURE 4: SPEED TEST ARENA
-   ================================================ */
-.speedtest-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-}
-
-.speedtest-presets-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 14px 20px;
-}
-
-.speedtest-preset-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.speedtest-pill {
-  padding: 8px 18px;
-  border-radius: var(--radius-full);
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.speedtest-pill:hover,
-.speedtest-pill.active {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.speedtest-bests-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.speedtest-best-card {
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Benchmark lobby refinement */
-.speedtest-container { gap: 20px; max-width: 1152px; margin: 0 auto; }
-.speedtest-header, .speedtest-section-heading, .speedtest-card-topline, .speedtest-card-metrics { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.speedtest-header { padding-top: 4px; }
-.speedtest-eyebrow { margin-bottom: 4px; color: var(--accent-primary); font-size: 10px; font-weight: 800; letter-spacing: .11em; line-height: 1.2; text-transform: uppercase; }
-.speedtest-header .section-title { margin: 0; }
-.speedtest-header .section-subtitle { max-width: 670px; margin-top: 4px; }
-.speedtest-completion { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-1); }
-.speedtest-completion strong { color: var(--reward-amber); font-family: var(--font-mono); font-size: 24px; line-height: 1; }
-.speedtest-completion span, .speedtest-section-heading > span { color: var(--text-muted); font-size: 11px; font-weight: 600; line-height: 1.25; }
-.speedtest-presets-bar { justify-content: space-between; padding: 12px 16px; }
-.speedtest-preset-group { flex-wrap: wrap; }
-.speedtest-group-label { color: var(--text-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.speedtest-divider { width: 1px; height: 26px; background: var(--border-subtle); }
-.speedtest-pill { min-height: 36px; padding: 7px 13px; font-size: 12px; transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast); }
-.speedtest-pill:hover, .speedtest-pill.active { background: color-mix(in srgb, var(--accent-primary) 18%, var(--surface-2)); border-color: var(--accent-primary); color: #fff; }
-.speedtest-pill:hover { transform: translateY(-1px); }
-.speedtest-launch-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(185px, auto) auto; align-items: center; gap: 20px; overflow: hidden; padding: 22px 24px; border: 1px solid color-mix(in srgb, var(--accent-primary) 45%, var(--border-subtle)); border-radius: var(--radius-lg); background: radial-gradient(circle at 84% 0%, color-mix(in srgb, var(--accent-primary) 22%, transparent), transparent 35%), var(--surface-1); box-shadow: var(--shadow-sm); }
-.speedtest-launch-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: color-mix(in srgb, var(--accent-primary) 20%, var(--surface-2)); font-size: 26px; }
-.speedtest-launch-main h3, .speedtest-section-heading h3 { color: var(--text-primary); font-size: 20px; line-height: 1.25; }
-.speedtest-launch-main > p:not(.speedtest-eyebrow) { margin-top: 3px; color: var(--text-secondary); font-size: 13px; }
-.speedtest-rule-list { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-top: 12px; color: var(--text-muted); font-size: 11px; font-weight: 600; }
-.speedtest-launch-record { display: flex; min-width: 185px; flex-direction: column; gap: 3px; padding-left: 20px; border-left: 1px solid var(--border-subtle); }
-.speedtest-record-label { color: var(--text-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.speedtest-launch-record strong { color: var(--text-primary); font-family: var(--font-mono); font-size: 22px; line-height: 1.2; }
-.speedtest-launch-record strong small { color: var(--accent-primary); font-size: 12px; }
-.speedtest-launch-record > span:last-child { color: var(--text-muted); font-size: 11px; }
-.speedtest-start-btn { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
-.speedtest-records { padding-top: 4px; }
-.speedtest-section-heading { margin-bottom: 12px; }
-.speedtest-bests-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-.speedtest-best-card { min-height: 152px; padding: 15px; transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast); }
-.speedtest-best-card.has-record { background: linear-gradient(145deg, color-mix(in srgb, var(--accent-primary) 7%, var(--surface-1)), var(--surface-1) 55%); }
-.speedtest-best-card.is-selected { border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 20%, transparent); }
-.speedtest-best-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
-.speedtest-card-topline { color: var(--text-primary); font-size: 13px; font-weight: 800; }
-.speedtest-card-topline span:last-child { color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.speedtest-card-wpm { margin-top: 7px; color: var(--accent-primary); font-family: var(--font-mono); font-size: 30px; font-weight: 800; line-height: 1; }
-.speedtest-card-wpm span { color: var(--text-secondary); font-family: var(--font-sans); font-size: 11px; font-weight: 800; }
-.speedtest-card-metrics { margin-top: 5px; color: var(--text-muted); font-size: 10px; }
-.speedtest-card-metrics strong { color: var(--text-secondary); }
-.speedtest-best-card time { margin-top: auto; color: var(--text-muted); font-size: 10px; }
-.speedtest-card-empty { margin: 11px 0 6px; color: var(--text-muted); font-size: 13px; }
-.speedtest-best-card .quick-start-speed-btn { width: 100%; margin-top: auto; }
-@media (max-width: 900px) { .speedtest-launch-card { grid-template-columns: auto 1fr auto; } .speedtest-launch-record { grid-column: 2 / 4; min-width: 0; padding-left: 0; border-left: 0; } }
-@media (max-width: 650px) { .speedtest-header { align-items: flex-start; flex-direction: column; } .speedtest-presets-bar { align-items: flex-start; flex-direction: column; } .speedtest-divider { display: none; } .speedtest-launch-card { grid-template-columns: auto minmax(0, 1fr); gap: 14px; padding: 18px; } .speedtest-launch-record { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--border-subtle); } .speedtest-start-btn { grid-column: 1 / -1; justify-content: center; width: 100%; } .speedtest-section-heading { align-items: flex-start; flex-direction: column; gap: 4px; } }
 
 /* ================================================
    FEATURE 5: COMMAND PALETTE SPOTLIGHT

@@ -27,7 +27,7 @@ import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, get
 import { ArcadeHubManager } from './arcade-games.js?v=3.9.0';
 import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js?v=3.8.1';
 import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js?v=3.8.1';
-import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.8.1';
+import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.9.3';
 import { CommandPalette } from './command-palette.js?v=3.8.1';
 import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js?v=3.8.1';
 import { AFKDetector, DEFAULT_AFK_TIMEOUT_MS } from './afk-detector.js?v=3.8.3';
@@ -38,6 +38,14 @@ const escapeHtml = value => String(value)
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#039;');
+
+const TYPING_THEMES = [
+  { id: 'dark', name: 'Midnight', color: '#9b87f5' },
+  { id: 'retro', name: 'Retro', color: '#ffb833' },
+  { id: 'botanical', name: 'Botanical', color: '#74c69d' },
+  { id: 'tokyo', name: 'Tokyo', color: '#bb9af7' },
+  { id: 'cyberpunk', name: 'Neon', color: '#00f0ff' }
+];
 
 export function getNextWordStartIndex(text, currentIndex) {
   if (!text || currentIndex >= text.length) return -1;
@@ -216,8 +224,32 @@ export class UIManager {
     if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
     if (this.hudDistractionFreeBtn) {
-      this.hudDistractionFreeBtn.addEventListener('click', () => this.toggleDistractionFreeMode());
+      this.hudDistractionFreeBtn.addEventListener('click', event => {
+        this.toggleDistractionFreeMode();
+        if (event.detail > 0 && this.activeScreen === 'lesson') this.screens.lesson?.focus({ preventScroll: true });
+      });
     }
+    document.getElementById('lesson-back-btn')?.addEventListener('click', () => {
+      this.navigateTo(this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard');
+    });
+    document.getElementById('lesson-restart-btn')?.addEventListener('click', () => {
+      if (this.activeScreen !== 'lesson') return;
+      this.hidePauseModal();
+      this.clearSpeedHints();
+      typingEngine.retryLesson();
+      this.screens.lesson?.focus({ preventScroll: true });
+    });
+    document.getElementById('lesson-theme-select')?.addEventListener('change', event => {
+      this.setTypingTheme(event.target.value);
+      this.screens.lesson?.focus({ preventScroll: true });
+    });
+    document.getElementById('lesson-keyboard-toggle')?.addEventListener('click', event => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, keyboardVisible: prev.settings.keyboardVisible === false }
+      }));
+      if (event.detail > 0) this.screens.lesson?.focus({ preventScroll: true });
+    });
 
     // Window Resize Handler for Smooth Caret and Viewport Alignment
     window.addEventListener('resize', () => {
@@ -235,6 +267,16 @@ export class UIManager {
       if (this.commandPalette?.isOpen || e.target?.closest?.(
         'input, textarea, select, [contenteditable]:not([contenteditable="false"])'
       ) && this.activeScreen === 'lesson') return;
+
+      // Keyboard activation of lesson controls must never count as typed text.
+      if (this.activeScreen === 'lesson' && (e.key === 'Enter' || e.key === ' ') &&
+          e.target?.closest?.('button, a, summary, [role="button"]')) return;
+      if (this.activeScreen === 'lesson' && e.target?.closest?.('.lesson-session-toolbar, .lesson-session-footer')) {
+        if (e.key === 'Tab') return;
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          this.screens.lesson?.focus({ preventScroll: true });
+        }
+      }
 
       const isDistractionModeShortcut = (e.key.toLowerCase() === 'd' || e.code === 'KeyD') &&
         (e.shiftKey && (e.ctrlKey || e.metaKey) && !e.altKey);
@@ -516,6 +558,7 @@ export class UIManager {
       document.body.classList.toggle('keyboard-hidden', !keyboardVisible);
       document.body.classList.toggle('hand-guide-hidden', !handGuideVisible);
       document.body.classList.toggle('reach-banner-hidden', !reachBannerVisible);
+      this.syncTypingAppearance(state.settings);
       document.body.classList.toggle(
         'blind-mode-active',
         this.activeScreen === 'lesson' && !!state.settings.blindMode
@@ -608,7 +651,7 @@ export class UIManager {
       [this.navSettingsBtn, 'settings']
     ].forEach(([button, target]) => {
       if (!button) return;
-      const isCurrent = screenName === target;
+      const isCurrent = screenName === target || (screenName === 'lesson' && this.currentLessonData?.isSpeedTest && target === 'speedtest');
       button.classList.toggle('nav-btn-active', isCurrent);
       if (isCurrent) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
@@ -2800,124 +2843,130 @@ export class UIManager {
 
     const state = store.getState();
     const bests = state.speedTestBests || {};
-    const activePresetId = this.activeSpeedPresetId || '60s';
-    const selectedPreset = SPEED_TEST_PRESETS.find(p => p.id === activePresetId) || SPEED_TEST_PRESETS[2];
+    const selectedPreset = SPEED_TEST_PRESETS.find(p => p.id === this.activeSpeedPresetId) || SPEED_TEST_PRESETS[2];
+    const activePresetId = selectedPreset.id;
     const selectedRecord = bests[selectedPreset.id];
     const completedCount = SPEED_TEST_PRESETS.filter(p => bests[p.id]).length;
-    const safeNumber = value => Number.isFinite(Number(value)) ? Math.round(Number(value)) : 0;
+    const safeNumber = value => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value))) : 0;
     const formatRecordDate = value => {
       const date = value ? new Date(value) : null;
       return date && !Number.isNaN(date.valueOf())
         ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
         : '—';
     };
-    const selectedFormat = selectedPreset.type === 'time'
-      ? `${selectedPreset.value}-second timed test`
-      : `${selectedPreset.value}-word completion test`;
-    const selectedGoal = selectedPreset.type === 'time'
-      ? '⌨️ Timer starts on first key'
-      : `⌨️ Finish after ${selectedPreset.value} words`;
+    const settings = state.settings || {};
+    const timed = selectedPreset.type === 'time';
 
     container.innerHTML = `
       <div class="speedtest-container">
         <header class="speedtest-header">
           <div>
-            <p class="speedtest-eyebrow">Typing benchmark arena</p>
-            <h2 class="section-title">Benchmark Speed Tests</h2>
-            <p class="section-subtitle">Measure speed, accuracy, and pace consistency with the same high-frequency word pool every time.</p>
+            <p class="speedtest-eyebrow">Speed test</p>
+            <h2 class="speedtest-title">Find your flow.</h2>
+            <p class="section-subtitle">A little focus. A steady rhythm. See what your fingers can do.</p>
           </div>
           <div class="speedtest-completion" aria-label="${completedCount} of ${SPEED_TEST_PRESETS.length} personal records">
-            <strong>${completedCount}</strong>
-            <span>of ${SPEED_TEST_PRESETS.length}<br>records set</span>
+            <strong>${completedCount}<span> / ${SPEED_TEST_PRESETS.length}</span></strong>
+            <span>benchmarks recorded</span>
           </div>
         </header>
 
-        <div class="speedtest-presets-bar" role="group" aria-label="Choose a benchmark test">
-          <div class="speedtest-preset-group">
-            <span class="speedtest-group-label">Timed</span>
-            ${SPEED_TEST_PRESETS.filter(p => p.type === 'time').map(p => `
-              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-pressed="${activePresetId === p.id}">
-                <span aria-hidden="true">${p.icon}</span>
-                <span>${p.label}</span>
-              </button>
-            `).join('')}
-          </div>
-          <div class="speedtest-divider" aria-hidden="true"></div>
-          <div class="speedtest-preset-group">
-            <span class="speedtest-group-label">Words</span>
-            ${SPEED_TEST_PRESETS.filter(p => p.type === 'words').map(p => `
-              <button class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-pressed="${activePresetId === p.id}">
-                <span aria-hidden="true">${p.icon}</span>
-                <span>${p.label}</span>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-
-        <section class="speedtest-launch-card" aria-labelledby="speedtest-selected-title">
-          <div class="speedtest-launch-icon" aria-hidden="true">${selectedPreset.icon}</div>
-          <div class="speedtest-launch-main">
-            <p class="speedtest-eyebrow">Selected benchmark</p>
-            <h3 id="speedtest-selected-title">${selectedPreset.label}</h3>
-            <p>${selectedPreset.desc}. ${selectedFormat}.</p>
-            <div class="speedtest-rule-list" aria-label="Test details">
-              <span>${selectedGoal}</span>
-              <span>◎ High-frequency English words</span>
-              <span>↗ Results include consistency</span>
+        <div class="speedtest-workspace">
+          <section class="speedtest-launch-card" aria-labelledby="speedtest-selected-title">
+            <div class="speedtest-presets-bar" role="group" aria-label="Choose a benchmark test">
+              ${['time', 'words'].map(type => `
+                <div class="speedtest-preset-group" role="group" aria-label="${type === 'time' ? 'Timed tests' : 'Word tests'}">
+                  <span class="speedtest-group-label">${type === 'time' ? 'Time' : 'Words'}</span>
+                  ${SPEED_TEST_PRESETS.filter(p => p.type === type).map(p => `
+                    <button type="button" class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-label="${p.label}" aria-pressed="${activePresetId === p.id}">${p.value}${type === 'time' ? 's' : ''}</button>
+                  `).join('')}
+                </div>
+              `).join('')}
             </div>
-          </div>
-          <div class="speedtest-launch-record">
-            ${selectedRecord ? `
-              <span class="speedtest-record-label">Personal best</span>
-              <strong>${safeNumber(selectedRecord.wpm)} <small>WPM</small></strong>
-              <span>${safeNumber(selectedRecord.accuracy)}% accuracy · ${safeNumber(selectedRecord.consistency || 100)}% consistent</span>
-            ` : `
-              <span class="speedtest-record-label">First attempt</span>
-              <strong>Set your baseline</strong>
-              <span>Your result is saved automatically.</span>
-            `}
-          </div>
-          <button id="speedtest-launch-btn" class="btn btn-primary btn-large speedtest-start-btn">
-            <span>Start ${selectedPreset.label}</span>
-            <span aria-hidden="true">→</span>
-          </button>
-        </section>
+
+            <div class="speedtest-launch-main">
+              <div class="speedtest-duration" aria-hidden="true">${selectedPreset.value}<span>${timed ? 'sec' : 'words'}</span></div>
+              <div>
+                <h3 id="speedtest-selected-title">${selectedPreset.label}</h3>
+                <p>${selectedPreset.desc}.</p>
+                <span class="speedtest-language">English <span aria-hidden="true">/</span> Common words</span>
+              </div>
+            </div>
+
+            <div class="speedtest-preview" aria-label="Typing theme preview">
+              <span class="speedtest-preview-done">find your </span><span class="speedtest-preview-current">f</span><span>low and let the words come to you</span>
+            </div>
+
+            <div class="speedtest-launch-bottom">
+              <div>
+                <button id="speedtest-launch-btn" class="btn btn-primary speedtest-start-btn" type="button">Start test <span aria-hidden="true">→</span></button>
+                <p>${timed ? 'The timer starts on your first keystroke.' : `Take your time. Finish all ${selectedPreset.value} words.`}</p>
+              </div>
+              <div class="speedtest-launch-record">
+                <span class="speedtest-record-label">${selectedRecord ? 'Your best' : 'Your next milestone'}</span>
+                ${selectedRecord ? `<strong>${safeNumber(selectedRecord.wpm)} <small>WPM</small></strong>` : '<strong class="speedtest-baseline">Set your first record</strong>'}
+              </div>
+            </div>
+          </section>
+
+          <aside class="speedtest-preferences" aria-labelledby="speedtest-preferences-title">
+            <div>
+              <p class="speedtest-eyebrow">Your typing space</p>
+              <h3 id="speedtest-preferences-title">Make it yours.</h3>
+              <p>A comfortable space for your next personal best.</p>
+            </div>
+            <fieldset class="speedtest-theme-picker">
+              <legend>Theme</legend>
+              <div class="speedtest-theme-options">
+                ${TYPING_THEMES.map(theme => `
+                  <button type="button" class="speedtest-theme-option" data-typing-theme="${theme.id}" aria-label="${theme.name} theme" aria-pressed="${!settings.customThemeId && settings.theme === theme.id}">
+                    <span style="--swatch-color: ${theme.color}" aria-hidden="true"></span>${theme.name}
+                  </button>
+                `).join('')}
+              </div>
+              ${settings.customThemeId ? '<p class="speedtest-custom-theme-note">Your custom theme is active.</p>' : ''}
+            </fieldset>
+            <div class="speedtest-focus-setting">
+              <div><label for="speedtest-focus-toggle">Distraction-free</label><p>Fade the stats. Keep your place.</p></div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="speedtest-focus-toggle" ${settings.distractionFreeMode ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <p class="speedtest-preference-note">Your theme carries into the test. You can change it any time.</p>
+          </aside>
+        </div>
 
         <section class="speedtest-records" aria-labelledby="speedtest-records-title">
           <div class="speedtest-section-heading">
             <div>
-              <p class="speedtest-eyebrow">Your history</p>
-              <h3 id="speedtest-records-title">Personal benchmark records</h3>
+              <h3 id="speedtest-records-title">Personal records</h3>
+              <p>Same word pool. Your own pace to beat.</p>
             </div>
             <span>${completedCount ? `${completedCount} benchmark${completedCount === 1 ? '' : 's'} recorded` : 'Complete a test to set a record'}</span>
           </div>
-          <div class="speedtest-bests-grid">
+          <div class="speedtest-records-scroll" role="region" aria-label="Personal records table" tabindex="0">
+            <table class="speedtest-records-table">
+              <thead><tr><th scope="col">Test</th><th scope="col">Speed</th><th scope="col">Accuracy</th><th scope="col">Consistency</th><th scope="col">Best set</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
+              <tbody>
             ${SPEED_TEST_PRESETS.map(p => {
               const record = bests[p.id];
               return `
-                <article class="speedtest-best-card ${record ? 'has-record' : ''} ${activePresetId === p.id ? 'is-selected' : ''}">
-                  <div class="speedtest-card-topline">
-                    <span>${p.icon} ${p.label}</span>
-                    <span>${p.type === 'time' ? `${p.value}s` : `${p.value} words`}</span>
-                  </div>
-                  ${record ? `
-                    <div class="speedtest-card-wpm">
-                      ${safeNumber(record.wpm)} <span>WPM</span>
-                    </div>
-                    <div class="speedtest-card-metrics">
-                      <span><strong>${safeNumber(record.accuracy)}%</strong> accuracy</span>
-                      <span><strong>${safeNumber(record.consistency || 100)}%</strong> steady</span>
-                    </div>
-                    <time datetime="${record.date || ''}">Best set ${formatRecordDate(record.date)}</time>
-                  ` : `
-                    <p class="speedtest-card-empty">No benchmark yet</p>
-                    <button class="btn btn-secondary btn-sm quick-start-speed-btn" data-speed-preset="${p.id}">Start trial <span aria-hidden="true">→</span></button>
-                  `}
-                </article>
+                <tr class="${activePresetId === p.id ? 'is-selected' : ''}">
+                  <th scope="row"><span class="speedtest-record-kind" aria-hidden="true">${p.type === 'time' ? '◷' : '≡'}</span>${p.label}</th>
+                  <td class="speedtest-record-speed">${record ? `${safeNumber(record.wpm)} <span>WPM</span>` : '<span aria-label="No record">—</span>'}</td>
+                  <td>${record ? `${safeNumber(record.accuracy)}%` : '—'}</td>
+                  <td>${record ? `${safeNumber(record.consistency ?? 100)}%` : '—'}</td>
+                  <td class="speedtest-record-date">${record ? escapeHtml(formatRecordDate(record.date)) : 'Not yet attempted'}</td>
+                  <td><button class="speedtest-record-start" type="button" data-start-preset="${p.id}" aria-label="${record ? 'Retry' : 'Start'} ${p.label}">${record ? 'Retry' : 'Try it'} <span aria-hidden="true">↗</span></button></td>
+                </tr>
               `;
             }).join('')}
+              </tbody>
+            </table>
           </div>
         </section>
+        <div class="speedtest-footnotes"><span><strong>WPM</strong> measures speed</span><span><strong>Accuracy</strong> rewards precision</span><span><strong>Consistency</strong> tracks your rhythm</span></div>
       </div>
     `;
 
@@ -2925,23 +2974,50 @@ export class UIManager {
       btn.addEventListener('click', () => {
         this.activeSpeedPresetId = btn.dataset.speedPreset;
         this.renderSpeedTest();
+        container.querySelector(`[data-speed-preset="${this.activeSpeedPresetId}"]`)?.focus({ preventScroll: true });
       });
     });
 
     container.querySelector('#speedtest-launch-btn')?.addEventListener('click', () => {
-      this.startSpeedTest(this.activeSpeedPresetId || '60s');
+      this.startSpeedTest(activePresetId);
     });
 
-    container.querySelectorAll('.quick-start-speed-btn').forEach(btn => {
+    container.querySelectorAll('[data-start-preset]').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.startSpeedTest(btn.dataset.speedPreset);
+        this.startSpeedTest(btn.dataset.startPreset);
       });
+    });
+    container.querySelectorAll('[data-typing-theme]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.setTypingTheme(btn.dataset.typingTheme);
+        this.renderSpeedTest();
+        container.querySelector(`[data-typing-theme="${btn.dataset.typingTheme}"]`)?.focus({ preventScroll: true });
+      });
+    });
+    container.querySelector('#speedtest-focus-toggle')?.addEventListener('change', event => {
+      this.setDistractionFreeMode(event.target.checked);
     });
   }
 
   startSpeedTest(presetId = '60s') {
     const lesson = generateSpeedTestLesson(presetId);
+    this.activeSpeedPresetId = lesson.speedTestPreset;
     this.startLesson(lesson);
+  }
+
+  setTypingTheme(themeId) {
+    if (!TYPING_THEMES.some(theme => theme.id === themeId)) return;
+    store.update(prev => ({ ...prev, settings: { ...prev.settings, theme: themeId, customThemeId: null } }));
+  }
+
+  syncTypingAppearance(settings = {}) {
+    const select = document.getElementById('lesson-theme-select');
+    if (select) {
+      const options = `${settings.customThemeId ? '<option value="custom" disabled>Custom theme</option>' : ''}${TYPING_THEMES.map(theme => `<option value="${theme.id}">${theme.name}</option>`).join('')}`;
+      if (select.innerHTML !== options) select.innerHTML = options;
+      select.value = settings.customThemeId ? 'custom' : (settings.theme || 'dark');
+    }
+    document.getElementById('lesson-keyboard-toggle')?.setAttribute('aria-pressed', String(settings.keyboardVisible !== false));
   }
 
   startWeaknessDrill() {
@@ -3069,6 +3145,9 @@ export class UIManager {
   // ==========================================
   startLesson(lessonData) {
     this.currentLessonData = lessonData;
+    this.screens.lesson?.classList.toggle('speedtest-session', !!lessonData.isSpeedTest);
+    const backLabel = document.getElementById('lesson-back-label');
+    if (backLabel) backLabel.textContent = lessonData.isSpeedTest ? 'Speed tests' : 'Lessons';
     goalsManager.setPracticeActive(true);
     this.typingViewportState = {
       text: null,
@@ -3146,8 +3225,13 @@ export class UIManager {
     }
     if (this.lessonRoundEl) {
       const roundLabel = data.lesson.roundLabels?.[data.roundIdx] || `Round ${data.roundIdx + 1}`;
-      this.lessonRoundEl.textContent = `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
+      this.lessonRoundEl.textContent = data.lesson.isSpeedTest ? 'English · Common words' : `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
     }
+    const sessionStatus = document.getElementById('typing-session-status');
+    if (sessionStatus) sessionStatus.textContent = data.isPaused ? 'Paused · Take a breath' : data.isStarted ? 'Keep your rhythm' : data.lesson.timeLimitSec ? 'Start typing to start the timer' : 'Start typing to begin';
+    const sessionFormat = document.getElementById('typing-session-format');
+    if (sessionFormat) sessionFormat.textContent = data.lesson.isSpeedTest ? (data.lesson.speedTestType === 'time' ? 'Timed test' : 'Word test') : 'Touch typing practice';
+    this.screens.lesson?.classList.toggle('session-typing', !!data.isStarted && !data.isPaused);
 
     const lessonCue = document.getElementById('lesson-technique-cue');
     if (lessonCue) {
@@ -3258,6 +3342,14 @@ export class UIManager {
       }
     }
 
+    // Apply layout state before measuring text and caret positions.
+    const hasCountdown = data.timeRemainingSec !== null && data.timeRemainingSec !== undefined;
+    this.screens.lesson?.classList.toggle('distraction-free-active', isDistractionFree);
+    this.screens.lesson?.classList.toggle('distraction-free-typing', isCurrentlyTyping);
+    this.lessonHud?.classList.toggle('hud-has-timer', hasCountdown);
+    this.lessonHud?.classList.toggle('hud-no-timer', !hasCountdown);
+    document.body.classList.toggle('distraction-free-collapse', !!state.settings?.distractionFreeCollapse);
+
     this.renderTypingText(
       data.currentText,
       data.charIndex,
@@ -3278,25 +3370,12 @@ export class UIManager {
       );
     }
 
-    // Distraction-Free Mode: dynamically toggle when actively typing
-    const hasCountdown = data.timeRemainingSec !== null && data.timeRemainingSec !== undefined;
-
-    if (this.screens.lesson) {
-      this.screens.lesson.classList.toggle('distraction-free-active', isDistractionFree);
-      this.screens.lesson.classList.toggle('distraction-free-typing', isCurrentlyTyping);
-    }
-    if (this.lessonHud) {
-      this.lessonHud.classList.toggle('hud-has-timer', hasCountdown);
-      this.lessonHud.classList.toggle('hud-no-timer', !hasCountdown);
-    }
-    document.body.classList.toggle('distraction-free-collapse', !!state.settings?.distractionFreeCollapse);
-
     const distractBtn = this.hudDistractionFreeBtn || document.getElementById('hud-distraction-free-btn');
     if (distractBtn) {
       distractBtn.setAttribute('aria-pressed', isDistractionFree ? 'true' : 'false');
       distractBtn.classList.toggle('active', isDistractionFree);
       const label = distractBtn.querySelector('.distract-label');
-      if (label) label.textContent = isDistractionFree ? 'Distract-Free: ON' : 'Distract-Free';
+      if (label) label.textContent = 'Distraction-free';
     }
   }
 
@@ -4632,8 +4711,8 @@ export class UIManager {
 
             <div class="setting-row" id="row-distraction-collapse-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
               <div>
-                <label class="setting-label">Collapse Hidden Space</label>
-                <p class="setting-desc">Collapse vertical space when hidden instead of preserving rock-steady layout position</p>
+                <label class="setting-label">Compact Distraction-Free Layout</label>
+                <p class="setting-desc">Hide the race track and extra stats before the test begins, keeping the text in place when you start or pause.</p>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="setting-distraction-collapse-toggle" ${settings.distractionFreeCollapse ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
@@ -5487,7 +5566,7 @@ export class UIManager {
         ? 'Distraction-Free Mode is ON (Auto-hides HUD & Bot when typing) • ⌘/Ctrl+Shift+D'
         : 'Enable Distraction-Free Mode (Auto-hides HUD & Bot when typing) • ⌘/Ctrl+Shift+D';
       const label = btn.querySelector('.distract-label');
-      if (label) label.textContent = isEnabled ? 'Distract-Free: ON' : 'Distract-Free';
+      if (label) label.textContent = 'Distraction-free';
     }
 
     const settingToggle = document.getElementById('setting-distraction-free-toggle');

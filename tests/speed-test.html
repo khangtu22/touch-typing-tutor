@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speed test and typing layout regression checks</title>
+<body class="theme-dark">
+<details style="padding:12px 20px">
+  <summary id="test-summary" role="status">Running browser regression checks… Saved progress is not modified.</summary>
+  <pre id="test-results" style="padding:12px 0;white-space:pre-wrap"></pre>
+</details>
+<script type="module">
+import { UIManager } from '../js/ui.js?v=3.9.3';
+import { store, DEFAULT_STATE } from '../js/state.js?v=3.8.1';
+import { typingEngine } from '../js/typing-engine.js?v=3.8.1';
+import { generateSpeedTestLesson } from '../js/speed-test.js?v=3.9.3';
+import { sound } from '../js/sound-engine.js?v=3.8.1';
+
+// Exercise the actual page markup, CSS, store notifications and typing engine.
+// All test sessions and preferences live only in this page's in-memory store.
+const savedProgress = localStorage.getItem('typing_tutor_progress');
+store.writeToStorage = () => {};
+store.state = structuredClone(DEFAULT_STATE);
+store.state.settings = {
+  ...store.state.settings, soundEnabled: false, keyboardVisible: false,
+  handGuideVisible: false, reducedMotion: true, wordCorrectionMode: true,
+  wellness: { ...store.state.settings.wellness, afkDetectionEnabled: false }
+};
+sound.resume = () => {};
+const source = new DOMParser().parseFromString(await (await fetch('../index.html?layout-tests=3.9.3', {cache: 'no-store'})).text(), 'text/html');
+await Promise.all([...source.querySelectorAll('link[rel="stylesheet"]')].map(original => new Promise(resolve => {
+  const link = original.cloneNode();
+  link.href = new URL(original.getAttribute('href'), new URL('../index.html', location.href));
+  link.onload = link.onerror = resolve;
+  document.head.append(link);
+})));
+const app = source.querySelector('.app-container');
+app.querySelectorAll('script').forEach(script => script.remove());
+document.body.append(app);
+await document.fonts.ready;
+const ui = new UIManager();
+ui.showToast = () => {};
+const messages = [];
+const assert = (value, label) => { if (!value) throw new Error(label); messages.push('PASS ' + label); };
+const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const root = ui.screens.lesson;
+const key = value => root.dispatchEvent(new KeyboardEvent('keydown', {
+  key: value, code: value === 'Enter' ? 'Enter' : value === 'Backspace' ? 'Backspace' : value === ' ' ? 'Space' : `Key${value.toUpperCase()}`,
+  bubbles: true, cancelable: true
+}));
+const rect = selector => root.querySelector(selector).getBoundingClientRect();
+const near = (a, b) => Math.abs(a - b) < .5;
+const sameRect = (a, b) => ['x', 'y', 'width', 'height'].every(k => near(a[k], b[k]));
+const passage = Array(14).fill('alpha beta gamma delta epsilon zeta eta theta').join(' ');
+const configure = settings => store.update(prev => ({...prev, settings: {...prev.settings, ...settings}}));
+
+try {
+  ui.navigateTo('speedtest');
+  const lobby = ui.screens.speedtest;
+  assert(lobby.querySelectorAll('[data-speed-preset]').length === 7 && lobby.querySelectorAll('tbody tr').length === 7, 'all seven tests are selectable and have record rows');
+  lobby.querySelector('[data-speed-preset="50w"]').click();
+  assert(lobby.querySelector('[data-speed-preset="50w"]').getAttribute('aria-pressed') === 'true' && document.activeElement.dataset.speedPreset === '50w', 'preset selection preserves keyboard focus');
+  lobby.querySelector('[data-start-preset="25w"]').click();
+  assert(ui.activeScreen === 'lesson' && typingEngine.lesson.speedTestPreset === '25w' && typingEngine.timeRemainingSec === null, 'record action launches its own word test directly');
+  document.getElementById('lesson-back-btn').click();
+  assert(lobby.querySelector('[data-speed-preset="25w"]').getAttribute('aria-pressed') === 'true', 'back to tests remembers the last attempted preset');
+  store.update(prev => ({...prev, speedTestBests: {'60s': {wpm: 72, accuracy: 96, consistency: 0, date: '2026-09-09'}}}));
+  ui.renderSpeedTest();
+  assert(lobby.querySelectorAll('tbody tr')[2].children[3].textContent === '0%', 'a real zero-percent consistency is preserved in records');
+  lobby.querySelector('[data-typing-theme="botanical"]').click();
+  assert(store.getState().settings.theme === 'botanical' && document.body.classList.contains('theme-botanical'), 'lobby theme selection applies through the real store');
+
+  for (const theme of ['dark', 'retro', 'botanical', 'tokyo', 'cyberpunk']) {
+    for (const compact of [false, true]) {
+      for (const preset of ['60s', '25w']) {
+        configure({ theme, distractionFreeMode: true, distractionFreeCollapse: compact });
+        ui.startLesson({...generateSpeedTestLesson(preset), rounds: [passage]});
+        await frame();
+        const initialBox = rect('.typing-box-card');
+        const initialChar = rect('[data-char-index="0"]');
+        const initialTimer = rect('#hud-timer-wrapper');
+        const caret = rect('.smooth-caret-line');
+        const textViewport = rect('.typing-text-viewport');
+        assert(caret.left >= textViewport.left && caret.right <= textViewport.right, `${theme}, ${compact}, ${preset}: caret is visible at the beginning of a line`);
+        const nextLine = [...root.querySelectorAll('[data-char-index]')].find(el => el.getBoundingClientRect().top > initialChar.top + 5);
+        const lineIndex = nextLine.dataset.charIndex;
+        const nextLineRect = nextLine.getBoundingClientRect();
+        key('a');
+        await frame();
+        const name = `${theme}, ${compact ? 'compact' : 'steady'}, ${preset}`;
+        assert(sameRect(initialBox, rect('.typing-box-card')) && sameRect(initialChar, rect('[data-char-index="0"]')), `${name}: first keystroke leaves passage exactly in place`);
+        if (preset === '60s') assert(sameRect(initialTimer, rect('#hud-timer-wrapper')) && getComputedStyle(document.getElementById('hud-timer-wrapper')).visibility === 'visible', `${name}: countdown stays visible in its original position`);
+        key('x');
+        assert(sameRect(nextLineRect, rect(`[data-char-index="${lineIndex}"]`)), `${name}: an error underline does not move the next line`);
+        key('Backspace');
+        key('l');
+        assert(sameRect(initialBox, rect('.typing-box-card')), `${name}: correcting a mistake keeps the text card stable`);
+        ui.toggleLessonPause();
+        await frame();
+        assert(sameRect(initialBox, rect('.typing-box-card')), `${name}: pausing preserves the passage position`);
+        ui.toggleLessonPause();
+        await frame();
+        assert(sameRect(initialBox, rect('.typing-box-card')), `${name}: resuming preserves the passage position`);
+        document.getElementById('lesson-restart-btn').click();
+        assert(typingEngine.charIndex === 0 && !typingEngine.startTime && ui.speedHints.size === 0 && sameRect(initialBox, rect('.typing-box-card')), `${name}: restart resets the test and keeps its layout`);
+        typingEngine.destroy();
+      }
+    }
+  }
+
+  configure({ theme: 'dark', distractionFreeMode: true, distractionFreeCollapse: false, reducedMotion: false });
+  ui.startLesson({...generateSpeedTestLesson('60s'), rounds: [passage]});
+  await new Promise(resolve => setTimeout(resolve, 280));
+  const animatedBox = rect('.typing-box-card');
+  key('a');
+  await new Promise(resolve => setTimeout(resolve, 280));
+  assert(sameRect(animatedBox, rect('.typing-box-card')), 'normal animations fade distractions without moving the text');
+  // A realistic elapsed time allows the engine to stamp a speed milestone.
+  typingEngine.startTime = Date.now() - 5000;
+  while (typingEngine.charIndex < 24) key(typingEngine.currentText[typingEngine.charIndex]);
+  const hint = root.querySelector('.char-speed-hint');
+  assert(hint && hint.parentElement.closest('.word-token').firstElementChild === hint.parentElement, 'speed milestone anchors to the first character of the next word');
+  const hintIndex = hint.parentElement.dataset.charIndex;
+  const hintValue = hint.textContent;
+  key(typingEngine.currentText[typingEngine.charIndex]);
+  assert(root.querySelector(`[data-char-index="${hintIndex}"] .char-speed-hint`)?.textContent === hintValue, 'later keystrokes keep the same milestone breadcrumb');
+  while (typingEngine.charIndex < 180) key(typingEngine.currentText[typingEngine.charIndex]);
+  await new Promise(resolve => setTimeout(resolve, 280));
+  const activeChar = rect('.char-current');
+  const viewport = rect('.typing-text-viewport');
+  assert(activeChar.top >= viewport.top && activeChar.bottom <= viewport.bottom && sameRect(animatedBox, rect('.typing-box-card')), 'crossing multiple lines scrolls inside the fixed text viewport');
+  const charBeforeTheme = typingEngine.charIndex;
+  const boxBeforeTheme = rect('.typing-box-card');
+  ui.setTypingTheme('retro');
+  assert(typingEngine.charIndex === charBeforeTheme && sameRect(boxBeforeTheme, rect('.typing-box-card')) && document.getElementById('lesson-theme-select').value === 'retro', 'switching theme mid-test preserves progress and geometry');
+  const keyboardBtn = document.getElementById('lesson-keyboard-toggle');
+  keyboardBtn.click();
+  assert(!document.body.classList.contains('keyboard-hidden') && keyboardBtn.getAttribute('aria-pressed') === 'true' && typingEngine.charIndex === charBeforeTheme, 'keyboard visibility toggles without resetting the test');
+  keyboardBtn.focus();
+  const attemptsBeforeControl = typingEngine.totalAttempts;
+  keyboardBtn.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true, cancelable:true}));
+  assert(typingEngine.totalAttempts === attemptsBeforeControl, 'Enter on a toolbar control is not scored as typing');
+
+  configure({ distractionFreeMode: true, distractionFreeCollapse: false, reducedMotion: true });
+  ui.startLesson({id: 'multiline-layout-check', title: 'Multiline practice', isCodeLesson: true, rounds: ['one\ntwo\nthree\nfour\nfive'], targetWpm: 60, accuracyTarget: 95});
+  await frame();
+  const codeBox = rect('.typing-box-card');
+  key('o'); key('n'); key('e'); key('Enter');
+  assert(typingEngine.charIndex === 4 && sameRect(codeBox, rect('.typing-box-card')), 'Enter advances a real newline without shifting the text card');
+  assert(!root.classList.contains('speedtest-session') && document.getElementById('hud-timer-wrapper').hidden, 'regular practice restores its own layout without a countdown');
+
+  ui.startSpeedTest('25w');
+  await frame();
+  key(typingEngine.currentText[0]);
+  typingEngine.startTime = Date.now() - 20000;
+  while (typingEngine.charIndex < typingEngine.currentText.length) key(typingEngine.currentText[typingEngine.charIndex]);
+  await new Promise(resolve => setTimeout(resolve, 120));
+  assert(ui.activeScreen === 'results' && store.getState().speedTestBests['25w']?.wpm > 0, 'finishing a word test saves its personal best and opens results');
+  document.getElementById('results-retry-btn').click();
+  assert(ui.activeScreen === 'lesson' && typingEngine.lesson.speedTestPreset === '25w' && typingEngine.charIndex === 0 && ui.speedHints.size === 0, 'results retry launches a fresh test of the same length');
+  document.getElementById('lesson-back-btn').click();
+  assert(lobby.querySelectorAll('tbody tr')[4].querySelector('.speedtest-record-speed').textContent.includes('WPM'), 'the completed result appears in the lobby records');
+  assert(localStorage.getItem('typing_tutor_progress') === savedProgress, 'browser checks do not modify saved user progress');
+  ui.navigateTo('speedtest');
+  document.getElementById('test-results').textContent = `${messages.join('\n')}\n\n${messages.length} checks passed at ${innerWidth}px.`;
+  document.getElementById('test-summary').textContent = `${messages.length} checks passed at ${innerWidth}px. Saved progress is unchanged.`;
+  document.body.dataset.testStatus = 'passed';
+} catch (error) {
+  document.getElementById('test-results').textContent = `${messages.join('\n')}\nFAIL ${error.stack}`;
+  document.getElementById('test-summary').textContent = `FAIL: ${error.message}`;
+  document.body.dataset.testStatus = 'failed';
+  console.error(error);
+} finally {
+  typingEngine.destroy();
+  ui.afkDetector?.stop();
+}
+</script>
+</body>
+</html>

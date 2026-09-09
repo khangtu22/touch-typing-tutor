@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.2 - progressive lesson content)
+ * KeyFlow Service Worker (v3.9.3 - speed tests and stable typing layout)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.2-curriculum';
+const CACHE_NAME = 'keyflow-v3.9.3-speedtest';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS_TO_CACHE = [
   './styles/keyboard.css',
   './styles/hand-guide.css',
   './styles/typing-area.css',
+  './styles/speed-test.css',
   './styles/dashboard.css',
   './styles/results.css',
   './styles/components.css',

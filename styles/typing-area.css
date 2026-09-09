@@ -11,6 +11,37 @@
   width: 100%;
 }
 
+.lesson-session-toolbar,
+.lesson-session-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  max-width: 960px;
+}
+
+.lesson-appearance-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.lesson-back-btn { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; padding: 8px 0; }
+.lesson-back-btn:hover { color: var(--text-primary); }
+.lesson-theme-select,
+.lesson-tool-btn {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  color-scheme: dark;
+}
+.lesson-tool-btn[aria-pressed="true"] { color: var(--text-primary); border-color: var(--border-light); }
+.lesson-session-footer { color: var(--text-muted); font-size: 11px; margin-top: -12px; }
+.lesson-session-footer kbd { padding: 2px 5px; border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-secondary); font: inherit; }
+.lesson-footer-separator { margin: 0 8px; }
+
 /* Lesson HUD Header */
 .lesson-hud {
   display: flex;
@@ -139,6 +170,8 @@
   transition: all var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 96px;
+  justify-content: center;
 }
 
 .timer-pill.timer-warning {
@@ -192,11 +225,28 @@
   padding: 32px 40px;
   box-shadow: var(--shadow-md);
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
   position: relative;
   overflow: hidden;
 }
+
+.typing-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 20px;
+  margin-bottom: 28px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 20px;
+  position: relative;
+  z-index: 2;
+}
+.typing-session-status { color: var(--text-secondary); }
+.session-typing .typing-session-status { color: var(--accent-primary); }
 
 .typing-text-viewport {
   width: 100%;
@@ -213,7 +263,9 @@
   font-family: var(--font-mono);
   font-size: inherit;
   line-height: 1.6;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.015em;
+  font-variant-ligatures: none;
+  font-kerning: none;
   text-align: left;
   width: 100%;
   word-break: normal;
@@ -239,6 +291,7 @@
 .word-token {
   display: inline-block;
   white-space: nowrap;
+  vertical-align: top;
 }
 
 .char-newline-token {
@@ -258,6 +311,17 @@
   position: relative;
   transition: color 0.08s ease;
 }
+
+/* State colors may change, but glyph metrics and line boxes must stay fixed.
+   In particular an error underline must not add height to a text row. */
+#typing-text-display .char-token {
+  height: 1lh;
+  vertical-align: top;
+  font-weight: 500;
+  text-shadow: none;
+}
+#typing-text-display .char-upcoming { color: var(--text-secondary); }
+#typing-text-display .char-current { color: var(--text-primary); }
 
 .char-upcoming {
   color: var(--typing-upcoming-color, var(--text-secondary, #9AA3B2));
@@ -465,11 +529,12 @@ body.reduced-motion .typing-text-display.typing-window-animate {
    ================================================ */
 
 .hud-distract-toggle-btn {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  background: var(--surface-2);
+  padding: 6px 10px;
+  min-height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   white-space: nowrap;
@@ -490,10 +555,9 @@ body.reduced-motion .typing-text-display.typing-window-animate {
 }
 
 .hud-distract-toggle-btn.active {
-  background: rgba(124, 92, 252, 0.16);
-  border-color: rgba(124, 92, 252, 0.5);
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-1));
+  border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--border-subtle));
   color: var(--accent-primary);
-  box-shadow: 0 0 10px rgba(124, 92, 252, 0.25);
 }
 
 .race-track-container {
@@ -529,25 +593,17 @@ body.reduced-motion .typing-text-display.typing-window-animate {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
-  display: none !important;
 }
 
-/* When timed test has countdown: ONLY show time left pill, centered */
+/* Fade the HUD surface and its contents in place. The countdown keeps its
+   original position; changing padding, display or alignment here causes a jump. */
 #screen-lesson.distraction-free-typing .lesson-hud.hud-has-timer {
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
-  min-height: 0 !important;
-  padding: 4px 0 !important;
-}
-
-#screen-lesson.distraction-free-typing .lesson-hud.hud-has-timer .hud-top-row {
-  justify-content: center !important;
-  min-height: 0 !important;
 }
 
 #screen-lesson.distraction-free-typing .lesson-hud.hud-has-timer #hud-timer-wrapper {
-  display: inline-flex !important;
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
@@ -561,14 +617,35 @@ body.reduced-motion .typing-text-display.typing-window-animate {
   pointer-events: none !important;
 }
 
-/* Optional compact mode: collapse vertical space */
-body.distraction-free-collapse #screen-lesson.distraction-free-typing #race-track-container {
+/* Compact layout is established BEFORE the first keystroke and also stays
+   compact while paused. Never collapse space in response to typing activity. */
+body.distraction-free-collapse #screen-lesson.distraction-free-active #race-track-container,
+body.distraction-free-collapse #screen-lesson.distraction-free-active .lesson-technique-cue,
+body.distraction-free-collapse #screen-lesson.distraction-free-active .hud-meta,
+body.distraction-free-collapse #screen-lesson.distraction-free-active .hud-live-metrics,
+body.distraction-free-collapse #screen-lesson.distraction-free-active .hud-progress-track {
   display: none !important;
 }
 
-body.distraction-free-collapse #screen-lesson.distraction-free-typing .lesson-hud.hud-no-timer,
-body.distraction-free-collapse #screen-lesson.distraction-free-typing .lesson-hud:not(.hud-has-timer) {
+body.distraction-free-collapse #screen-lesson.distraction-free-active .lesson-hud.hud-no-timer {
   display: none !important;
+}
+body.distraction-free-collapse #screen-lesson.distraction-free-active .lesson-hud.hud-has-timer {
+  min-height: 64px;
+  padding: 12px 24px;
+}
+body.distraction-free-collapse #screen-lesson.distraction-free-active .hud-top-row {
+  min-height: 32px;
+  justify-content: center;
+  flex-direction: row;
+}
+
+@media (max-width: 600px) {
+  .lesson-appearance-controls { gap: 6px; }
+  .lesson-session-toolbar { align-items: flex-start; }
+  .typing-box-card { padding: 24px 20px; }
+  .typing-card-heading { gap: 8px; font-size: 10px; }
+  .lesson-session-footer { font-size: 10px; }
 }
 
 /* Milestone Speed Hints in Distraction-Free Mode */
@@ -606,5 +683,4 @@ body.distraction-free-collapse #screen-lesson.distraction-free-typing .lesson-hu
   opacity: 0.75;
   text-transform: uppercase;
 }
-
 

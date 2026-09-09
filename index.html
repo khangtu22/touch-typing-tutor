@@ -18,13 +18,14 @@
   <link rel="stylesheet" href="styles/themes.css?v=3.8.5">
   <link rel="stylesheet" href="styles/keyboard.css?v=3.8.4">
   <link rel="stylesheet" href="styles/hand-guide.css?v=3.8.1">
-  <link rel="stylesheet" href="styles/typing-area.css?v=3.9.2">
+  <link rel="stylesheet" href="styles/typing-area.css?v=3.9.3">
   <link rel="stylesheet" href="styles/dashboard.css?v=3.9.1">
   <link rel="stylesheet" href="styles/custom-practice.css?v=3.8.1">
   <link rel="stylesheet" href="styles/racing.css?v=3.8.1-race2">
   <link rel="stylesheet" href="styles/results.css?v=3.8.1">
   <link rel="stylesheet" href="styles/components.css?v=3.8.1">
-  <link rel="stylesheet" href="styles/premium.css?v=3.8.1-results2">
+  <link rel="stylesheet" href="styles/premium.css?v=3.9.3">
+  <link rel="stylesheet" href="styles/speed-test.css?v=3.9.3">
   <link rel="stylesheet" href="styles/arcade.css?v=3.9.0">
   <link rel="stylesheet" href="styles/typing-quest.css?v=3.8.1">
   <link rel="stylesheet" href="styles/arcade-challenges.css?v=3.9.0">
@@ -148,6 +149,20 @@
       <!-- 4. Lesson & Typing Screen -->
       <section id="screen-lesson" class="screen-view" role="region" aria-label="Typing lesson">
         <div class="lesson-screen-layout">
+          <div class="lesson-session-toolbar">
+            <button id="lesson-back-btn" class="lesson-back-btn" type="button">
+              <span aria-hidden="true">←</span> <span id="lesson-back-label">Lessons</span>
+            </button>
+            <div class="lesson-appearance-controls">
+              <label class="sr-only" for="lesson-theme-select">Typing theme</label>
+              <select id="lesson-theme-select" class="lesson-theme-select"></select>
+              <button id="lesson-keyboard-toggle" class="lesson-tool-btn" type="button" aria-pressed="true">Keyboard</button>
+              <button id="hud-distraction-free-btn" class="hud-distract-toggle-btn" type="button" aria-pressed="false" title="Toggle Distraction-Free Mode (⌘/Ctrl + Shift + D)">
+                <span class="distract-icon" aria-hidden="true">◎</span>
+                <span class="distract-label">Distraction-free</span>
+              </button>
+            </div>
+          </div>
           <!-- Ghost Race Track Container -->
           <div id="race-track-container" class="race-track-container">
             <div class="race-track-header">
@@ -180,10 +195,6 @@
                 <h2 id="hud-lesson-title" class="hud-title">Find Your Anchors</h2>
                 <span id="hud-lesson-round" class="hud-round-badge">Warmup · Round 1 of 4</span>
                 <span id="hud-correction-badge" class="hud-mode-badge" style="display: none;">Correction Mode</span>
-                <button id="hud-distraction-free-btn" class="hud-mode-badge hud-distract-toggle-btn" type="button" aria-pressed="false" title="Toggle Distraction-Free Mode (⌘/Ctrl + Shift + D)">
-                  <span class="distract-icon">🎯</span>
-                  <span class="distract-label">Distract-Free</span>
-                </button>
               </div>
               <div class="hud-live-metrics">
                 <div class="metric-pill">
@@ -210,6 +221,10 @@
 
           <!-- Active Text Box -->
           <div class="typing-box-card">
+            <div class="typing-card-heading">
+              <span id="typing-session-status" class="typing-session-status">Start typing to begin</span>
+              <span id="typing-session-format"></span>
+            </div>
             <div class="typing-text-viewport" aria-live="off">
               <div id="typing-text-display" class="typing-text-display">
                 <div id="typing-smooth-caret" class="typing-smooth-caret" aria-hidden="true">
@@ -219,6 +234,11 @@
                 <div id="typing-text-content" class="typing-text-content"></div>
               </div>
             </div>
+          </div>
+
+          <div class="lesson-session-footer">
+            <span><kbd>esc</kbd> pause <span class="lesson-footer-separator">·</span> Settle into a steady rhythm.</span>
+            <button id="lesson-restart-btn" class="lesson-back-btn" type="button"><span aria-hidden="true">↻</span> Restart</button>
           </div>
 
           <!-- Mechanical Keyboard with Integrated Hand Overlay -->
@@ -259,6 +279,6 @@
   </div>
 
   <!-- Main JavaScript Module -->
-  <script type="module" src="js/app.js?v=3.9.2"></script>
+  <script type="module" src="js/app.js?v=3.9.3"></script>
 </body>
 </html>

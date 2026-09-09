@@ -5,7 +5,7 @@
 
 import { store, APP_VERSION } from './state.js?v=3.8.1';
 import { sound } from './sound-engine.js?v=3.8.1';
-import { UIManager } from './ui.js?v=3.9.2';
+import { UIManager } from './ui.js?v=3.9.3';
 import { goalsManager } from './goals-wellness.js?v=3.8.1';
 
 document.addEventListener('DOMContentLoaded', () => {

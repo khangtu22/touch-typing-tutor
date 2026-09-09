@@ -89,6 +89,8 @@ Open **[http://localhost:8000](http://localhost:8000)** in any modern browser.
 
 Run curriculum content and targeted-drill checks with `node --test tests/curriculum.test.mjs`.
 
+Open `tests/speed-test.html` on the local server for browser regression checks covering Speed Test selection, records, theme switching, and text stability on first input, errors, pause/resume, restart, line wrapping, and Enter. These checks exercise all five themes and both distraction-free layouts with an in-memory store; saved progress is not modified.
+
 Run the arcade rules and persistence checks with `node --test tests/arcade-challenges.test.mjs` (Node 22+). Open `tests/arcade-challenges.html` on the local server for browser lifecycle checks; these use an isolated store and do not change saved progress.
 
 Open `tests/dashboard.html` on the local server for 12 browser regression checks covering lesson filters, new and returning learners, locking, and keyboard activation. The checks use in-memory fixtures and do not change saved progress.

@@ -4,9 +4,9 @@
  */
 
 export const SPEED_TEST_PRESETS = [
-  { id: '15s', type: 'time', value: 15, label: '15s Burst', icon: '⚡', desc: 'Short sprint for peak raw velocity' },
-  { id: '30s', type: 'time', value: 30, label: '30s Sprint', icon: '⏱️', desc: 'Fast test of burst stamina' },
-  { id: '60s', type: 'time', value: 60, label: '60s Standard', icon: '🏆', desc: 'Official typing speed benchmark' },
+  { id: '15s', type: 'time', value: 15, label: '15s Burst', icon: '⚡', desc: 'A quick sprint to find your top speed' },
+  { id: '30s', type: 'time', value: 30, label: '30s Sprint', icon: '⏱️', desc: 'Build momentum in half a minute' },
+  { id: '60s', type: 'time', value: 60, label: '60s Standard', icon: '🏆', desc: 'One minute to find your everyday pace' },
   { id: '120s', type: 'time', value: 120, label: '120s Endurance', icon: '🔋', desc: 'Long-form consistency challenge' },
   { id: '25w', type: 'words', value: 25, label: '25 Words', icon: '📝', desc: 'Compact word target' },
   { id: '50w', type: 'words', value: 50, label: '50 Words', icon: '🎯', desc: 'Standard word trial' },
@@ -99,7 +99,7 @@ export function generateSpeedTestLesson(presetId = '60s') {
 
   return {
     id: `speedtest_${preset.id}_${Date.now()}`,
-    title: `⚡ Speed Benchmark (${preset.label})`,
+    title: preset.label,
     subtitle: `${preset.desc}`,
     skillFocus: `Standardized speed & consistency measurement`,
     targetWpm: 60,
