@@ -39,6 +39,20 @@ const escapeHtml = value => String(value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#039;');
 
+export function getNextWordStartIndex(text, currentIndex) {
+  if (!text || currentIndex >= text.length) return -1;
+  let i = Math.max(0, currentIndex);
+  // Advance past current word (find next whitespace)
+  while (i < text.length && text[i] !== ' ' && text[i] !== '\n' && text[i] !== '\t') {
+    i++;
+  }
+  // Advance past whitespace to find the first character of the next word
+  while (i < text.length && (text[i] === ' ' || text[i] === '\n' || text[i] === '\t')) {
+    i++;
+  }
+  return i < text.length ? i : -1;
+}
+
 export class UIManager {
   constructor() {
     this.activeScreen = 'dashboard';
@@ -3223,13 +3237,14 @@ export class UIManager {
       if (!this.speedHints) this.speedHints = new Map();
       const step = this.speedHintStep || 20;
       const lastIndex = this.lastSpeedHintIndex || 0;
-      const minThreshold = lastIndex === 0 ? Math.min(step, 18) : lastIndex + step;
+      const minThreshold = lastIndex === 0 ? Math.min(step, 16) : lastIndex + step;
 
       if (data.charIndex >= minThreshold) {
-        const char = data.currentText?.[data.charIndex];
-        // Snap to non-space character so hint sits neatly above a visible glyph
-        if (char && char !== ' ' && char !== '\n' && char !== '\t') {
-          this.speedHints.set(data.charIndex, currentWpm);
+        const nextWordStart = getNextWordStartIndex(data.currentText, data.charIndex);
+        if (nextWordStart !== -1) {
+          if (!this.speedHints.has(nextWordStart)) {
+            this.speedHints.set(nextWordStart, currentWpm);
+          }
           this.lastSpeedHintIndex = data.charIndex;
         }
       }

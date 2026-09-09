@@ -74,8 +74,43 @@ test('ghost racer telemetry functions normally when HUD is hidden', () => {
   assert.ok(['leading', 'trailing', 'tied'].includes(activeState.leadStatus));
 });
 
-test('distraction-free speed hints stamp at stepped intervals and persist ("stay there")', () => {
-  const sampleText = 'The quick brown fox jumps over the lazy dog and runs across the open field today.';
+import { getNextWordStartIndex } from '../js/ui.js';
+
+test('getNextWordStartIndex finds the first character index of the upcoming word', () => {
+  const text = 'The quick brown fox';
+  // Inside first word 'The' (indices 0, 1, 2) -> next word is 'quick' at index 4
+  assert.equal(getNextWordStartIndex(text, 0), 4);
+  assert.equal(getNextWordStartIndex(text, 1), 4);
+  assert.equal(getNextWordStartIndex(text, 2), 4);
+
+  // At whitespace after 'The' (index 3) -> next word is 'quick' at index 4
+  assert.equal(getNextWordStartIndex(text, 3), 4);
+
+  // Inside 'quick' (indices 4..8) -> next word is 'brown' at index 10
+  assert.equal(getNextWordStartIndex(text, 4), 10);
+  assert.equal(getNextWordStartIndex(text, 7), 10);
+
+  // At whitespace after 'quick' (index 9) -> next word is 'brown' at index 10
+  assert.equal(getNextWordStartIndex(text, 9), 10);
+
+  // Inside 'brown' (index 10) -> next word is 'fox' at index 16
+  assert.equal(getNextWordStartIndex(text, 10), 16);
+
+  // In the last word 'fox' (indices 16..18) -> no next word, returns -1
+  assert.equal(getNextWordStartIndex(text, 16), -1);
+  assert.equal(getNextWordStartIndex(text, 18), -1);
+
+  // Edge cases
+  assert.equal(getNextWordStartIndex('', 0), -1);
+  assert.equal(getNextWordStartIndex('OnlyOneWord', 0), -1);
+  assert.equal(getNextWordStartIndex('Two  Words', 0), 5); // Multi-space
+  assert.equal(getNextWordStartIndex('Two\nWords', 0), 4); // Newline separator
+});
+
+test('distraction-free speed hints stamp on next word first character and persist ("stay there")', () => {
+  const sampleText = 'The quick brown fox jumps over the lazy dog and runs across.';
+  // Words and start indices:
+  // "The": 0, "quick": 4, "brown": 10, "fox": 16, "jumps": 20, "over": 26, "the": 31, "lazy": 35, "dog": 40
   const speedHints = new Map();
   let lastSpeedHintIndex = 0;
   const speedHintStep = 20;
@@ -85,11 +120,13 @@ test('distraction-free speed hints stamp at stepped intervals and persist ("stay
     const currentWpm = Math.round(wpm || 0);
 
     if (isCurrentlyTyping && currentWpm > 0) {
-      const minThreshold = lastSpeedHintIndex === 0 ? Math.min(speedHintStep, 18) : lastSpeedHintIndex + speedHintStep;
+      const minThreshold = lastSpeedHintIndex === 0 ? Math.min(speedHintStep, 16) : lastSpeedHintIndex + speedHintStep;
       if (charIndex >= minThreshold) {
-        const char = sampleText[charIndex];
-        if (char && char !== ' ' && char !== '\n' && char !== '\t') {
-          speedHints.set(charIndex, currentWpm);
+        const nextWordStart = getNextWordStartIndex(sampleText, charIndex);
+        if (nextWordStart !== -1) {
+          if (!speedHints.has(nextWordStart)) {
+            speedHints.set(nextWordStart, currentWpm);
+          }
           lastSpeedHintIndex = charIndex;
         }
       }
@@ -100,41 +137,39 @@ test('distraction-free speed hints stamp at stepped intervals and persist ("stay
   simulateKeystroke(5, 55, false, true, true, false);
   assert.equal(speedHints.size, 0);
 
-  // 2. Early typing before threshold (< 18 chars): not stamped
+  // 2. Early typing before threshold (< 16 chars): not stamped
   simulateKeystroke(10, 60, true, true, true, false);
   assert.equal(speedHints.size, 0);
 
-  // 3. At index 19: sampleText[19] is ' ' (space after "fox").
-  // Threshold (18) is crossed, but character is a space -> skipped!
-  assert.equal(sampleText[19], ' ');
-  simulateKeystroke(19, 65, true, true, true, false);
-  assert.equal(speedHints.size, 0); // Not stamped on space
-
-  // 4. At index 20: first letter of next word ('j' in "jumps") -> stamps neatly!
+  // 3. At index 16 (in "fox"): threshold 16 reached!
+  // Stamped on the NEXT word's first character: 'j' in "jumps" (index 20)!
+  simulateKeystroke(16, 68, true, true, true, false);
+  assert.equal(speedHints.size, 1);
+  assert.equal(speedHints.has(16), false); // NOT on current character!
+  assert.equal(speedHints.get(20), 68);    // On next word's first character ('j' of "jumps")
   assert.equal(sampleText[20], 'j');
-  simulateKeystroke(20, 65, true, true, true, false);
-  assert.equal(speedHints.size, 1);
-  assert.equal(speedHints.get(20), 65);
 
-  // 5. Typing intermediate characters: existing hint persists ("stay there"), no new hint yet
-  simulateKeystroke(25, 70, true, true, true, false);
+  // 4. Typing through word 3 and 4: hint at 20 persists ("stay there"), no new hint yet
+  simulateKeystroke(22, 70, true, true, true, false);
   assert.equal(speedHints.size, 1);
-  assert.equal(speedHints.get(20), 65); // Persists!
+  assert.equal(speedHints.get(20), 68);
 
-  // 6. At index 40: next milestone threshold (20 + 20 = 40) is reached on 'd' ("dog") -> stamps!
+  // 5. User reaches index 36 (threshold 16 + 20 = 36):
+  // At index 36 ('a' in "lazy"), next word is "dog" at index 40!
+  // Stamped on next word's first character ('d' of "dog" at index 40)!
+  simulateKeystroke(36, 75, true, true, true, false);
+  assert.equal(speedHints.size, 2);
+  assert.equal(speedHints.get(20), 68); // First hint persists
+  assert.equal(speedHints.get(40), 75); // Second hint on 'd' in "dog"
   assert.equal(sampleText[40], 'd');
-  simulateKeystroke(40, 75, true, true, true, false);
-  assert.equal(speedHints.size, 2);
-  assert.equal(speedHints.get(20), 65); // First hint still stays there
-  assert.equal(speedHints.get(40), 75); // Second hint added
 
-  // 7. Backspacing does not wipe previously stamped milestones ("stay there")
-  simulateKeystroke(35, 68, true, true, true, false);
+  // 6. Backspacing retains previously placed milestone breadcrumbs
+  simulateKeystroke(30, 72, true, true, true, false);
   assert.equal(speedHints.size, 2);
-  assert.equal(speedHints.get(20), 65);
+  assert.equal(speedHints.get(20), 68);
   assert.equal(speedHints.get(40), 75);
 
-  // 8. Round finish / reset clears hints
+  // 7. Reset clears hints
   speedHints.clear();
   lastSpeedHintIndex = 0;
   assert.equal(speedHints.size, 0);
