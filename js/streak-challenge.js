@@ -4,7 +4,7 @@
  * and provides date-seeded daily fluency trials.
  */
 
-import { getDailyChallengeLesson } from './curriculum.js?v=3.8.1';
+import { getDailyChallengeLesson } from './curriculum.js?v=3.9.2';
 import { getLocalDateKey } from './state.js?v=3.8.1';
 
 export class StreakEngine {

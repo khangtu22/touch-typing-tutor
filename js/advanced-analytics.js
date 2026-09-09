@@ -10,7 +10,7 @@
 import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js?v=3.8.1';
 import { getLocalDateKey, store } from './state.js?v=3.8.1';
 import { AnalyticsEngine } from './analytics.js?v=3.8.1';
-import { generateWeakKeysLesson } from './curriculum.js?v=3.8.1';
+import { generateWeakKeysLesson } from './curriculum.js?v=3.9.2';
 
 // ---------------------------------------------------------------------------
 // Helpers & Time Utilities

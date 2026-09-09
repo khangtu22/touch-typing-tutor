@@ -441,3 +441,19 @@ body.reduced-motion .typing-text-display.typing-window-animate {
     font-size: 18px;
   }
 }
+
+/* A brief cue sits outside the scored typing text. */
+.lesson-technique-cue {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 2px solid var(--accent-primary);
+  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.lesson-technique-cue[hidden], body.focus-mode-active .lesson-technique-cue { display: none; }
+
+/* Flex styling must not expose a countdown on untimed curriculum lessons. */
+.timer-pill[hidden] { display: none; }

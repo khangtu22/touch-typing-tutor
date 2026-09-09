@@ -1484,3 +1484,69 @@
     font-size: 10px;
   }
 }
+
+/* Lessons home: keep the learning path ahead of optional practice tools. */
+.lessons-page-heading, .lessons-summary, .roadmap-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.lessons-eyebrow { color: var(--accent-primary); font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.lessons-page-heading h1 { margin: 4px 0; font-size: 32px; letter-spacing: -.04em; }
+.lessons-page-heading p { color: var(--text-secondary); font-size: 14px; }
+.lessons-summary { gap: 28px; }
+.lessons-summary > div { display: flex; flex-direction: column; gap: 5px; }
+.lessons-summary > div + div { padding-left: 28px; border-left: 1px solid var(--border-subtle); }
+.lessons-summary strong { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lessons-summary strong span { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+.lessons-summary > div > span { font-size: 12px; color: var(--text-secondary); }
+#screen-dashboard .hero-lesson-card { padding: 26px 30px; background: linear-gradient(115deg, var(--surface-2), var(--surface-1)); border-left: 3px solid var(--accent-primary); }
+#screen-dashboard .hero-content { max-width: 780px; min-width: 0; }
+#screen-dashboard .hero-badge-row { flex-wrap: wrap; gap: 8px 12px; }
+#screen-dashboard .hero-title { font-size: 24px; }
+#screen-dashboard .hero-focus { display: none; }
+#screen-dashboard .hero-action { flex-shrink: 0; }
+#screen-dashboard .roadmap-controls-bar { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr); padding: 12px; }
+.roadmap-stage-label { display: flex; align-items: center; gap: 12px; padding-left: 4px; color: var(--text-secondary); font-size: 12px; }
+.roadmap-stage-select { width: 100%; min-width: 0; background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px; font: inherit; cursor: pointer; }
+#screen-dashboard .roadmap-search-wrap { min-width: 0; padding: 11px 12px; }
+.roadmap-status-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.lesson-status-filter { padding: 8px 12px; border: 1px solid transparent; border-radius: 7px; color: var(--text-secondary); background: transparent; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.lesson-status-filter:hover { background: var(--surface-2); color: var(--text-primary); }
+.lesson-status-filter[aria-pressed="true"] { color: var(--accent-primary); background: var(--surface-2); border-color: var(--accent-primary); }
+#screen-dashboard .roadmap-filter-status { font-weight: 400; text-align: right; }
+#screen-dashboard .level-group-card { padding: 22px; gap: 14px; }
+#screen-dashboard .level-skill-row { display: none; }
+#screen-dashboard .lessons-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#screen-dashboard .lesson-node-card { padding: 18px; gap: 10px; }
+#screen-dashboard .lesson-node-card.node-locked { opacity: 1; cursor: default; background: var(--surface-1); }
+#screen-dashboard .lesson-node-card.node-current { background: var(--surface-2); box-shadow: inset 0 3px var(--accent-primary); }
+#screen-dashboard .node-header { flex-wrap: wrap; }
+#screen-dashboard .node-focus { min-height: 0; }
+#screen-dashboard .node-keys { min-height: 24px; }
+#screen-dashboard .node-targets { margin-top: auto; }
+.node-action-hint { padding-top: 10px; border-top: 1px solid var(--border-subtle); color: var(--accent-primary); font-size: 12px; font-weight: 600; }
+.node-locked .node-action-hint { color: var(--text-muted); font-weight: 400; }
+.dashboard-extras { border-top: 1px solid var(--border-subtle); padding-top: 22px; }
+.dashboard-extras > summary { cursor: pointer; color: var(--text-primary); font-size: 16px; font-weight: 600; }
+.dashboard-extras > summary span { margin-left: 14px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.dashboard-extras-content { display: flex; flex-direction: column; gap: 28px; padding-top: 24px; }
+#screen-dashboard :is(.lesson-node-card, .lesson-status-filter, .roadmap-stage-select, summary):focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 4px; }
+@media (max-width: 1000px) {
+  .lessons-summary { gap: 16px; }
+  .lessons-summary > div + div { padding-left: 16px; }
+  #screen-dashboard .lessons-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #screen-dashboard .hero-lesson-card { gap: 24px; }
+  .roadmap-status-row { align-items: flex-start; gap: 12px; flex-direction: column; }
+}
+@media (max-width: 650px) {
+  .lessons-page-heading { align-items: flex-start; flex-direction: column; }
+  #screen-dashboard .roadmap-controls-bar, #screen-dashboard .lessons-grid { grid-template-columns: 1fr; }
+  #screen-dashboard .hero-lesson-card { padding: 22px; }
+  .dashboard-extras > summary span { display: block; margin: 8px 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-dashboard .lesson-node-card { animation: none; transition: none; }
+  #screen-dashboard .lesson-node-card:hover { transform: none; }
+}

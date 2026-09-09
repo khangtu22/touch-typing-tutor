@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.0 - eight-game arcade)
+ * KeyFlow Service Worker (v3.9.2 - progressive lesson content)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.0-arcade';
+const CACHE_NAME = 'keyflow-v3.9.2-curriculum';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

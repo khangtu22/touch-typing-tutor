@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Lessons home regression checks</title>
+<link rel="stylesheet" href="../styles/main.css">
+<link rel="stylesheet" href="../styles/dashboard.css?v=3.9.1">
+<link rel="stylesheet" href="../styles/components.css">
+<body class="theme-dark" style="padding:24px">
+<h1>Lessons home regression checks</h1>
+<p>Uses in-memory fixtures. Saved progress is not modified.</p>
+<pre id="results" role="status">Running…</pre>
+<main id="screen-dashboard"></main>
+<script type="module">
+import { UIManager } from '../js/ui.js?v=3.9.2';
+import { store } from '../js/state.js?v=3.8.1';
+import { sound } from '../js/sound-engine.js?v=3.8.1';
+store.writeToStorage = () => {};
+sound.resume = () => {};
+let state = {...store.getState(), currentLesson: 1, lessonCompletion: {}, starsByLesson: {}, keyStats: {}};
+store.getState = () => state;
+const root = document.querySelector('#screen-dashboard');
+const ui = Object.assign(Object.create(UIManager.prototype), {
+  screens: {dashboard: root}, activeScreen: 'dashboard', dashboardStageFilter: 'all',
+  dashboardStatusFilter: 'all', dashboardSearchQuery: ''
+});
+const messages = [];
+const assert = (ok, label) => { if (!ok) throw new Error(label); messages.push('PASS ' + label); };
+const visibleIds = () => [...root.querySelectorAll('.lesson-node-card')].filter(el => el.getClientRects().length).map(el => Number(el.dataset.lessonId));
+const filter = value => root.querySelector(`[data-lesson-status="${value}"]`).click();
+let launches = [];
+ui.startLesson = lesson => { launches.push(lesson.id); ui.activeScreen = 'lesson'; };
+try {
+  ui.initEventListeners();
+  ui.renderDashboard();
+  assert(visibleIds().length === 30, 'new learner can browse all 30 lessons');
+  assert(root.querySelector('.curriculum-roadmap-section').compareDocumentPosition(root.querySelector('.dashboard-extras')) & Node.DOCUMENT_POSITION_FOLLOWING, 'lessons precede optional widgets in reading order');
+  filter('available');
+  assert(String(visibleIds()) === '1', 'new learner can launch only lesson 1');
+  const enter = new KeyboardEvent('keydown', {key:'Enter', bubbles:true, cancelable:true});
+  root.querySelector('[data-lesson-status="review"]').dispatchEvent(enter);
+  assert(!enter.defaultPrevented && launches.length === 0, 'Enter on a filter remains owned by the button');
+  filter('review');
+  assert(visibleIds().length === 0 && root.querySelector('#roadmap-empty-state').getClientRects().length, 'empty progress filter offers a recovery action');
+  root.querySelector('#roadmap-empty-reset-btn').click();
+  assert(visibleIds().length === 30, 'reset restores all filters');
+  state = {...state, currentLesson: 4, lessonCompletion: {1: {attempts:1, bestStars:4}, 2: {attempts:1, bestStars:3}, 3: {attempts:1, bestStars:2}}, starsByLesson:{1:4,2:3,3:2}};
+  ui.renderDashboard();
+  filter('review');
+  assert(String(visibleIds()) === '2,3', 'review includes passed and unfinished attempts, excludes mastered');
+  filter('mastered');
+  assert(String(visibleIds()) === '1', 'mastered filter uses saved mastery');
+  filter('all');
+  const select = root.querySelector('#roadmap-stage-select');
+  select.value = '6'; select.dispatchEvent(new Event('change'));
+  const search = root.querySelector('#roadmap-search-input');
+  search.value = 'lesson 27'; search.dispatchEvent(new Event('input'));
+  assert(String(visibleIds()) === '27', 'stage and search filters combine');
+  filter('mastered');
+  root.querySelector('#roadmap-jump-current-btn').click();
+  assert(visibleIds().includes(4) && document.activeElement.dataset.lessonId === '4' && search.value === '', 'jump clears conflicting filters and focuses current lesson');
+  let bubbled = false;
+  window.addEventListener('keydown', () => { bubbled = true; }, {once:true});
+  root.querySelector('[data-lesson-id="2"]').dispatchEvent(new KeyboardEvent('keydown', {key:' ', bubbles:true, cancelable:true}));
+  assert(String(launches) === '2' && !bubbled, 'Space launches the selected lesson without leaking into typing');
+  ui.activeScreen = 'dashboard';
+  root.querySelector('[data-lesson-id="5"]').click();
+  assert(launches.length === 1, 'locked lesson does not launch');
+  document.querySelector('#results').textContent = messages.join('\n') + `\n\n${messages.length} checks passed.`;
+} catch (error) {
+  document.querySelector('#results').textContent = messages.join('\n') + '\nFAIL ' + error.stack;
+  throw error;
+}
+</script>
+</body>
+</html>

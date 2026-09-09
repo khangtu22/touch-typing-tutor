@@ -52,13 +52,23 @@ KeyFlow is a production-quality, standalone web application that teaches users p
 - **JSON Backup & Restore**: One-click download of your complete progress (`keyflow-backup-YYYY-MM-DD.json`) and instant restoration on any device.
 
 ### 8. 📚 30-Lesson Progressive Curriculum (6 Mastery Levels)
-- Home Row Anchors (`F/J`, `D/K`, `S/L`, `A/;`) $\rightarrow$ Top Row Reaches $\rightarrow$ Bottom Row Dives $\rightarrow$ Opposite-hand Shift rules & Punctuation $\rightarrow$ Number Row & Symbols $\rightarrow$ Code & Prose Fluency.
+- Home Row Anchors (`F/J`, `D/K`, `S/L`, `A/;`, then `G/H`) $\rightarrow$ Top Row Reaches $\rightarrow$ Bottom Row Dives $\rightarrow$ Opposite-hand Shift rules & Punctuation $\rightarrow$ Number Row & Symbols $\rightarrow$ Code & Prose Fluency.
 
-### 9. 🎯 Adaptive Focus Coaching
+- Each lesson uses only characters introduced in that lesson or earlier, with explicit G/H and T/Y reach drills and separate Shift practice.
+- Technique cues and round prompts sit above the typing text. Beginner speed gates prioritize control, and estimated times reflect text length at the target pace.
+- Later lessons use longer workplace, code, endurance, and mixed review passages. Existing lesson IDs and saved achievements remain compatible.
+- The course follows QWERTY teaching order; alternate-layout guides remain available. Finger-conditioning drills select keys from the active layout.
+
+### 9. 📚 Lessons Home
+- Lessons and progress come first, with stage, search, and progress filters to find available lessons, review attempts, or mastered skills.
+- Cards show unlock requirements; the current-lesson shortcut clears conflicting filters and focuses the next lesson.
+- Optional goals, coaching, and practice modes live under **More practice & activity**.
+
+### 10. 🎯 Adaptive Focus Coaching
 - The Curriculum dashboard recommends the most valuable next action from real practice data: a weak-key drill, weak-finger conditioning session, or the next curriculum lesson.
 - Recommendations include the reason, measurable targets, and a one-click launch so every session starts with a clear purpose.
 
-### 10. 🕹️ Eight-Game Arcade
+### 11. 🕹️ Eight-Game Arcade
 - **Word Garden**: Grow twelve flowers through relaxed, untimed typing. Flawless words collect sunshine and combo bonuses.
 - **Skyline Stack**: Build fifteen floors before your stability runs out. Mistakes weaken the tower; flawless words repair it.
 - **Word Recall**: Memorize ten words, then type them after a timed preview. Optional hints exchange the word bonus for another look.
@@ -77,7 +87,11 @@ python3 -m http.server 8000
 ```
 Open **[http://localhost:8000](http://localhost:8000)** in any modern browser.
 
+Run curriculum content and targeted-drill checks with `node --test tests/curriculum.test.mjs`.
+
 Run the arcade rules and persistence checks with `node --test tests/arcade-challenges.test.mjs` (Node 22+). Open `tests/arcade-challenges.html` on the local server for browser lifecycle checks; these use an isolated store and do not change saved progress.
+
+Open `tests/dashboard.html` on the local server for 12 browser regression checks covering lesson filters, new and returning learners, locking, and keyboard activation. The checks use in-memory fixtures and do not change saved progress.
 
 ---
 

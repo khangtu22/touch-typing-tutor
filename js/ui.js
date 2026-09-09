@@ -6,13 +6,13 @@
  */
 
 import { store, getLevelProgress, getLocalDateKey } from './state.js?v=3.8.1';
-import { CURRICULUM, CURRICULUM_LEVELS, generateWeakKeysLesson, generateWeakFingerLesson } from './curriculum.js?v=3.8.1';
+import { CURRICULUM, CURRICULUM_LEVELS, generateWeakKeysLesson, generateWeakFingerLesson } from './curriculum.js?v=3.9.2';
 import { typingEngine } from './typing-engine.js?v=3.8.1';
 import { KeyboardRenderer } from './keyboard-renderer.js?v=3.8.1';
 import { HandRenderer } from './hand-renderer.js?v=3.8.1';
 import { AnalyticsEngine } from './analytics.js?v=3.8.1';
 import { ACHIEVEMENTS, AchievementEngine } from './achievements.js?v=3.8.1';
-import { StreakEngine } from './streak-challenge.js?v=3.8.1';
+import { StreakEngine } from './streak-challenge.js?v=3.9.2';
 import { sound } from './sound-engine.js?v=3.8.1';
 import { FINGERS, KEY_TO_FINGER } from './finger-mapping.js?v=3.8.1';
 import { ghostRacer } from './ghost-racer.js?v=3.8.1';
@@ -22,7 +22,7 @@ import { getLessonMastery, getPlacementRecommendation, getReviewQueue } from './
 import { focusMode, zenMode } from './focus-zen.js?v=3.8.1';
 import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js?v=3.8.1';
 import { themeStudio, renderThemeStudioUI } from './theme-studio.js?v=3.8.1';
-import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=3.8.1';
+import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=3.9.2';
 import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js?v=3.8.1';
 import { ArcadeHubManager } from './arcade-games.js?v=3.9.0';
 import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js?v=3.8.1';
@@ -62,7 +62,8 @@ export class UIManager {
       currentIndex: null,
       windowStart: 0
     };
-    this.dashboardStageFilter = 'all'; // 'all' | '1' | '2' | '3' | '4' | '5'
+    this.dashboardStageFilter = 'all';
+    this.dashboardStatusFilter = 'all';
     this.dashboardSearchQuery = '';
     this.pauseReason = null;
 
@@ -268,9 +269,9 @@ export class UIManager {
         }
       }
 
-      // Dashboard screen quick search shortcut '/' and search escape / enter
+      // Focused controls own Enter; only the page background launches the hero.
       if (this.activeScreen === 'dashboard') {
-        const isInteractive = e.target?.closest?.('input, textarea, select');
+        const isInteractive = e.target?.closest?.('input, textarea, select, button, a, summary, [role="button"], [contenteditable]');
         if (e.key === '/' && !isInteractive && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           const searchInput = document.getElementById('roadmap-search-input');
@@ -785,7 +786,7 @@ export class UIManager {
         .slice(0, 6);
       
       const explanation = `Your ${weakFinger.finger.name.toLowerCase()} accuracy dropped to ${weakFinger.accuracy}%. This drill targets ${targetKeys.join(' ')}.`;
-      const drillLesson = generateWeakFingerLesson(weakFinger.finger);
+      const drillLesson = generateWeakFingerLesson(weakFinger.finger, state.settings.layout);
       drillLesson.title = `Focus Coach 2.0: ${weakFinger.finger.name} Drill`;
       drillLesson.subtitle = explanation;
       
@@ -868,6 +869,7 @@ export class UIManager {
 
     const query = (this.dashboardSearchQuery || '').trim().toLowerCase();
     const stageFilter = this.dashboardStageFilter || 'all';
+    const statusFilter = this.dashboardStatusFilter || 'all';
 
     let totalVisibleLessons = 0;
     const levelCards = container.querySelectorAll('.level-group-card');
@@ -905,7 +907,12 @@ export class UIManager {
           isMatch = matchTitle || matchSubtitle || matchFocus || matchKeys || matchLevel || matchNum;
         }
 
-        if (isMatch) {
+        const statusMatch = statusFilter === 'all' ||
+          (statusFilter === 'available' && card.classList.contains('node-unlocked')) ||
+          (statusFilter === 'review' && card.classList.contains('node-needs-review')) ||
+          (statusFilter === 'mastered' && card.classList.contains('node-mastered'));
+
+        if (isMatch && statusMatch) {
           card.style.display = '';
           visibleInLevel++;
           totalVisibleLessons++;
@@ -925,7 +932,7 @@ export class UIManager {
     if (statusEl) {
       if (totalVisibleLessons === 0) {
         statusEl.textContent = 'No lessons found matching your filters';
-      } else if (stageFilter !== 'all' || query) {
+      } else if (stageFilter !== 'all' || statusFilter !== 'all' || query) {
         statusEl.textContent = `Showing ${totalVisibleLessons} of ${CURRICULUM.length} lessons`;
       } else {
         statusEl.textContent = `Showing all ${CURRICULUM.length} lessons across ${CURRICULUM_LEVELS.length} stages`;
@@ -948,16 +955,13 @@ export class UIManager {
     const currentLessonId = Math.min(CURRICULUM.length, Math.max(1, state.currentLesson || 1));
     const currentLessonObj = CURRICULUM.find(l => l.id === currentLessonId) || CURRICULUM[0];
 
+    this.dashboardStatusFilter = 'all';
+    this.screens.dashboard.querySelectorAll('[data-lesson-status]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.lessonStatus === 'all'));
+    });
     if (this.dashboardStageFilter !== 'all' && this.dashboardStageFilter !== String(currentLessonObj.level)) {
       this.dashboardStageFilter = 'all';
-      const container = this.screens.dashboard;
-      if (container) {
-        container.querySelectorAll('.stage-tab').forEach(tab => {
-          const isAll = tab.dataset.stage === 'all';
-          tab.classList.toggle('active', isAll);
-          tab.setAttribute('aria-selected', isAll ? 'true' : 'false');
-        });
-      }
+      document.getElementById('roadmap-stage-select').value = 'all';
     }
 
     if (this.dashboardSearchQuery) {
@@ -970,7 +974,7 @@ export class UIManager {
 
     const targetCard = document.querySelector(`.lesson-node-card[data-lesson-id="${currentLessonId}"]`);
     if (targetCard) {
-      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetCard.scrollIntoView({ behavior: store.getState().settings.reducedMotion ? 'instant' : 'smooth', block: 'center' });
       targetCard.classList.remove('node-highlight-pulse');
       void targetCard.offsetWidth;
       targetCard.classList.add('node-highlight-pulse');
@@ -1025,11 +1029,20 @@ export class UIManager {
       : currentLessonMastery.isPassed
         ? 'Master This Lesson'
         : currentLessonMastery.isAttempted
-          ? 'Resume Practice'
+          ? 'Practice Again'
           : 'Start Lesson';
 
     container.innerHTML = `
       <div class="dashboard-layout">
+        <div class="lessons-page-heading">
+          <div><span class="lessons-eyebrow">YOUR LEARNING SPACE</span><h1>Lessons</h1>
+            <p>Build confidence, one key at a time.</p></div>
+          <div class="lessons-summary" aria-label="Curriculum progress">
+            <div><strong>${passedCount}<span> / ${CURRICULUM.length}</span></strong><span>Lessons passed</span></div>
+            <div><strong>${masteredCount}</strong><span>Mastered</span></div>
+            <div><strong>${state.dailyStreak || 0}<span> days</span></strong><span>Practice streak</span></div>
+          </div>
+        </div>
         <!-- Hero Next Lesson Banner -->
         <div class="hero-lesson-card">
           <div class="hero-content">
@@ -1038,6 +1051,8 @@ export class UIManager {
               <span class="hero-lesson-number">Lesson ${currentLessonObj.id} of ${CURRICULUM.length}</span>
               ${currentLessonMastery.isMastered ? `
                 <span class="hero-status-pill status-mastered">✦ Mastered (${currentLessonMastery.bestStars}/5 ★)</span>
+              ` : currentLessonMastery.isPassed ? `
+                <span class="hero-status-pill status-mastered">✓ Passed (${currentLessonMastery.bestStars}/5 ★)</span>
               ` : currentLessonMastery.isAttempted ? `
                 <span class="hero-status-pill status-attempted">↻ In Progress (${currentLessonMastery.bestStars}/5 ★)</span>
               ` : `
@@ -1077,6 +1092,154 @@ export class UIManager {
           </div>
         </div>
 
+        <!-- Curriculum Roadmap Section -->
+        <div class="curriculum-roadmap-section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Your learning path</h2>
+              <p class="section-subtitle">Earn 3 stars to unlock the next lesson. Reach 4 stars to master a skill.</p>
+            </div>
+            <div class="roadmap-header-actions">
+              <button id="roadmap-jump-current-btn" class="btn btn-secondary btn-sm" title="Jump to active lesson">
+                Find lesson ${currentLessonId} ↓
+              </button>
+              <div class="roadmap-overview">
+                <strong>${masteredCount}/${CURRICULUM.length}</strong>
+                <span>mastered</span>
+                <div class="roadmap-overview-track"><span style="width: ${roadmapProgressPct}%"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Roadmap Controls: Stage Filter Tabs & Search -->
+          <div class="roadmap-controls-bar">
+            <label class="roadmap-stage-label" for="roadmap-stage-select">Stage
+              <select id="roadmap-stage-select" class="roadmap-stage-select" aria-label="Curriculum stage">
+                <option value="all">All stages</option>
+                ${CURRICULUM_LEVELS.map(level => `<option value="${level.id}" ${this.dashboardStageFilter === String(level.id) ? 'selected' : ''}>${level.id}. ${escapeHtml(level.title)}</option>`).join('')}
+              </select>
+            </label>
+
+            <div class="roadmap-search-wrap">
+              <span class="search-icon" aria-hidden="true">🔍</span>
+              <input type="search" id="roadmap-search-input" class="roadmap-search-input" placeholder="Search lessons, skills, or keys…" aria-label="Search curriculum lessons" value="${escapeHtml(this.dashboardSearchQuery || '')}" />
+              <button id="roadmap-search-clear" class="search-clear-btn" aria-label="Clear search" style="${this.dashboardSearchQuery ? '' : 'display: none;'}">✕</button>
+            </div>
+          </div>
+
+          <div class="roadmap-status-row">
+            <div class="roadmap-status-filters" role="group" aria-label="Filter lessons by progress">
+              ${[['all', 'All lessons'], ['available', 'Available'], ['review', 'Needs practice'], ['mastered', 'Mastered']].map(([value, label]) => `<button class="lesson-status-filter" data-lesson-status="${value}" aria-pressed="${(this.dashboardStatusFilter || 'all') === value}">${label}</button>`).join('')}
+            </div>
+          <div id="roadmap-filter-status" class="roadmap-filter-status" role="status" aria-live="polite">
+            Showing all ${CURRICULUM.length} lessons across ${CURRICULUM_LEVELS.length} stages
+          </div>
+
+          </div>
+
+          <div class="levels-container" id="roadmap-levels-container">
+            ${CURRICULUM_LEVELS.map(level => {
+              const levelLessons = CURRICULUM.filter(l => l.level === level.id);
+              const levelMastered = levelLessons.filter(l => getLessonMastery(state.lessonCompletion?.[l.id], state.starsByLesson?.[l.id]).isMastered).length;
+              const levelProgressPct = Math.round((levelMastered / levelLessons.length) * 100);
+              const isCurrentLevel = currentLessonObj.level === level.id;
+              const levelState = levelMastered === levelLessons.length
+                ? 'level-complete'
+                : isCurrentLevel
+                  ? 'level-current'
+                  : levelLessons.some(l => l.id <= currentLessonId)
+                    ? 'level-available'
+                    : 'level-locked';
+              return `
+                <div class="level-group-card ${levelState}" data-level="${level.id}">
+                  <div class="level-group-header">
+                    <div class="level-heading-wrap">
+                      <span class="level-icon">${level.icon}</span>
+                      <div>
+                        <div class="level-kicker">Stage ${level.id} of ${CURRICULUM_LEVELS.length}</div>
+                        <h3 class="level-group-title">${escapeHtml(level.title)}</h3>
+                      </div>
+                    </div>
+                    <div class="level-progress-summary">
+                      <strong>${levelMastered}/${levelLessons.length}</strong>
+                      <span>${levelMastered === levelLessons.length ? 'Mastered' : 'Mastery'}</span>
+                    </div>
+                  </div>
+                  <p class="level-group-description">${escapeHtml(level.description)}</p>
+                  <div class="level-skill-row">
+                    <span class="level-milestone">Milestone: ${escapeHtml(level.milestone)}</span>
+                    <div class="level-skill-pills">${level.skills.map(skill => `<span>${escapeHtml(skill)}</span>`).join('')}</div>
+                  </div>
+                  <div class="level-progress-track"><span style="width: ${levelProgressPct}%"></span></div>
+                  <div class="lessons-grid">
+                    ${levelLessons.map(lesson => {
+                      const completion = state.lessonCompletion?.[lesson.id];
+                      const mastery = getLessonMastery(completion, state.starsByLesson?.[lesson.id]);
+                      const isUnlocked = lesson.id <= currentLessonId || mastery.isAttempted;
+                      const isCurrent = lesson.id === currentLessonId;
+                      const stars = mastery.bestStars;
+                      const statusLabel = mastery.isMastered
+                        ? 'Mastered'
+                        : mastery.isPassed
+                          ? 'Passed'
+                          : mastery.isAttempted
+                            ? 'Practice again'
+                            : isCurrent
+                              ? 'Up next'
+                              : isUnlocked
+                                ? 'Available'
+                                : 'Locked';
+
+                      return `
+                        <div class="lesson-node-card ${isCurrent ? 'node-current' : ''} ${mastery.isMastered ? 'node-mastered' : ''} ${mastery.isAttempted && !mastery.isMastered ? 'node-needs-review' : ''} ${isUnlocked ? 'node-unlocked' : 'node-locked'}"
+                             role="${isUnlocked ? 'button' : 'article'}"
+                             tabindex="${isUnlocked ? '0' : '-1'}"
+                             aria-label="Lesson ${lesson.id}: ${escapeHtml(lesson.title)}. ${statusLabel}."
+                             data-lesson-id="${lesson.id}" ${isCurrent ? 'aria-current="step"' : ''}>
+                          <div class="node-header">
+                            <span class="node-num">${String(lesson.id).padStart(2, '0')}</span>
+                            <span class="node-status">${mastery.isMastered ? '✦ Mastered' : mastery.isPassed ? '✓ Passed' : mastery.isAttempted ? '↻ Practice again' : isCurrent ? '● Up next' : isUnlocked ? 'Available' : '🔒 Locked'}</span>
+                            <div class="node-stars" aria-label="${stars} of 5 stars">
+                              ${[1, 2, 3, 4, 5].map(star => `<span class="star-icon ${stars >= star ? 'star-filled' : ''}">★</span>`).join('')}
+                            </div>
+                          </div>
+                          <h4 class="node-title">${escapeHtml(lesson.title)}</h4>
+                          <p class="node-focus">${escapeHtml(lesson.skillFocus)}</p>
+                          <div class="node-keys">
+                            ${lesson.keys.includes('all') ? `
+                              <span class="node-keys-all">Full keyboard</span>
+                            ` : `
+                              <div class="micro-keycaps-list">
+                                ${lesson.keys.map(k => `<kbd class="micro-keycap">${escapeHtml(k === ' ' ? '␣' : k.toUpperCase())}</kbd>`).join('')}
+                              </div>
+                            `}
+                          </div>
+                          <div class="node-targets">
+                            <span>≥${lesson.accuracyTarget}% acc</span>
+                            <span>${lesson.wpmTarget} WPM</span>
+                            <span>~${lesson.estimatedMinutes}m</span>
+                          </div>
+                          <div class="node-action-hint">${isUnlocked ? (mastery.isAttempted ? 'Practice again →' : 'Start lesson →') : `Pass lesson ${lesson.id - 1} to unlock`}</div>
+                          ${mastery.isAttempted && completion ? `<div class="node-best">Best ${completion.bestAccuracy || 0}% · ${completion.bestWpm || 0} WPM · ${stars}/5 ★</div>` : ''}
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+
+            <div id="roadmap-empty-state" class="roadmap-empty-state" style="display: none;">
+              <span class="empty-icon" aria-hidden="true">🔍</span>
+              <h4 class="empty-title">No lessons match these filters</h4>
+              <p class="empty-desc">Try another stage or search, or choose All lessons to explore the full path.</p>
+              <button id="roadmap-empty-reset-btn" class="btn btn-secondary btn-sm">Reset Filters</button>
+            </div>
+          </div>
+        </div>
+        <details class="dashboard-extras">
+          <summary>More practice &amp; activity <span>Goals, coaching, challenges, and practice modes</span></summary>
+          <div class="dashboard-extras-content">
         <!-- Quick Practice Modes Hub -->
         <div class="quick-modes-hub" aria-label="Quick Practice Modes">
           <div class="quick-modes-title-row">
@@ -1321,7 +1484,7 @@ export class UIManager {
                 <button id="mastery-review-btn" class="btn btn-secondary btn-sm">Review Lesson ${nextReview.lesson.id} →</button>
               </div>
             ` : `
-              <p class="widget-desc">Every lesson you have attempted is at 4 stars or higher. Keep your skills fresh with a daily challenge or skill check.</p>
+              <p class="widget-desc">${curriculumMastery.some(item => item.mastery.isAttempted) ? 'All attempted lessons are mastered. Keep your skills fresh with a daily challenge.' : 'No lessons to review yet. Finish your first lesson to see what to practice next.'}</p>
             `}
           </div>
 
@@ -1343,152 +1506,8 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- Curriculum Roadmap Section -->
-        <div class="curriculum-roadmap-section">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Curriculum Roadmap</h2>
-              <p class="section-subtitle">A guided 30-lesson path from first anchors to professional typing fluency</p>
-            </div>
-            <div class="roadmap-header-actions">
-              <button id="roadmap-jump-current-btn" class="btn btn-secondary btn-sm" title="Jump to active lesson">
-                <span class="jump-icon">⚡</span> Jump to Up Next (L${currentLessonId})
-              </button>
-              <div class="roadmap-overview">
-                <strong>${masteredCount}/${CURRICULUM.length}</strong>
-                <span>mastered</span>
-                <div class="roadmap-overview-track"><span style="width: ${roadmapProgressPct}%"></span></div>
-              </div>
-            </div>
           </div>
-
-          <!-- Roadmap Controls: Stage Filter Tabs & Search -->
-          <div class="roadmap-controls-bar">
-            <div class="roadmap-stage-tabs" role="tablist" aria-label="Curriculum Stages">
-              <button class="stage-tab ${this.dashboardStageFilter === 'all' ? 'active' : ''}" data-stage="all" role="tab" aria-selected="${this.dashboardStageFilter === 'all'}">
-                All Stages (30)
-              </button>
-              ${CURRICULUM_LEVELS.map(lvl => {
-                const lvlLessons = CURRICULUM.filter(l => l.level === lvl.id);
-                const isSelected = this.dashboardStageFilter === String(lvl.id);
-                return `
-                  <button class="stage-tab ${isSelected ? 'active' : ''}" data-stage="${lvl.id}" role="tab" aria-selected="${isSelected}">
-                    Stage ${lvl.id}: ${escapeHtml(lvl.title)} (${lvlLessons.length})
-                  </button>
-                `;
-              }).join('')}
-            </div>
-
-            <div class="roadmap-search-wrap">
-              <span class="search-icon" aria-hidden="true">🔍</span>
-              <input type="search" id="roadmap-search-input" class="roadmap-search-input" placeholder="Search lessons, skills, or keys (Press '/' to search)..." aria-label="Search curriculum lessons" value="${escapeHtml(this.dashboardSearchQuery || '')}" />
-              <button id="roadmap-search-clear" class="search-clear-btn" aria-label="Clear search" style="${this.dashboardSearchQuery ? '' : 'display: none;'}">✕</button>
-            </div>
-          </div>
-
-          <div id="roadmap-filter-status" class="roadmap-filter-status">
-            Showing all ${CURRICULUM.length} lessons across ${CURRICULUM_LEVELS.length} stages
-          </div>
-
-          <div class="levels-container" id="roadmap-levels-container">
-            ${CURRICULUM_LEVELS.map(level => {
-              const levelLessons = CURRICULUM.filter(l => l.level === level.id);
-              const levelMastered = levelLessons.filter(l => getLessonMastery(state.lessonCompletion?.[l.id], state.starsByLesson?.[l.id]).isMastered).length;
-              const levelProgressPct = Math.round((levelMastered / levelLessons.length) * 100);
-              const isCurrentLevel = currentLessonObj.level === level.id;
-              const levelState = levelMastered === levelLessons.length
-                ? 'level-complete'
-                : isCurrentLevel
-                  ? 'level-current'
-                  : levelLessons.some(l => l.id <= currentLessonId)
-                    ? 'level-available'
-                    : 'level-locked';
-              return `
-                <div class="level-group-card ${levelState}" data-level="${level.id}">
-                  <div class="level-group-header">
-                    <div class="level-heading-wrap">
-                      <span class="level-icon">${level.icon}</span>
-                      <div>
-                        <div class="level-kicker">Stage ${level.id} of ${CURRICULUM_LEVELS.length}</div>
-                        <h3 class="level-group-title">${escapeHtml(level.title)}</h3>
-                      </div>
-                    </div>
-                    <div class="level-progress-summary">
-                      <strong>${levelMastered}/${levelLessons.length}</strong>
-                      <span>${levelMastered === levelLessons.length ? 'Mastered' : 'Mastery'}</span>
-                    </div>
-                  </div>
-                  <p class="level-group-description">${escapeHtml(level.description)}</p>
-                  <div class="level-skill-row">
-                    <span class="level-milestone">Milestone: ${escapeHtml(level.milestone)}</span>
-                    <div class="level-skill-pills">${level.skills.map(skill => `<span>${escapeHtml(skill)}</span>`).join('')}</div>
-                  </div>
-                  <div class="level-progress-track"><span style="width: ${levelProgressPct}%"></span></div>
-                  <div class="lessons-grid">
-                    ${levelLessons.map(lesson => {
-                      const completion = state.lessonCompletion?.[lesson.id];
-                      const mastery = getLessonMastery(completion, state.starsByLesson?.[lesson.id]);
-                      const isUnlocked = lesson.id <= currentLessonId || mastery.isAttempted;
-                      const isCurrent = lesson.id === currentLessonId;
-                      const stars = mastery.bestStars;
-                      const statusLabel = mastery.isMastered
-                        ? 'Mastered'
-                        : mastery.isPassed
-                          ? 'Needs mastery'
-                          : mastery.isAttempted
-                            ? 'Practice again'
-                            : isCurrent
-                              ? 'Up next'
-                              : isUnlocked
-                                ? 'Available'
-                                : 'Locked';
-
-                      return `
-                        <div class="lesson-node-card ${isCurrent ? 'node-current' : ''} ${mastery.isMastered ? 'node-mastered' : ''} ${mastery.isAttempted && !mastery.isMastered ? 'node-needs-review' : ''} ${isUnlocked ? 'node-unlocked' : 'node-locked'}"
-                             role="${isUnlocked ? 'button' : 'article'}"
-                             tabindex="${isUnlocked ? '0' : '-1'}"
-                             aria-label="Lesson ${lesson.id}: ${escapeHtml(lesson.title)}. ${statusLabel}."
-                             data-lesson-id="${lesson.id}">
-                          <div class="node-header">
-                            <span class="node-num">${String(lesson.id).padStart(2, '0')}</span>
-                            <span class="node-status">${mastery.isMastered ? '✦ Mastered' : mastery.isPassed ? '◐ Needs mastery' : mastery.isAttempted ? '↻ Practice again' : isCurrent ? '● Up next' : isUnlocked ? 'Available' : '🔒 Locked'}</span>
-                            <div class="node-stars" aria-label="${stars} of 5 stars">
-                              ${[1, 2, 3, 4, 5].map(star => `<span class="star-icon ${stars >= star ? 'star-filled' : ''}">★</span>`).join('')}
-                            </div>
-                          </div>
-                          <h4 class="node-title">${escapeHtml(lesson.title)}</h4>
-                          <p class="node-focus">${escapeHtml(lesson.skillFocus)}</p>
-                          <div class="node-keys">
-                            ${lesson.keys.includes('all') ? `
-                              <span class="node-keys-all">Full keyboard</span>
-                            ` : `
-                              <div class="micro-keycaps-list">
-                                ${lesson.keys.map(k => `<kbd class="micro-keycap">${escapeHtml(k === ' ' ? '␣' : k.toUpperCase())}</kbd>`).join('')}
-                              </div>
-                            `}
-                          </div>
-                          <div class="node-targets">
-                            <span>≥${lesson.accuracyTarget}% acc</span>
-                            <span>${lesson.wpmTarget} WPM</span>
-                            <span>~${lesson.estimatedMinutes}m</span>
-                          </div>
-                          ${mastery.isAttempted && completion ? `<div class="node-best">Best ${completion.bestAccuracy || 0}% · ${completion.bestWpm || 0} WPM · ${stars}/5 ★</div>` : ''}
-                        </div>
-                      `;
-                    }).join('')}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-
-            <div id="roadmap-empty-state" class="roadmap-empty-state" style="display: none;">
-              <span class="empty-icon" aria-hidden="true">🔍</span>
-              <h4 class="empty-title">No lessons match your search</h4>
-              <p class="empty-desc">We couldn't find any lessons matching your filters. Try searching for specific keys (e.g. 'e', 'r') or keywords (e.g. 'home row', 'speed').</p>
-              <button id="roadmap-empty-reset-btn" class="btn btn-secondary btn-sm">Reset Filters</button>
-            </div>
-          </div>
-        </div>
+        </details>
       </div>
     `;
 
@@ -1530,7 +1549,7 @@ export class UIManager {
       } else if (adaptiveFocus.type === 'weak-keys') {
         this.startLesson(generateWeakKeysLesson(adaptiveFocus.keys));
       } else if (adaptiveFocus.type === 'weak-finger') {
-        this.startLesson(generateWeakFingerLesson(adaptiveFocus.finger));
+        this.startLesson(generateWeakFingerLesson(adaptiveFocus.finger, state.settings.layout));
       } else if (adaptiveFocus.lesson) {
         this.startLesson(adaptiveFocus.lesson);
       } else {
@@ -1543,15 +1562,15 @@ export class UIManager {
       this.jumpToCurrentRoadmapLesson();
     });
 
-    // Stage tabs
-    container.querySelectorAll('.stage-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const stage = tab.dataset.stage;
-        this.dashboardStageFilter = stage;
-        container.querySelectorAll('.stage-tab').forEach(t => {
-          const isActive = t === tab;
-          t.classList.toggle('active', isActive);
-          t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    document.getElementById('roadmap-stage-select')?.addEventListener('change', event => {
+      this.dashboardStageFilter = event.target.value;
+      this.applyDashboardFilters();
+    });
+    container.querySelectorAll('[data-lesson-status]').forEach(button => {
+      button.addEventListener('click', () => {
+        this.dashboardStatusFilter = button.dataset.lessonStatus;
+        container.querySelectorAll('[data-lesson-status]').forEach(item => {
+          item.setAttribute('aria-pressed', String(item === button));
         });
         this.applyDashboardFilters();
       });
@@ -1578,10 +1597,10 @@ export class UIManager {
       this.dashboardStageFilter = 'all';
       this.dashboardSearchQuery = '';
       if (searchInput) searchInput.value = '';
-      container.querySelectorAll('.stage-tab').forEach(t => {
-        const isAll = t.dataset.stage === 'all';
-        t.classList.toggle('active', isAll);
-        t.setAttribute('aria-selected', isAll ? 'true' : 'false');
+      this.dashboardStatusFilter = 'all';
+      document.getElementById('roadmap-stage-select').value = 'all';
+      container.querySelectorAll('[data-lesson-status]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.lessonStatus === 'all'));
       });
       this.applyDashboardFilters();
     });
@@ -1597,6 +1616,7 @@ export class UIManager {
       node.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
+          event.stopPropagation();
           openLesson();
         }
       });
@@ -3078,6 +3098,18 @@ export class UIManager {
     if (this.lessonRoundEl) {
       const roundLabel = data.lesson.roundLabels?.[data.roundIdx] || `Round ${data.roundIdx + 1}`;
       this.lessonRoundEl.textContent = `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
+    }
+
+    const lessonCue = document.getElementById('lesson-technique-cue');
+    if (lessonCue) {
+      const isCurriculumLesson = Number.isInteger(data.lesson.id);
+      const layout = store.getState().settings.layout || 'qwerty';
+      const technique = isCurriculumLesson && layout !== 'qwerty'
+        ? `This course follows QWERTY key order. For ${LAYOUTS[layout]?.name || layout}, follow the fingers highlighted on your keyboard guide.`
+        : data.lesson.practiceTip;
+      const cue = [technique, data.lesson.roundTips?.[data.roundIdx]].filter(Boolean).join(' ');
+      lessonCue.hidden = !cue;
+      if (lessonCue.textContent !== cue) lessonCue.textContent = cue;
     }
 
     if (this.hudTimerEl && this.hudTimerWrapper) {
