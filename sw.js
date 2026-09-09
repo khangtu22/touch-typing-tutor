@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.4 - 1k & 5k vocabulary modes)
+ * KeyFlow Service Worker (v3.9.5 - fix cursor reset on space)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.4-vocab';
+const CACHE_NAME = 'keyflow-v3.9.5-cursor-highlight-fix';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

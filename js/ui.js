@@ -226,14 +226,17 @@ export class UIManager {
     if (this.hudDistractionFreeBtn) {
       this.hudDistractionFreeBtn.addEventListener('click', event => {
         this.toggleDistractionFreeMode();
+        this.hudDistractionFreeBtn?.blur?.();
         if (event.detail > 0 && this.activeScreen === 'lesson') this.screens.lesson?.focus({ preventScroll: true });
       });
     }
-    document.getElementById('lesson-back-btn')?.addEventListener('click', () => {
+    document.getElementById('lesson-back-btn')?.addEventListener('click', (event) => {
+      event?.currentTarget?.blur?.();
       this.navigateTo(this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard');
     });
-    document.getElementById('lesson-restart-btn')?.addEventListener('click', () => {
+    document.getElementById('lesson-restart-btn')?.addEventListener('click', (event) => {
       if (this.activeScreen !== 'lesson') return;
+      event?.currentTarget?.blur?.();
       this.hidePauseModal();
       this.clearSpeedHints();
       typingEngine.retryLesson();
@@ -241,6 +244,7 @@ export class UIManager {
     });
     document.getElementById('lesson-theme-select')?.addEventListener('change', event => {
       this.setTypingTheme(event.target.value);
+      event.target?.blur?.();
       this.screens.lesson?.focus({ preventScroll: true });
     });
     document.getElementById('lesson-keyboard-toggle')?.addEventListener('click', event => {
@@ -248,7 +252,12 @@ export class UIManager {
         ...prev,
         settings: { ...prev.settings, keyboardVisible: prev.settings.keyboardVisible === false }
       }));
+      event?.currentTarget?.blur?.();
       if (event.detail > 0) this.screens.lesson?.focus({ preventScroll: true });
+    });
+    this.screens.lesson?.addEventListener('pointerdown', (event) => {
+      if (event.target?.closest?.('button, a, summary, select, input, textarea, [role="button"]')) return;
+      this.screens.lesson?.focus({ preventScroll: true });
     });
 
     // Window Resize Handler for Smooth Caret and Viewport Alignment
@@ -268,13 +277,31 @@ export class UIManager {
         'input, textarea, select, [contenteditable]:not([contenteditable="false"])'
       ) && this.activeScreen === 'lesson') return;
 
-      // Keyboard activation of lesson controls must never count as typed text.
-      if (this.activeScreen === 'lesson' && (e.key === 'Enter' || e.key === ' ') &&
-          e.target?.closest?.('button, a, summary, [role="button"]')) return;
-      if (this.activeScreen === 'lesson' && e.target?.closest?.('.lesson-session-toolbar, .lesson-session-footer')) {
-        if (e.key === 'Tab') return;
-        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          this.screens.lesson?.focus({ preventScroll: true });
+      // Keyboard activation vs typing on the lesson screen:
+      // When a typing session is actively underway, printable characters and spaces must
+      // immediately blur any lingering focused controls and type into the lesson, rather than
+      // triggering browser default button activations (e.g. Space firing click on Restart).
+      if (this.activeScreen === 'lesson') {
+        const focusedInteractive = e.target?.closest?.('button, a, summary, [role="button"]');
+        if (focusedInteractive) {
+          if (typingEngine.isActive && !typingEngine.isPaused) {
+            const isTypingChar = (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === 'Backspace';
+            if (isTypingChar) {
+              if (e.key === ' ') {
+                e.preventDefault();
+              }
+              focusedInteractive.blur?.();
+              this.screens.lesson?.focus({ preventScroll: true });
+            } else if (e.key === 'Enter') {
+              // Dedicated keyboard activation of focused controls takes precedence over typing.
+              return;
+            } else if (e.key === 'Tab') {
+              return;
+            }
+          } else {
+            // Paused or idle: allow standard keyboard activation of modal/dialog buttons
+            if (e.key === 'Enter' || e.key === ' ') return;
+          }
         }
       }
 
@@ -2896,7 +2923,7 @@ export class UIManager {
               <div class="speedtest-preset-group speedtest-vocab-group" role="group" aria-label="Vocabulary dictionary">
                 <span class="speedtest-group-label">Vocab</span>
                 ${VOCABULARY_PRESETS.map(v => `
-                  <button type="button" class="speedtest-pill speedtest-vocab-pill ${activeVocabId === v.id ? 'active' : ''}" data-vocab-preset="${v.id}" aria-label="${v.label}" aria-pressed="${activeVocabId === v.id}">${v.shortLabel}</button>
+                  <button type="button" class="speedtest-pill speedtest-vocab-pill ${activeVocabId === v.id ? 'active' : ''}" data-vocab-preset="${v.id}" aria-label="${v.label}" title="${v.label} · ${v.desc}" aria-pressed="${activeVocabId === v.id}">${v.shortLabel}</button>
                 `).join('')}
               </div>
             </div>
@@ -2906,7 +2933,7 @@ export class UIManager {
               <div>
                 <h3 id="speedtest-selected-title">${selectedPreset.label}${activeVocabId !== '200' ? ` · ${selectedVocab.shortLabel.toUpperCase()}` : ''}</h3>
                 <p>${selectedVocab.desc}.</p>
-                <span class="speedtest-language">English <span aria-hidden="true">/</span> ${selectedVocab.label}</span>
+                <span class="speedtest-language">English <span aria-hidden="true">/</span> ${selectedVocab.label} <span class="speedtest-vocab-badge">${selectedVocab.badge}</span></span>
               </div>
             </div>
 
@@ -3177,6 +3204,7 @@ export class UIManager {
   // LESSON SCREEN & RACING HUD
   // ==========================================
   startLesson(lessonData) {
+    document.activeElement?.blur?.();
     this.currentLessonData = lessonData;
     this.screens.lesson?.classList.toggle('speedtest-session', !!lessonData.isSpeedTest);
     const backLabel = document.getElementById('lesson-back-label');
@@ -3188,6 +3216,10 @@ export class UIManager {
       windowStart: 0
     };
     this.navigateTo('lesson');
+    if (this.screens.lesson) {
+      this.screens.lesson.setAttribute('tabindex', '-1');
+      this.screens.lesson.focus({ preventScroll: true });
+    }
 
     const state = store.getState();
 
@@ -3909,13 +3941,19 @@ export class UIManager {
       `;
       document.body.appendChild(modal);
 
-      document.getElementById('resume-lesson-btn')?.addEventListener('click', () => this.toggleLessonPause());
-      document.getElementById('restart-lesson-btn')?.addEventListener('click', () => {
+      document.getElementById('resume-lesson-btn')?.addEventListener('click', (event) => {
+        event?.currentTarget?.blur?.();
+        this.toggleLessonPause();
+      });
+      document.getElementById('restart-lesson-btn')?.addEventListener('click', (event) => {
+        event?.currentTarget?.blur?.();
         this.hidePauseModal();
         this.clearSpeedHints();
         typingEngine.retryLesson();
+        this.screens.lesson?.focus({ preventScroll: true });
       });
-      document.getElementById('exit-lesson-btn')?.addEventListener('click', () => {
+      document.getElementById('exit-lesson-btn')?.addEventListener('click', (event) => {
+        event?.currentTarget?.blur?.();
         this.hidePauseModal();
         this.navigateTo('dashboard');
       });
@@ -3939,10 +3977,16 @@ export class UIManager {
   hidePauseModal() {
     const modal = document.getElementById('pause-modal');
     if (modal) {
+      if (modal.contains(document.activeElement)) {
+        document.activeElement?.blur?.();
+      }
       modal.classList.remove('modal-active');
       modal.setAttribute('aria-hidden', 'true');
     }
     this.pauseReason = null;
+    if (this.activeScreen === 'lesson') {
+      this.screens.lesson?.focus({ preventScroll: true });
+    }
   }
 
   // ==========================================

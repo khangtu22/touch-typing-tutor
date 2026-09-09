@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="styles/results.css?v=3.8.1">
   <link rel="stylesheet" href="styles/components.css?v=3.8.1">
   <link rel="stylesheet" href="styles/premium.css?v=3.9.3">
-  <link rel="stylesheet" href="styles/speed-test.css?v=3.9.4">
+  <link rel="stylesheet" href="styles/speed-test.css?v=3.9.5-highlight-restored">
   <link rel="stylesheet" href="styles/arcade.css?v=3.9.0">
   <link rel="stylesheet" href="styles/typing-quest.css?v=3.8.1">
   <link rel="stylesheet" href="styles/arcade-challenges.css?v=3.9.0">
@@ -138,16 +138,16 @@
     <!-- Main Screens Container -->
     <main class="main-content">
       <!-- 1. Onboarding Screen -->
-      <section id="screen-onboarding" class="screen-view" role="region" aria-label="Onboarding"></section>
+      <section id="screen-onboarding" class="screen-view" role="region" aria-label="Onboarding" tabindex="-1"></section>
 
       <!-- 2. Dashboard Screen -->
-      <section id="screen-dashboard" class="screen-view screen-active" role="region" aria-label="Curriculum dashboard"></section>
+      <section id="screen-dashboard" class="screen-view screen-active" role="region" aria-label="Curriculum dashboard" tabindex="-1"></section>
 
       <!-- 3. Custom Arena Screen -->
-      <section id="screen-custom" class="screen-view" role="region" aria-label="Custom practice arena"></section>
+      <section id="screen-custom" class="screen-view" role="region" aria-label="Custom practice arena" tabindex="-1"></section>
 
       <!-- 4. Lesson & Typing Screen -->
-      <section id="screen-lesson" class="screen-view" role="region" aria-label="Typing lesson">
+      <section id="screen-lesson" class="screen-view" role="region" aria-label="Typing lesson" tabindex="-1">
         <div class="lesson-screen-layout">
           <div class="lesson-session-toolbar">
             <button id="lesson-back-btn" class="lesson-back-btn" type="button">
@@ -193,8 +193,10 @@
               </div>
               <div class="hud-meta">
                 <h2 id="hud-lesson-title" class="hud-title">Find Your Anchors</h2>
-                <span id="hud-lesson-round" class="hud-round-badge">Warmup · Round 1 of 4</span>
-                <span id="hud-correction-badge" class="hud-mode-badge" style="display: none;">Correction Mode</span>
+                <div class="hud-meta-details">
+                  <span id="hud-lesson-round" class="hud-round-badge">Warmup · Round 1 of 4</span>
+                  <span id="hud-correction-badge" class="hud-mode-badge" style="display: none;">Correction Mode</span>
+                </div>
               </div>
               <div class="hud-live-metrics">
                 <div class="metric-pill">
@@ -223,7 +225,7 @@
           <div class="typing-box-card">
             <div class="typing-card-heading">
               <span id="typing-session-status" class="typing-session-status">Start typing to begin</span>
-              <span id="typing-session-format"></span>
+              <span id="typing-session-format" class="typing-session-format"></span>
             </div>
             <div class="typing-text-viewport" aria-live="off">
               <div id="typing-text-display" class="typing-text-display">
@@ -247,25 +249,25 @@
       </section>
 
       <!-- 5. Results Screen -->
-      <section id="screen-results" class="screen-view" role="region" aria-label="Practice results"></section>
+      <section id="screen-results" class="screen-view" role="region" aria-label="Practice results" tabindex="-1"></section>
 
       <!-- 6. Profile & Analytics Screen -->
-      <section id="screen-profile" class="screen-view" role="region" aria-label="Analytics and profile"></section>
+      <section id="screen-profile" class="screen-view" role="region" aria-label="Analytics and profile" tabindex="-1"></section>
 
       <!-- 7. Settings Screen -->
-      <section id="screen-settings" class="screen-view" role="region" aria-label="Settings"></section>
+      <section id="screen-settings" class="screen-view" role="region" aria-label="Settings" tabindex="-1"></section>
 
       <!-- 8. Quote Vault Screen -->
-      <section id="screen-quotes" class="screen-view" role="region" aria-label="Quote vault"></section>
+      <section id="screen-quotes" class="screen-view" role="region" aria-label="Quote vault" tabindex="-1"></section>
 
       <!-- 9. Arcade Gaming Hub Screen -->
-      <section id="screen-arcade" class="screen-view" role="region" aria-label="Arcade"></section>
+      <section id="screen-arcade" class="screen-view" role="region" aria-label="Arcade" tabindex="-1"></section>
 
       <!-- 10. Developer Code Arena Screen -->
-      <section id="screen-code" class="screen-view" role="region" aria-label="Code arena"></section>
+      <section id="screen-code" class="screen-view" role="region" aria-label="Code arena" tabindex="-1"></section>
 
       <!-- 11. Benchmark Speed Test Screen -->
-      <section id="screen-speedtest" class="screen-view" role="region" aria-label="Speed tests"></section>
+      <section id="screen-speedtest" class="screen-view" role="region" aria-label="Speed tests" tabindex="-1"></section>
     </main>
 
     <!-- Certificate Modal Container -->
@@ -279,6 +281,6 @@
   </div>
 
   <!-- Main JavaScript Module -->
-  <script type="module" src="js/app.js?v=3.9.4"></script>
+  <script type="module" src="js/app.js?v=3.9.5"></script>
 </body>
 </html>

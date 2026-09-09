@@ -43,7 +43,7 @@ const messages = [];
 const assert = (value, label) => { if (!value) throw new Error(label); messages.push('PASS ' + label); };
 const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 const root = ui.screens.lesson;
-const key = value => root.dispatchEvent(new KeyboardEvent('keydown', {
+const key = value => (document.activeElement || root).dispatchEvent(new KeyboardEvent('keydown', {
   key: value, code: value === 'Enter' ? 'Enter' : value === 'Backspace' ? 'Backspace' : value === ' ' ? 'Space' : `Key${value.toUpperCase()}`,
   bubbles: true, cancelable: true
 }));
@@ -90,6 +90,9 @@ try {
         const initialChar = rect('[data-char-index="0"]');
         const initialTimer = rect('#hud-timer-wrapper');
         const caret = rect('.smooth-caret-line');
+        const highlightColor = getComputedStyle(root.querySelector('.smooth-caret-box')).backgroundColor;
+        assert(highlightColor !== 'transparent' && highlightColor !== 'rgba(0, 0, 0, 0)', `${theme}, ${compact}, ${preset}: current character has a visible highlight background`);
+        assert(caret.width >= initialChar.width - 1 && caret.height <= 4, `${theme}, ${compact}, ${preset}: caret underlines the whole character`);
         const textViewport = rect('.typing-text-viewport');
         assert(caret.left >= textViewport.left && caret.right <= textViewport.right, `${theme}, ${compact}, ${preset}: caret is visible at the beginning of a line`);
         const nextLine = [...root.querySelectorAll('[data-char-index]')].find(el => el.getBoundingClientRect().top > initialChar.top + 5);
@@ -168,6 +171,27 @@ try {
   assert(ui.activeScreen === 'results' && store.getState().speedTestBests['25w']?.wpm > 0, 'finishing a word test saves its personal best and opens results');
   document.getElementById('results-retry-btn').click();
   assert(ui.activeScreen === 'lesson' && typingEngine.lesson.speedTestPreset === '25w' && typingEngine.charIndex === 0 && ui.speedHints.size === 0, 'results retry launches a fresh test of the same length');
+
+  // Regression test: typing the first word and pressing space with focus on restart or other controls
+  // must never click the control or reset the cursor back to start.
+  const restartBtn = document.getElementById('lesson-restart-btn');
+  restartBtn.focus();
+  assert(document.activeElement === restartBtn, 'lesson restart button receives focus initially');
+  const firstWord = typingEngine.currentText.split(' ')[0];
+  for (const ch of firstWord) {
+    key(ch);
+  }
+  assert(typingEngine.charIndex === firstWord.length, 'typing the first word advances charIndex without resetting');
+  // Press spacebar on the word delimiter:
+  key(' ');
+  assert(typingEngine.charIndex === firstWord.length + 1, 'typing space advances charIndex past the first word without resetting to 0');
+  assert(document.activeElement !== restartBtn, 'typing space blurs the restart button and moves focus to the lesson screen');
+
+  // Verify that an intentional click on Restart explicitly resets the test to 0 without leaving focus on the button
+  restartBtn.click();
+  assert(typingEngine.charIndex === 0, 'clicking restart resets charIndex to 0');
+  assert(document.activeElement !== restartBtn, 'clicking restart blurs the button and does not trap focus');
+
   document.getElementById('lesson-back-btn').click();
   assert(lobby.querySelectorAll('tbody tr')[4].querySelector('.speedtest-record-speed').textContent.includes('WPM'), 'the completed result appears in the lobby records');
   assert(localStorage.getItem('typing_tutor_progress') === savedProgress, 'browser checks do not modify saved user progress');

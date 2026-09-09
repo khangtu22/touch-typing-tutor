@@ -74,8 +74,8 @@
   font: 500 23px/1.6 var(--font-mono);
   user-select: none;
 }
-.speedtest-preview-done { color: var(--text-primary); }
-.speedtest-preview-current { color: var(--text-primary); border-left: 2px solid var(--accent-primary); }
+.speedtest-preview-done { color: var(--success-teal); }
+.speedtest-preview-current { color: var(--text-primary); background: color-mix(in srgb, var(--accent-primary) 22%, transparent); border-radius: 3px; box-shadow: inset 0 -3px var(--accent-primary); }
 .speedtest-launch-bottom { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 24px; }
 .speedtest-start-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 48px; padding: 12px 18px; border-radius: 8px; box-shadow: none; font-size: 13px; }
 .speedtest-launch-bottom p { margin-top: 9px; color: var(--text-muted); font-size: 10px; }
@@ -127,8 +127,8 @@
 .speedtest-footnotes { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 28px; color: var(--text-muted); font-size: 10px; margin-top: -12px; }
 .speedtest-footnotes strong { color: var(--text-secondary); font-weight: 500; }
 
-/* The benchmark shares the same theme as its preview. A bright typed passage,
-   quiet upcoming text and a slim caret keep attention on the next character. */
+/* Use the shared theme's correct-text colors, character highlight and underline
+   caret. Do not override them with a transparent box or a thin vertical line. */
 #screen-lesson.speedtest-session .lesson-hud { padding: 18px 24px; border-radius: 12px; box-shadow: none; }
 #screen-lesson.speedtest-session .hud-meta { flex-direction: column; align-items: flex-start; gap: 3px; }
 #screen-lesson.speedtest-session .hud-title { font-size: 16px; font-weight: 600; }
@@ -148,10 +148,6 @@
 #screen-lesson.speedtest-session .typing-box-card::before,
 #screen-lesson.speedtest-session .typing-box-card::after { content: none; }
 #screen-lesson.speedtest-session .typing-card-heading { margin-bottom: 30px; }
-#screen-lesson.speedtest-session .char-correct { color: var(--text-primary); }
-#screen-lesson.speedtest-session .smooth-caret-box { background: transparent; border: 0; box-shadow: none; }
-#screen-lesson.speedtest-session .smooth-caret-line { top: 7px; bottom: 7px; left: 0; width: 2px; height: auto; background: var(--accent-primary); box-shadow: none; border-radius: 1px; }
-#screen-lesson.speedtest-session .caret-error .smooth-caret-box { background: transparent !important; box-shadow: none !important; animation: none; }
 #screen-lesson.speedtest-session .char-speed-hint { background: var(--surface-1); border-color: var(--border-light); color: var(--text-secondary); box-shadow: none; font-weight: 500; }
 
 /* Keep high-contrast typing readable even in themes with softer palettes. */
