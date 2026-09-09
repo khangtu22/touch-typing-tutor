@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.3 - speed tests and stable typing layout)
+ * KeyFlow Service Worker (v3.9.4 - 1k & 5k vocabulary modes)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.3-speedtest';
+const CACHE_NAME = 'keyflow-v3.9.4-vocab';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -49,6 +49,7 @@ const ASSETS_TO_CACHE = [
   './js/arcade-challenges.js',
   './js/arcade-challenge-model.js',
   './js/code-snippets.js',
+  './js/vocabularies.js',
   './js/speed-test.js',
   './js/command-palette.js',
   './js/certificate-generator.js',

@@ -27,7 +27,7 @@ import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, get
 import { ArcadeHubManager } from './arcade-games.js?v=3.9.0';
 import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js?v=3.8.1';
 import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js?v=3.8.1';
-import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.9.3';
+import { SPEED_TEST_PRESETS, VOCABULARY_PRESETS, VOCABULARY_POOLS, getVocabularyPool, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.9.4';
 import { CommandPalette } from './command-palette.js?v=3.8.1';
 import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js?v=3.8.1';
 import { AFKDetector, DEFAULT_AFK_TIMEOUT_MS } from './afk-detector.js?v=3.8.3';
@@ -2842,11 +2842,16 @@ export class UIManager {
     if (!container) return;
 
     const state = store.getState();
+    const settings = state.settings || {};
     const bests = state.speedTestBests || {};
+    const activeVocabId = this.activeSpeedVocabId || settings.speedTestVocab || '200';
+    this.activeSpeedVocabId = activeVocabId;
+    const selectedVocab = VOCABULARY_PRESETS.find(v => v.id === activeVocabId) || VOCABULARY_PRESETS[0];
+
     const selectedPreset = SPEED_TEST_PRESETS.find(p => p.id === this.activeSpeedPresetId) || SPEED_TEST_PRESETS[2];
     const activePresetId = selectedPreset.id;
-    const selectedRecord = bests[selectedPreset.id];
-    const completedCount = SPEED_TEST_PRESETS.filter(p => bests[p.id]).length;
+    const selectedRecord = store.getSpeedTestBest ? store.getSpeedTestBest(selectedPreset.id, activeVocabId) : bests[selectedPreset.id];
+    const completedCount = SPEED_TEST_PRESETS.filter(p => store.getSpeedTestBest ? store.getSpeedTestBest(p.id, activeVocabId) : bests[p.id]).length;
     const safeNumber = value => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value))) : 0;
     const formatRecordDate = value => {
       const date = value ? new Date(value) : null;
@@ -2854,8 +2859,14 @@ export class UIManager {
         ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
         : '—';
     };
-    const settings = state.settings || {};
     const timed = selectedPreset.type === 'time';
+
+    const previewSnippets = {
+      '200': { done: 'find your ', current: 'f', rest: 'low and let the words come to you' },
+      '1k': { done: 'develop steady ', current: 'c', rest: 'adence across authentic language patterns' },
+      '5k': { done: 'challenge versatile ', current: 's', rest: 'tamina with expanded vocabulary depth' }
+    };
+    const preview = previewSnippets[activeVocabId] || previewSnippets['200'];
 
     container.innerHTML = `
       <div class="speedtest-container">
@@ -2865,9 +2876,9 @@ export class UIManager {
             <h2 class="speedtest-title">Find your flow.</h2>
             <p class="section-subtitle">A little focus. A steady rhythm. See what your fingers can do.</p>
           </div>
-          <div class="speedtest-completion" aria-label="${completedCount} of ${SPEED_TEST_PRESETS.length} personal records">
+          <div class="speedtest-completion" aria-label="${completedCount} of ${SPEED_TEST_PRESETS.length} personal records in ${selectedVocab.label}">
             <strong>${completedCount}<span> / ${SPEED_TEST_PRESETS.length}</span></strong>
-            <span>benchmarks recorded</span>
+            <span>${selectedVocab.shortLabel.toUpperCase()} records logged</span>
           </div>
         </header>
 
@@ -2882,19 +2893,25 @@ export class UIManager {
                   `).join('')}
                 </div>
               `).join('')}
+              <div class="speedtest-preset-group speedtest-vocab-group" role="group" aria-label="Vocabulary dictionary">
+                <span class="speedtest-group-label">Vocab</span>
+                ${VOCABULARY_PRESETS.map(v => `
+                  <button type="button" class="speedtest-pill speedtest-vocab-pill ${activeVocabId === v.id ? 'active' : ''}" data-vocab-preset="${v.id}" aria-label="${v.label}" aria-pressed="${activeVocabId === v.id}">${v.shortLabel}</button>
+                `).join('')}
+              </div>
             </div>
 
             <div class="speedtest-launch-main">
               <div class="speedtest-duration" aria-hidden="true">${selectedPreset.value}<span>${timed ? 'sec' : 'words'}</span></div>
               <div>
-                <h3 id="speedtest-selected-title">${selectedPreset.label}</h3>
-                <p>${selectedPreset.desc}.</p>
-                <span class="speedtest-language">English <span aria-hidden="true">/</span> Common words</span>
+                <h3 id="speedtest-selected-title">${selectedPreset.label}${activeVocabId !== '200' ? ` · ${selectedVocab.shortLabel.toUpperCase()}` : ''}</h3>
+                <p>${selectedVocab.desc}.</p>
+                <span class="speedtest-language">English <span aria-hidden="true">/</span> ${selectedVocab.label}</span>
               </div>
             </div>
 
             <div class="speedtest-preview" aria-label="Typing theme preview">
-              <span class="speedtest-preview-done">find your </span><span class="speedtest-preview-current">f</span><span>low and let the words come to you</span>
+              <span class="speedtest-preview-done">${preview.done}</span><span class="speedtest-preview-current">${preview.current}</span><span>${preview.rest}</span>
             </div>
 
             <div class="speedtest-launch-bottom">
@@ -2903,7 +2920,7 @@ export class UIManager {
                 <p>${timed ? 'The timer starts on your first keystroke.' : `Take your time. Finish all ${selectedPreset.value} words.`}</p>
               </div>
               <div class="speedtest-launch-record">
-                <span class="speedtest-record-label">${selectedRecord ? 'Your best' : 'Your next milestone'}</span>
+                <span class="speedtest-record-label">${selectedRecord ? `Best (${selectedVocab.shortLabel.toUpperCase()})` : `Next ${selectedVocab.shortLabel.toUpperCase()} milestone`}</span>
                 ${selectedRecord ? `<strong>${safeNumber(selectedRecord.wpm)} <small>WPM</small></strong>` : '<strong class="speedtest-baseline">Set your first record</strong>'}
               </div>
             </div>
@@ -2940,8 +2957,8 @@ export class UIManager {
         <section class="speedtest-records" aria-labelledby="speedtest-records-title">
           <div class="speedtest-section-heading">
             <div>
-              <h3 id="speedtest-records-title">Personal records</h3>
-              <p>Same word pool. Your own pace to beat.</p>
+              <h3 id="speedtest-records-title">Personal records (${selectedVocab.label})</h3>
+              <p>Same ${selectedVocab.shortLabel.toUpperCase()} word pool. Your own pace to beat.</p>
             </div>
             <span>${completedCount ? `${completedCount} benchmark${completedCount === 1 ? '' : 's'} recorded` : 'Complete a test to set a record'}</span>
           </div>
@@ -2950,7 +2967,7 @@ export class UIManager {
               <thead><tr><th scope="col">Test</th><th scope="col">Speed</th><th scope="col">Accuracy</th><th scope="col">Consistency</th><th scope="col">Best set</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
               <tbody>
             ${SPEED_TEST_PRESETS.map(p => {
-              const record = bests[p.id];
+              const record = store.getSpeedTestBest ? store.getSpeedTestBest(p.id, activeVocabId) : bests[p.id];
               return `
                 <tr class="${activePresetId === p.id ? 'is-selected' : ''}">
                   <th scope="row"><span class="speedtest-record-kind" aria-hidden="true">${p.type === 'time' ? '◷' : '≡'}</span>${p.label}</th>
@@ -2978,13 +2995,26 @@ export class UIManager {
       });
     });
 
+    container.querySelectorAll('[data-vocab-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const vId = btn.dataset.vocabPreset;
+        this.activeSpeedVocabId = vId;
+        store.update(prev => ({
+          ...prev,
+          settings: { ...prev.settings, speedTestVocab: vId }
+        }));
+        this.renderSpeedTest();
+        container.querySelector(`[data-vocab-preset="${vId}"]`)?.focus({ preventScroll: true });
+      });
+    });
+
     container.querySelector('#speedtest-launch-btn')?.addEventListener('click', () => {
-      this.startSpeedTest(activePresetId);
+      this.startSpeedTest(activePresetId, this.activeSpeedVocabId);
     });
 
     container.querySelectorAll('[data-start-preset]').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.startSpeedTest(btn.dataset.startPreset);
+        this.startSpeedTest(btn.dataset.startPreset, this.activeSpeedVocabId);
       });
     });
     container.querySelectorAll('[data-typing-theme]').forEach(btn => {
@@ -2999,8 +3029,11 @@ export class UIManager {
     });
   }
 
-  startSpeedTest(presetId = '60s') {
-    const lesson = generateSpeedTestLesson(presetId);
+  startSpeedTest(presetId = '60s', vocabMode = null) {
+    const state = store.getState();
+    const vocab = vocabMode || this.activeSpeedVocabId || state.settings?.speedTestVocab || '200';
+    this.activeSpeedVocabId = vocab;
+    const lesson = generateSpeedTestLesson(presetId, vocab);
     this.activeSpeedPresetId = lesson.speedTestPreset;
     this.startLesson(lesson);
   }
@@ -3225,12 +3258,25 @@ export class UIManager {
     }
     if (this.lessonRoundEl) {
       const roundLabel = data.lesson.roundLabels?.[data.roundIdx] || `Round ${data.roundIdx + 1}`;
-      this.lessonRoundEl.textContent = data.lesson.isSpeedTest ? 'English · Common words' : `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
+      if (data.lesson.isSpeedTest) {
+        const vocab = VOCABULARY_PRESETS.find(v => v.id === data.lesson.speedTestVocab) || VOCABULARY_PRESETS[0];
+        this.lessonRoundEl.textContent = `English · ${vocab.label}`;
+      } else {
+        this.lessonRoundEl.textContent = `${roundLabel} · Round ${data.roundIdx + 1} of ${data.totalRounds}`;
+      }
     }
     const sessionStatus = document.getElementById('typing-session-status');
     if (sessionStatus) sessionStatus.textContent = data.isPaused ? 'Paused · Take a breath' : data.isStarted ? 'Keep your rhythm' : data.lesson.timeLimitSec ? 'Start typing to start the timer' : 'Start typing to begin';
     const sessionFormat = document.getElementById('typing-session-format');
-    if (sessionFormat) sessionFormat.textContent = data.lesson.isSpeedTest ? (data.lesson.speedTestType === 'time' ? 'Timed test' : 'Word test') : 'Touch typing practice';
+    if (sessionFormat) {
+      if (data.lesson.isSpeedTest) {
+        const vocab = VOCABULARY_PRESETS.find(v => v.id === data.lesson.speedTestVocab) || VOCABULARY_PRESETS[0];
+        const kind = data.lesson.speedTestType === 'time' ? `${data.lesson.timeLimitSec}s test` : `${data.lesson.speedTestPreset} test`;
+        sessionFormat.textContent = `${kind} · ${vocab.shortLabel.toUpperCase()}`;
+      } else {
+        sessionFormat.textContent = 'Touch typing practice';
+      }
+    }
     this.screens.lesson?.classList.toggle('session-typing', !!data.isStarted && !data.isPaused);
 
     const lessonCue = document.getElementById('lesson-technique-cue');
@@ -3707,8 +3753,10 @@ export class UIManager {
 
       if (this.currentLessonData?.isSpeedTest) {
         const presetId = this.currentLessonData.speedTestPreset || '60s';
+        const vocabMode = this.currentLessonData.speedTestVocab || '200';
         const pbResult = store.recordSpeedTestResult({
           presetId,
+          vocabMode,
           wpm: summary.wpm,
           accuracy: summary.accuracy,
           consistency: summary.consistency || 100,
@@ -3716,6 +3764,7 @@ export class UIManager {
         });
         summary.isSpeedTest = true;
         summary.speedTestPreset = presetId;
+        summary.speedTestVocab = vocabMode;
         summary.isNewPB = pbResult.isNewPB;
         summary.speedTestPB = pbResult.best;
       }
@@ -3752,7 +3801,8 @@ export class UIManager {
         placementRecommendation: summary.placementRecommendation,
         inFocusMode: !!this.isFocusModeActive,
         kind: sessionKind,
-        speedTestPreset: summary.speedTestPreset || null
+        speedTestPreset: summary.speedTestPreset || null,
+        speedTestVocab: summary.speedTestVocab || null
       });
 
       if (!summary.isPlacementTest && summary.lessonId === 'daily-challenge') {
@@ -3948,7 +3998,8 @@ export class UIManager {
       const comparableSessions = (state.sessions || []).slice(1).filter(session => {
         if (!session) return false;
         if (isSpeedTest) {
-          return session.kind === 'speedtest' && session.speedTestPreset === summary.speedTestPreset;
+          const vocab = summary.speedTestVocab || '200';
+          return session.kind === 'speedtest' && session.speedTestPreset === summary.speedTestPreset && (session.speedTestVocab || '200') === vocab;
         }
         if (comparableKind) {
           return session.kind === comparableKind && session.lessonId === summary.lessonId;
@@ -4131,25 +4182,6 @@ export class UIManager {
             </div>
           </div>
 
-          ${hasMissedWords ? `
-            <!-- Missed Words Targeted Drill Callout -->
-            <div class="missed-words-callout">
-              <div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-size: 18px;">⚠️</span>
-                  <strong style="color: var(--text-primary); font-size: 14px;">${summary.mistypedWords.length} Missed Word${summary.mistypedWords.length > 1 ? 's' : ''} Detected</strong>
-                </div>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Reinforce muscle memory before moving forward:</p>
-                <div class="missed-words-tags">
-                  ${summary.mistypedWords.map(w => `<span class="missed-word-tag">${escapeHtml(w)}</span>`).join('')}
-                </div>
-              </div>
-              <button id="results-practice-missed-btn" class="btn btn-primary" style="background: #E06C75; border-color: #E06C75;">
-                <span>🔁 Practice Missed Words Only</span>
-              </button>
-            </div>
-          ` : ''}
-
           <div class="results-mastery-card ${summary.isPlacementTest ? 'placement-result' : mastery.isMastered ? 'mastered-result' : 'review-result'}">
             ${summary.isPlacementTest ? `
               <div class="mastery-result-icon">🗺️</div>
@@ -4161,7 +4193,7 @@ export class UIManager {
             ` : isSpeedTest ? `
               <div class="mastery-result-icon">⚡</div>
               <div>
-                <span class="mastery-result-kicker">Benchmark Assessment</span>
+                <span class="mastery-result-kicker">Benchmark Assessment · ${summary.speedTestVocab ? (VOCABULARY_PRESETS.find(v => v.id === summary.speedTestVocab)?.label || summary.speedTestVocab.toUpperCase()) : 'English 200'}</span>
                 <h3>${summary.isNewPB ? '🏆 All-Time Personal Best!' : 'Benchmark Logged Successfully'}</h3>
                 <p>Consistency rating: ${summary.consistency || 100}%. Pacing stability is tracked across 1-second velocity samples.</p>
               </div>
@@ -4184,6 +4216,25 @@ export class UIManager {
               ${sparklineHtml}
             </div>
           </div>
+
+          ${hasMissedWords ? `
+            <!-- Missed Words Targeted Drill Callout -->
+            <div class="missed-words-callout">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 18px;">⚠️</span>
+                  <strong style="color: var(--text-primary); font-size: 14px;">${summary.mistypedWords.length} Missed Word${summary.mistypedWords.length > 1 ? 's' : ''} Detected</strong>
+                </div>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Reinforce muscle memory before moving forward:</p>
+                <div class="missed-words-tags">
+                  ${summary.mistypedWords.map(w => `<span class="missed-word-tag">${escapeHtml(w)}</span>`).join('')}
+                </div>
+              </div>
+              <button id="results-practice-missed-btn" class="btn btn-primary" style="background: #E06C75; border-color: #E06C75;">
+                <span>🔁 Practice Missed Words Only</span>
+              </button>
+            </div>
+          ` : ''}
 
           <div class="results-feedback-grid">
             ${recommendations.map(rec => `
@@ -4284,7 +4335,7 @@ export class UIManager {
           return;
         }
         if (isSpeedTest && summary.speedTestPreset) {
-          this.startSpeedTest(summary.speedTestPreset);
+          this.startSpeedTest(summary.speedTestPreset, summary.speedTestVocab || '200');
           return;
         }
         if (isQuoteLesson) {

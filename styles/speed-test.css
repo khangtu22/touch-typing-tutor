@@ -55,6 +55,8 @@
 }
 .speedtest-pill:hover { background: var(--surface-2); color: var(--text-primary); }
 .speedtest-pill.active { color: var(--text-primary); background: color-mix(in srgb, var(--accent-primary) 18%, var(--surface-1)); border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent); }
+.speedtest-vocab-pill { letter-spacing: .02em; }
+.speedtest-vocab-pill.active { font-weight: 600; }
 .speedtest-launch-main { display: flex; align-items: center; gap: 30px; padding: 28px 0; }
 .speedtest-duration { flex-shrink: 0; color: var(--text-primary); font: 500 clamp(46px, 5vw, 64px)/1 var(--font-mono); letter-spacing: -.07em; }
 .speedtest-duration > span { margin-left: 9px; color: var(--text-muted); font-size: 14px; letter-spacing: 0; }

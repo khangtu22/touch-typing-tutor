@@ -33,8 +33,13 @@ export class CommandPalette {
       { id: 'act_weakness_drill', title: 'Launch Keybr AI Weak-Key Drill', category: 'Quick Action', icon: '🎯', action: () => this.ui.startWeaknessDrill() },
       { id: 'act_zen_mode', title: 'Enter Distraction-Free Zen Mode', category: 'Quick Action', icon: '🧘', shortcut: 'Z', action: () => this.ui.startZenPractice() },
       { id: 'act_certificate', title: 'View & Download Typing Certificate', category: 'Quick Action', icon: '📜', action: () => this.ui.openCertificateModal() },
-      { id: 'act_speed_60', title: 'Start 60-Second Speed Benchmark', category: 'Quick Action', icon: '⏱️', action: () => this.ui.startSpeedTest('60s') },
+      { id: 'act_speed_60', title: 'Start 60-Second Speed Benchmark (Current Vocab)', category: 'Quick Action', icon: '⏱️', action: () => this.ui.startSpeedTest('60s') },
       { id: 'act_speed_30', title: 'Start 30-Second Speed Sprint', category: 'Quick Action', icon: '⚡', action: () => this.ui.startSpeedTest('30s') },
+      { id: 'act_speed_60_1k', title: 'Start 60s Benchmark: English 1K Mode', category: 'Quick Action', icon: '⚡', action: () => this.ui.startSpeedTest('60s', '1k') },
+      { id: 'act_speed_60_5k', title: 'Start 60s Benchmark: English 5K Mode', category: 'Quick Action', icon: '🏆', action: () => this.ui.startSpeedTest('60s', '5k') },
+      { id: 'vocab_mode_200', title: 'Vocabulary: English 200 (Common Words)', category: 'Vocabulary', icon: '📝', action: () => { this.store.update(p => ({ ...p, settings: { ...p.settings, speedTestVocab: '200' } })); this.ui.activeSpeedVocabId = '200'; this.ui.showToast('Benchmark vocabulary set to English 200', 'teal'); } },
+      { id: 'vocab_mode_1k', title: 'Vocabulary: English 1K Mode (Top 1,000)', category: 'Vocabulary', icon: '📚', action: () => { this.store.update(p => ({ ...p, settings: { ...p.settings, speedTestVocab: '1k' } })); this.ui.activeSpeedVocabId = '1k'; this.ui.showToast('Benchmark vocabulary set to English 1K', 'accent'); } },
+      { id: 'vocab_mode_5k', title: 'Vocabulary: English 5K Mode (Top 5,000)', category: 'Vocabulary', icon: '🧠', action: () => { this.store.update(p => ({ ...p, settings: { ...p.settings, speedTestVocab: '5k' } })); this.ui.activeSpeedVocabId = '5k'; this.ui.showToast('Benchmark vocabulary set to English 5K', 'amber'); } },
 
       // --- Themes ---
       { id: 'theme_dark', title: 'Theme: Simple Default (Clean Minimal)', category: 'Theme', icon: '⌨️', action: () => this.setTheme('dark') },

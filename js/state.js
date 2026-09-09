@@ -159,6 +159,7 @@ export const DEFAULT_STATE = {
     distractionFreeMode: false,
     distractionFreeCollapse: false,
     distractionFreeSpeedHints: true,
+    speedTestVocab: '200',    // '200' | '1k' | '5k'
     // --- Premium Feature Settings ---
     isPremium: true,          // All features are included for every user.
     practiceLanguage: 'en',  // For multi-language practice
@@ -615,27 +616,46 @@ class StateStore {
     });
   }
 
-  recordSpeedTestResult({ presetId, wpm, accuracy, consistency = 100, durationSec = 60 }) {
+  recordSpeedTestResult({ presetId, vocabMode = '200', wpm, accuracy, consistency = 100, durationSec = 60 }) {
     const prevBests = this.state.speedTestBests || {};
-    const existing = prevBests[presetId];
+    const normalizedVocab = vocabMode || '200';
+    const compositeKey = normalizedVocab === '200' ? presetId : `${presetId}_${normalizedVocab}`;
+    const existing = prevBests[compositeKey] || (normalizedVocab === '200' ? prevBests[presetId] : undefined);
     const isNewPB = !existing || wpm > existing.wpm;
 
     const newBest = {
       wpm: Math.max(existing?.wpm || 0, Math.round(wpm)),
       accuracy: Math.round(accuracy),
       consistency: Math.round(consistency),
+      vocab: normalizedVocab,
       date: new Date().toISOString()
     };
 
-    this.update(prev => ({
-      ...prev,
-      speedTestBests: {
-        ...(prev.speedTestBests || {}),
-        [presetId]: isNewPB ? newBest : (prev.speedTestBests?.[presetId] || newBest)
+    this.update(prev => {
+      const updated = { ...(prev.speedTestBests || {}) };
+      if (isNewPB || !existing) {
+        updated[compositeKey] = newBest;
+        if (normalizedVocab === '200') {
+          updated[presetId] = newBest;
+          updated[`${presetId}_200`] = newBest;
+        }
       }
-    }));
+      return {
+        ...prev,
+        speedTestBests: updated
+      };
+    });
 
     return { isNewPB, best: newBest };
+  }
+
+  getSpeedTestBest(presetId, vocabMode = '200') {
+    const bests = this.state.speedTestBests || {};
+    const normalizedVocab = vocabMode || '200';
+    if (normalizedVocab === '200') {
+      return bests[`${presetId}_200`] || bests[presetId] || null;
+    }
+    return bests[`${presetId}_${normalizedVocab}`] || null;
   }
 
   recordCodeSnippetCompleted(snippetId) {

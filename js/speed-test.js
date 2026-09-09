@@ -3,6 +3,10 @@
  * Implements Monkeytype & 10FastFingers standard timed and word-count trials.
  */
 
+import { VOCABULARY_PRESETS, VOCABULARY_POOLS, getVocabularyPool, WORDS_200 } from './vocabularies.js';
+
+export { VOCABULARY_PRESETS, VOCABULARY_POOLS, getVocabularyPool };
+
 export const SPEED_TEST_PRESETS = [
   { id: '15s', type: 'time', value: 15, label: '15s Burst', icon: '⚡', desc: 'A quick sprint to find your top speed' },
   { id: '30s', type: 'time', value: 30, label: '30s Sprint', icon: '⏱️', desc: 'Build momentum in half a minute' },
@@ -13,36 +17,24 @@ export const SPEED_TEST_PRESETS = [
   { id: '100w', type: 'words', value: 100, label: '100 Words', icon: '📚', desc: 'Extended word endurance' }
 ];
 
-// Top 200 high-frequency English words for standardized benchmarks
-export const COMMON_WORDS_POOL = [
-  'the', 'be', 'of', 'and', 'a', 'to', 'in', 'he', 'have', 'it', 'that', 'for', 'they', 'with', 'as', 'not',
-  'on', 'she', 'at', 'by', 'this', 'we', 'you', 'do', 'but', 'his', 'from', 'they', 'say', 'her', 'she', 'or',
-  'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if', 'about', 'who',
-  'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take', 'people',
-  'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only',
-  'come', 'its', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well',
-  'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us', 'great', 'world', 'here',
-  'life', 'hand', 'part', 'child', 'eye', 'woman', 'place', 'work', 'week', 'case', 'point', 'company', 'number',
-  'group', 'problem', 'fact', 'right', 'program', 'hear', 'system', 'water', 'run', 'small', 'keep', 'face',
-  'become', 'interest', 'large', 'big', 'often', 'open', 'same', 'together', 'light', 'might', 'begin', 'help',
-  'talk', 'turn', 'start', 'show', 'hear', 'play', 'move', 'like', 'live', 'believe', 'hold', 'bring', 'happen',
-  'must', 'write', 'provide', 'sit', 'stand', 'lose', 'pay', 'meet', 'include', 'continue', 'set', 'learn',
-  'change', 'lead', 'understand', 'watch', 'follow', 'stop', 'create', 'speak', 'read', 'allow', 'add', 'spend'
-];
+// Top 200 high-frequency English words for standardized benchmarks (backwards-compatible export)
+export const COMMON_WORDS_POOL = WORDS_200;
 
 /**
- * Generates a random sequence of words from the common pool.
+ * Generates a random sequence of words from the selected vocabulary pool.
  * @param {number} count
+ * @param {string} vocabMode - '200', '1k', or '5k'
  * @returns {string}
  */
-export function generateWordsText(count = 50) {
+export function generateWordsText(count = 50, vocabMode = '200') {
+  const pool = getVocabularyPool(vocabMode);
   const words = [];
   let lastWord = '';
   for (let i = 0; i < count; i++) {
     let w;
     do {
-      w = COMMON_WORDS_POOL[Math.floor(Math.random() * COMMON_WORDS_POOL.length)];
-    } while (w === lastWord && COMMON_WORDS_POOL.length > 1);
+      w = pool[Math.floor(Math.random() * pool.length)];
+    } while (w === lastWord && pool.length > 1);
     words.push(w);
     lastWord = w;
   }
@@ -78,30 +70,34 @@ export function calculateConsistency(wpmSamples = []) {
 /**
  * Builds a lesson object ready for TypingEngine representing a speed benchmark test.
  * @param {string} presetId - e.g. '15s', '30s', '60s', '25w', '50w'
+ * @param {string} vocabMode - '200', '1k', or '5k'
  * @returns {object}
  */
-export function generateSpeedTestLesson(presetId = '60s') {
+export function generateSpeedTestLesson(presetId = '60s', vocabMode = '200') {
   const preset = SPEED_TEST_PRESETS.find(p => p.id === presetId) || SPEED_TEST_PRESETS[2];
+  const vocab = VOCABULARY_PRESETS.find(v => v.id === vocabMode) || VOCABULARY_PRESETS[0];
 
   let text;
   let timeLimit = null;
 
   if (preset.type === 'time') {
     // Generate an abundant pool of words that exceeds what anyone could type in the allotted seconds
-    // (approx 200 WPM * time in minutes)
+    // (approx 220 WPM * time in minutes)
     const wordsNeeded = Math.ceil((220 / 60) * preset.value) + 30;
-    text = generateWordsText(wordsNeeded);
+    text = generateWordsText(wordsNeeded, vocab.id);
     timeLimit = preset.value;
   } else {
-    text = generateWordsText(preset.value);
+    text = generateWordsText(preset.value, vocab.id);
     timeLimit = null;
   }
 
+  const titleSuffix = vocab.id !== '200' ? ` · ${vocab.shortLabel.toUpperCase()}` : '';
+
   return {
-    id: `speedtest_${preset.id}_${Date.now()}`,
-    title: preset.label,
-    subtitle: `${preset.desc}`,
-    skillFocus: `Standardized speed & consistency measurement`,
+    id: `speedtest_${preset.id}_${vocab.id}_${Date.now()}`,
+    title: `${preset.label}${titleSuffix}`,
+    subtitle: `${vocab.label} · ${preset.desc}`,
+    skillFocus: `Standardized speed & consistency (${vocab.label})`,
     targetWpm: 60,
     accuracyTarget: 95,
     estimatedMinutes: preset.type === 'time' ? Math.ceil(preset.value / 60) : 1,
@@ -109,6 +105,7 @@ export function generateSpeedTestLesson(presetId = '60s') {
     rounds: [text],
     isSpeedTest: true,
     speedTestPreset: preset.id,
+    speedTestVocab: vocab.id,
     speedTestType: preset.type
   };
 }
