@@ -69,6 +69,17 @@ try {
   lobby.querySelector('[data-typing-theme="botanical"]').click();
   assert(store.getState().settings.theme === 'botanical' && document.body.classList.contains('theme-botanical'), 'lobby theme selection applies through the real store');
 
+  assert(lobby.querySelectorAll('[data-vocab-preset]').length === 3, 'all three vocabulary modes (200, 1k, 5k) are selectable');
+  lobby.querySelector('[data-vocab-preset="1k"]').click();
+  assert(lobby.querySelector('[data-vocab-preset="1k"]').getAttribute('aria-pressed') === 'true' && document.activeElement.dataset.vocabPreset === '1k', 'vocab selection updates active state and preserves keyboard focus');
+  assert(lobby.querySelector('.speedtest-language').textContent.includes('English 1k'), 'language label updates to English 1k');
+  lobby.querySelector('#speedtest-launch-btn').click();
+  assert(ui.activeScreen === 'lesson' && typingEngine.lesson.speedTestVocab === '1k', 'launching speed test uses the selected 1k vocabulary');
+  document.getElementById('lesson-back-btn').click();
+  assert(lobby.querySelector('[data-vocab-preset="1k"]').getAttribute('aria-pressed') === 'true', 'returning to lobby preserves 1k vocabulary selection');
+  lobby.querySelector('[data-vocab-preset="200"]').click();
+  assert(lobby.querySelector('[data-vocab-preset="200"]').getAttribute('aria-pressed') === 'true', 'switching back to 200 mode succeeds');
+
   for (const theme of ['dark', 'retro', 'botanical', 'tokyo', 'cyberpunk']) {
     for (const compact of [false, true]) {
       for (const preset of ['60s', '25w']) {
