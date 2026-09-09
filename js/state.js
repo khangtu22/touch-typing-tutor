@@ -97,7 +97,7 @@ export function getLevelProgress(xp) {
   };
 }
 
-const DEFAULT_STATE = {
+export const DEFAULT_STATE = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   onboardingComplete: false,
   targetWpm: 40,
@@ -156,6 +156,8 @@ const DEFAULT_STATE = {
     wordCorrectionMode: false,
     metronomeEnabled: false,
     metronomeBpm: 100,
+    distractionFreeMode: false,
+    distractionFreeCollapse: false,
     // --- Premium Feature Settings ---
     isPremium: true,          // All features are included for every user.
     practiceLanguage: 'en',  // For multi-language practice

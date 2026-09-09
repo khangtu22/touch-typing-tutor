@@ -165,6 +165,8 @@ export class UIManager {
     this.raceDeltaChip = document.getElementById('race-delta-chip');
     this.raceUserMarker = document.getElementById('race-user-marker');
     this.raceCompetitorMarker = document.getElementById('race-competitor-marker');
+    this.hudDistractionFreeBtn = document.getElementById('hud-distraction-free-btn');
+    this.lessonHud = document.querySelector('.lesson-hud');
   }
 
   initEventListeners() {
@@ -187,6 +189,9 @@ export class UIManager {
     if (this.navQuotesBtn) this.navQuotesBtn.addEventListener('click', () => this.navigateTo('quotes'));
     if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
+    if (this.hudDistractionFreeBtn) {
+      this.hudDistractionFreeBtn.addEventListener('click', () => this.toggleDistractionFreeMode());
+    }
 
     // Window Resize Handler for Smooth Caret and Viewport Alignment
     window.addEventListener('resize', () => {
@@ -204,6 +209,14 @@ export class UIManager {
       if (this.commandPalette?.isOpen || e.target?.closest?.(
         'input, textarea, select, [contenteditable]:not([contenteditable="false"])'
       ) && this.activeScreen === 'lesson') return;
+
+      const isDistractionModeShortcut = (e.key.toLowerCase() === 'd' || e.code === 'KeyD') &&
+        (e.shiftKey && (e.ctrlKey || e.metaKey) && !e.altKey);
+      if (isDistractionModeShortcut && !zenMode.isActive) {
+        e.preventDefault();
+        this.toggleDistractionFreeMode();
+        return;
+      }
 
       const isFocusModeShortcut = e.key.toLowerCase() === 'f' &&
         (e.shiftKey && (e.ctrlKey || e.metaKey) && !e.altKey);
@@ -531,6 +544,7 @@ export class UIManager {
     if (this.activeScreen === 'lesson' && screenName !== 'lesson') {
       this.hidePauseModal();
       if (this.isFocusModeActive) this.exitFocusMode();
+      if (this.screens.lesson) this.screens.lesson.classList.remove('distraction-free-typing');
       document.body.classList.remove('blind-mode-active');
       try { goalsManager.setPracticeActive(false); } catch (e) {}
       try { typingEngine.destroy(); } catch (e) {}
@@ -3085,6 +3099,11 @@ export class UIManager {
       this.raceTrackContainer.style.display = state.settings.ghostMode === 'off' ? 'none' : 'flex';
     }
 
+    if (this.screens.lesson) {
+      this.screens.lesson.classList.remove('distraction-free-typing');
+    }
+    this.syncDistractionFreeMode();
+
     this.smoothCaretState = null;
     typingEngine.startLesson(lessonData);
   }
@@ -3195,6 +3214,30 @@ export class UIManager {
         data.expectedChar,
         data.shiftNeeded
       );
+    }
+
+    // Distraction-Free Mode: dynamically toggle when actively typing
+    const state = store.getState();
+    const isDistractionFree = !!state.settings?.distractionFreeMode;
+    const hasCountdown = data.timeRemainingSec !== null && data.timeRemainingSec !== undefined;
+    const isCurrentlyTyping = isDistractionFree && !!data.isStarted && !data.isPaused;
+
+    if (this.screens.lesson) {
+      this.screens.lesson.classList.toggle('distraction-free-active', isDistractionFree);
+      this.screens.lesson.classList.toggle('distraction-free-typing', isCurrentlyTyping);
+    }
+    if (this.lessonHud) {
+      this.lessonHud.classList.toggle('hud-has-timer', hasCountdown);
+      this.lessonHud.classList.toggle('hud-no-timer', !hasCountdown);
+    }
+    document.body.classList.toggle('distraction-free-collapse', !!state.settings?.distractionFreeCollapse);
+
+    const distractBtn = this.hudDistractionFreeBtn || document.getElementById('hud-distraction-free-btn');
+    if (distractBtn) {
+      distractBtn.setAttribute('aria-pressed', isDistractionFree ? 'true' : 'false');
+      distractBtn.classList.toggle('active', isDistractionFree);
+      const label = distractBtn.querySelector('.distract-label');
+      if (label) label.textContent = isDistractionFree ? 'Distract-Free: ON' : 'Distract-Free';
     }
   }
 
@@ -3454,6 +3497,9 @@ export class UIManager {
       console.warn('GhostRacer stop error:', e);
     }
     document.body.classList.remove('blind-mode-active');
+    if (this.screens.lesson) {
+      this.screens.lesson.classList.remove('distraction-free-typing');
+    }
 
     try {
       if (zenMode?.isActive) {
@@ -4507,6 +4553,28 @@ export class UIManager {
 
             <div class="setting-row">
               <div>
+                <label class="setting-label">Distraction-Free Mode (⌘/Ctrl + Shift + D)</label>
+                <p class="setting-desc">Hides the bot race track, lesson info, and live metrics when typing. Only displays remaining time if timed.</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-distraction-free-toggle" ${settings.distractionFreeMode ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row" id="row-distraction-collapse-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
+              <div>
+                <label class="setting-label">Collapse Hidden Space</label>
+                <p class="setting-desc">Collapse vertical space when hidden instead of preserving rock-steady layout position</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-distraction-collapse-toggle" ${settings.distractionFreeCollapse ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div>
                 <label class="setting-label">AFK Auto-Pause</label>
                 <p class="setting-desc">Pause a started lesson when there is no keyboard or pointer activity</p>
               </div>
@@ -4892,6 +4960,26 @@ export class UIManager {
       }));
     });
 
+    document.getElementById('setting-distraction-free-toggle')?.addEventListener('change', (e) => {
+      this.setDistractionFreeMode(e.target.checked);
+      const collapseRow = document.getElementById('row-distraction-collapse-toggle');
+      const collapseToggle = document.getElementById('setting-distraction-collapse-toggle');
+      if (collapseRow) collapseRow.style.opacity = e.target.checked ? '1' : '0.5';
+      if (collapseToggle) collapseToggle.disabled = !e.target.checked;
+    });
+
+    document.getElementById('setting-distraction-collapse-toggle')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      store.update(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          distractionFreeCollapse: enabled
+        }
+      }));
+      document.body.classList.toggle('distraction-free-collapse', enabled);
+    });
+
     document.getElementById('setting-afk-toggle')?.addEventListener('change', (e) => {
       const enabled = e.target.checked;
       store.update(prev => ({
@@ -5248,6 +5336,82 @@ export class UIManager {
     if (exitBadge) exitBadge.remove();
   }
 
+  toggleDistractionFreeMode() {
+    const current = !!store.getState().settings?.distractionFreeMode;
+    this.setDistractionFreeMode(!current);
+  }
+
+  setDistractionFreeMode(enabled) {
+    store.update(prev => ({
+      ...prev,
+      settings: {
+        ...(prev.settings || {}),
+        distractionFreeMode: !!enabled
+      }
+    }));
+
+    this.syncDistractionFreeMode();
+
+    this.showToast(
+      enabled
+        ? '🎯 Distraction-Free Mode: ON (HUD & bot will hide while typing)'
+        : '🎯 Distraction-Free Mode: OFF',
+      enabled ? 'teal' : 'neutral'
+    );
+  }
+
+  syncDistractionFreeMode() {
+    const state = store.getState();
+    const isEnabled = !!state.settings?.distractionFreeMode;
+    const isCollapse = !!state.settings?.distractionFreeCollapse;
+
+    document.body.classList.toggle('distraction-free-collapse', isCollapse);
+
+    if (this.screens.lesson) {
+      this.screens.lesson.classList.toggle('distraction-free-active', isEnabled);
+    }
+
+    const btn = this.hudDistractionFreeBtn || document.getElementById('hud-distraction-free-btn');
+    if (btn) {
+      btn.setAttribute('aria-pressed', isEnabled ? 'true' : 'false');
+      btn.classList.toggle('active', isEnabled);
+      btn.title = isEnabled
+        ? 'Distraction-Free Mode is ON (Auto-hides HUD & Bot when typing) • ⌘/Ctrl+Shift+D'
+        : 'Enable Distraction-Free Mode (Auto-hides HUD & Bot when typing) • ⌘/Ctrl+Shift+D';
+      const label = btn.querySelector('.distract-label');
+      if (label) label.textContent = isEnabled ? 'Distract-Free: ON' : 'Distract-Free';
+    }
+
+    const settingToggle = document.getElementById('setting-distraction-free-toggle');
+    if (settingToggle && settingToggle.checked !== isEnabled) {
+      settingToggle.checked = isEnabled;
+    }
+
+    const collapseRow = document.getElementById('row-distraction-collapse-toggle');
+    if (collapseRow) collapseRow.style.opacity = isEnabled ? '1' : '0.5';
+    const collapseToggle = document.getElementById('setting-distraction-collapse-toggle');
+    if (collapseToggle) {
+      collapseToggle.disabled = !isEnabled;
+      collapseToggle.checked = isCollapse;
+    }
+
+    if (typingEngine.isActive) {
+      const isCurrentlyTyping = isEnabled && !!typingEngine.startTime && !typingEngine.isPaused;
+      if (this.screens.lesson) {
+        this.screens.lesson.classList.toggle('distraction-free-typing', isCurrentlyTyping);
+      }
+      if (this.lessonHud) {
+        const hasCountdown = typingEngine.timeRemainingSec !== null && typingEngine.timeRemainingSec !== undefined;
+        this.lessonHud.classList.toggle('hud-has-timer', hasCountdown);
+        this.lessonHud.classList.toggle('hud-no-timer', !hasCountdown);
+      }
+    } else {
+      if (this.screens.lesson) {
+        this.screens.lesson.classList.remove('distraction-free-typing');
+      }
+    }
+  }
+
   showShortcutsPopup() {
     let popup = document.getElementById('shortcuts-popup');
     if (!popup) {
@@ -5276,6 +5440,10 @@ export class UIManager {
               <tr>
                 <td><span class="shortcut-kbd">R</span></td>
                 <td>Retry current lesson on completion page</td>
+              </tr>
+              <tr>
+                <td><span class="shortcut-kbd">⌘/Ctrl + Shift + D</span></td>
+                <td>Toggle Distraction-Free Mode (auto-hides HUD &amp; bot while typing)</td>
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">⌘/Ctrl + Shift + F</span></td>

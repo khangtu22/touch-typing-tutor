@@ -457,3 +457,115 @@ body.reduced-motion .typing-text-display.typing-window-animate {
 
 /* Flex styling must not expose a countdown on untimed curriculum lessons. */
 .timer-pill[hidden] { display: none; }
+
+/* ================================================
+   DISTRACTION-FREE MODE (Auto-hide HUD & Bot When Typing)
+   ================================================ */
+
+.hud-distract-toggle-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  font-family: inherit;
+}
+
+.hud-distract-toggle-btn:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.hud-distract-toggle-btn.active {
+  background: rgba(124, 92, 252, 0.16);
+  border-color: rgba(124, 92, 252, 0.5);
+  color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(124, 92, 252, 0.25);
+}
+
+.race-track-container {
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lesson-hud {
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hud-meta,
+.hud-live-metrics,
+.hud-progress-track {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Active Distraction-Free Typing: hide race track and HUD */
+#screen-lesson.distraction-free-typing #race-track-container {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+#screen-lesson.distraction-free-typing .hud-meta,
+#screen-lesson.distraction-free-typing .hud-live-metrics,
+#screen-lesson.distraction-free-typing .hud-progress-track,
+#screen-lesson.distraction-free-typing .lesson-technique-cue {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+
+/* When timed test has countdown: ONLY show time left pill, centered */
+#screen-lesson.distraction-free-typing .lesson-hud.hud-has-timer {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+  padding: 4px 0 !important;
+}
+
+#screen-lesson.distraction-free-typing .lesson-hud.hud-has-timer .hud-top-row {
+  justify-content: center !important;
+  min-height: 0 !important;
+}
+
+#screen-lesson.distraction-free-typing .lesson-hud.hud-has-timer #hud-timer-wrapper {
+  display: inline-flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* When untimed test has NO countdown: hide the entire HUD completely */
+#screen-lesson.distraction-free-typing .lesson-hud.hud-no-timer,
+#screen-lesson.distraction-free-typing .lesson-hud:not(.hud-has-timer) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Optional compact mode: collapse vertical space */
+body.distraction-free-collapse #screen-lesson.distraction-free-typing #race-track-container {
+  display: none !important;
+}
+
+body.distraction-free-collapse #screen-lesson.distraction-free-typing .lesson-hud.hud-no-timer,
+body.distraction-free-collapse #screen-lesson.distraction-free-typing .lesson-hud:not(.hud-has-timer) {
+  display: none !important;
+}
+

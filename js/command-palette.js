@@ -27,6 +27,7 @@ export class CommandPalette {
       { id: 'nav_settings', title: 'Open Settings & Preferences', category: 'Navigation', icon: '⚙️', action: () => this.ui.navigateTo('settings') },
 
       // --- Quick Actions ---
+      { id: 'act_distraction_free', title: 'Toggle Distraction-Free Mode (Hide HUD & Bot While Typing)', category: 'Quick Action', icon: '🎯', shortcut: '⌘⇧D', action: () => this.ui.toggleDistractionFreeMode() },
       { id: 'act_qotd', title: "Practice Quote of the Day", category: 'Quick Action', icon: '✨', action: () => this.ui.startQuoteOfTheDayPractice() },
       { id: 'act_random_quote', title: 'Practice Random Quote', category: 'Quick Action', icon: '🎲', action: () => this.ui.startRandomQuote() },
       { id: 'act_weakness_drill', title: 'Launch Keybr AI Weak-Key Drill', category: 'Quick Action', icon: '🎯', action: () => this.ui.startWeaknessDrill() },
