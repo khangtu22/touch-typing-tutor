@@ -24,7 +24,7 @@ import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from '
 import { themeStudio, renderThemeStudioUI } from './theme-studio.js?v=3.8.1';
 import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=3.8.1';
 import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js?v=3.8.1';
-import { ArcadeHubManager } from './arcade-games.js?v=3.8.1';
+import { ArcadeHubManager } from './arcade-games.js?v=3.9.0';
 import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js?v=3.8.1';
 import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js?v=3.8.1';
 import { SPEED_TEST_PRESETS, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.8.1';
@@ -1111,7 +1111,7 @@ export class UIManager {
               <span class="quick-mode-tag">Syntax</span>
             </button>
 
-            <button id="dashboard-arcade-btn" class="quick-mode-card mode-arcade" title="Arcade Hub (Word Fall, Racer, Matrix)">
+            <button id="dashboard-arcade-btn" class="quick-mode-card mode-arcade" title="Arcade Hub: eight typing games, from Word Garden to Orbit Defense">
               <div class="quick-mode-icon-wrap"><span class="quick-mode-icon">🎮</span></div>
               <div class="quick-mode-meta">
                 <span class="quick-mode-name">Arcade Hub</span>
@@ -5263,7 +5263,7 @@ export class UIManager {
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">G</span></td>
-                <td>Navigate to Arcade Games Arena (Type Invaders &amp; Nitro Sprint)</td>
+                <td>Navigate to Arcade Games Arena (eight typing games)</td>
               </tr>
               <tr>
                 <td><span class="shortcut-kbd">S</span></td>

@@ -130,6 +130,9 @@ const DEFAULT_STATE = {
     rhythmHighScore: 0,
     questHighScore: 0,
     questCompletedRuns: 0,
+    gardenHighScore: 0,
+    stackHighScore: 0,
+    recallHighScore: 0,
     totalGamesPlayed: 0
   },
   settings: {
@@ -577,12 +580,18 @@ class StateStore {
       const rhythmHighScore = gameId === 'key-beats'
         ? Math.max(currentArcade.rhythmHighScore || 0, score)
         : currentArcade.rhythmHighScore || 0;
+      const challengeScores = Object.fromEntries([
+        ['word-garden', 'gardenHighScore'],
+        ['skyline-stack', 'stackHighScore'],
+        ['word-recall', 'recallHighScore']
+      ].map(([id, field]) => [field, Math.max(currentArcade[field] || 0, gameId === id ? score : 0)]));
 
       return {
         ...prev,
         xp: prev.xp + xpEarned,
         arcadeStats: {
           ...currentArcade,
+          ...challengeScores,
           invadersHighScore,
           invadersMaxWave,
           invadersBossDefeated,

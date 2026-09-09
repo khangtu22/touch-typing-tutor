@@ -1,16 +1,18 @@
 /**
  * KeyFlow Arcade Hub & Gamified Typing Test Engine (v3.8.1)
- * Featuring 5 Distinct Arcade Game Modes with Easy / Med / Hard Controls:
+ * Featuring 8 Distinct Arcade Game Modes with Easy / Med / Hard Controls:
  * 1. Type Invaders: Orbit Defense (Laser turret, wave spawner, power-ups, boss battle)
  * 2. Nitro Sprint: 60s Speed Drag Race (Analog speedometer physics, turbo bursts, ghost racer)
  * 3. Matrix Rain: Code Breaker (Netrunner terminal hacking, digital rain canvas, syntax tokens)
  * 4. KeyBeats: Rhythm Flow (4-Lane rhythm action, timing hit zones, Fever Mode overdrive)
  * 5. Typing Quest (Self-paced dungeon adventure and weak-key practice)
+ * 6–8. Word Garden, Skyline Stack, and Word Recall
  */
 
 import { sound } from './sound-engine.js?v=3.8.1';
 import { store } from './state.js?v=3.8.1';
 import { TypingQuestGame } from './typing-quest.js?v=3.8.1';
+import { ArcadeChallengeGame, ARCADE_CHALLENGES, renderChallengeCards } from './arcade-challenges.js?v=3.9.0';
 
 // ==========================================
 // ADAPTIVE WORD BANKS FOR ARCADE GAMEPLAY
@@ -2174,7 +2176,8 @@ export class ArcadeHubManager {
       nitro: 'medium',
       matrix: 'medium',
       rhythm: 'medium',
-      quest: 'medium'
+      quest: 'medium',
+      ...Object.fromEntries(ARCADE_CHALLENGES.map(game => [game.key, 'medium']))
     };
   }
 
@@ -2202,10 +2205,10 @@ export class ArcadeHubManager {
     this.container.innerHTML = `
       <div class="arcade-lobby">
         <div class="arcade-lobby-header">
-          <div class="arcade-badge-chip">🕹️ 5-GAME ARCADE ARENA</div>
+          <div class="arcade-badge-chip">🕹️ ${5 + ARCADE_CHALLENGES.length}-GAME ARCADE ARENA</div>
           <h1 class="arcade-lobby-title">Master Speed, Accuracy &amp; Rhythm</h1>
           <p class="arcade-lobby-subtitle">
-            Choose Easy, Medium, or Hard for your next challenge. Build accuracy at your own pace in Typing Quest, or chase speed and rhythm in the other arenas.
+            Find your flow: grow a garden, build a skyline, test your memory, or chase speed and rhythm. Eight games, three difficulty levels, and a new personal best to beat.
           </p>
         </div>
 
@@ -2259,8 +2262,9 @@ export class ArcadeHubManager {
           </div>
         </div>
 
-        <!-- 5 Game Selection Grid -->
+        <!-- Game Selection Grid -->
         <div class="arcade-game-grid">
+          ${renderChallengeCards(stats, this.difficulties)}
           <div class="arcade-game-card quest-lobby-card">
             <div class="game-card-banner banner-quest">
               <span class="game-banner-badge">ACCURACY ADVENTURE</span>
@@ -2439,6 +2443,16 @@ export class ArcadeHubManager {
     });
 
     // Wire Launch Buttons
+    this.container.querySelectorAll('[data-launch-challenge]').forEach(button => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.launchChallenge;
+        this.destroyActiveGame();
+        this.activeGame = new ArcadeChallengeGame(this.container, {
+          key, difficulty: this.difficulties[key], onExit: () => this.renderLobby()
+        });
+        this.activeGame.mount();
+      });
+    });
     this.container.querySelector('#btn-launch-quest')?.addEventListener('click', () => {
       this.launchTypingQuest(this.difficulties.quest);
     });

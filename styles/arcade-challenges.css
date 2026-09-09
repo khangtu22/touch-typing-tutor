@@ -1,0 +1,90 @@
+/* Three small worlds, using the current KeyFlow theme. */
+.banner-garden { background: radial-gradient(ellipse at 50% 110%, #508644, #153f35 60%, #102c29); }
+.banner-stack { background: repeating-linear-gradient(90deg, transparent 0 48px, #ffffff08 48px 50px), linear-gradient(155deg, #294864, #161e40 75%); }
+.banner-recall { background: radial-gradient(ellipse at 50% 100%, #7b438b, #3f285b 55%, #231b3d); }
+.challenge-card-record { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; color: var(--text-secondary); font-size: 12px; margin-bottom: 16px; }
+.challenge-card-record strong { font-family: var(--font-mono); color: var(--text-primary); }
+.challenge-difficulty-label { display: block; color: var(--text-secondary); font-size: 10px; font-weight: 700; margin-bottom: 8px; }
+.arcade-challenge { --game-accent: var(--success-teal); max-width: 1000px; margin: 20px auto 48px; padding: 26px; border: 1px solid var(--border-light); border-radius: 22px; background: var(--surface-1); scroll-margin-top: 100px; }
+.challenge-stack { --game-accent: #84bcf5; }
+.challenge-recall { --game-accent: #c8a0f5; }
+.arcade-challenge [hidden] { display: none !important; }
+.challenge-header, .challenge-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.challenge-header h1 { font-size: clamp(25px, 4vw, 34px); letter-spacing: -.04em; }
+.challenge-eyebrow { color: var(--game-accent); font: 700 10px/1.6 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.challenge-hud { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 24px 0; }
+.challenge-hud > div { padding: 12px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-2); }
+.challenge-hud span, .challenge-hud strong { display: block; }
+.challenge-hud span { font-size: 11px; color: var(--text-secondary); }
+.challenge-hud strong { font: 700 18px/1.8 var(--font-mono); }
+.challenge-scene { border: 1px solid var(--border-subtle); border-radius: 14px; overflow: hidden; background: radial-gradient(ellipse at 50% 110%, color-mix(in srgb, var(--game-accent) 12%, transparent), transparent 75%), var(--bg-base); }
+.challenge-scene-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px 20px 0; }
+.challenge-scene-heading > span:last-child { color: var(--text-secondary); font-size: 12px; }
+.challenge-progress { display: block; width: calc(100% - 40px); height: 5px; margin: 16px 20px; accent-color: var(--game-accent); border: 0; border-radius: 5px; overflow: hidden; }
+.challenge-progress::-webkit-progress-bar { background: var(--surface-3); }
+.challenge-progress::-webkit-progress-value { background: var(--game-accent); transition: width .25s ease; }
+.challenge-progress::-moz-progress-bar { background: var(--game-accent); }
+.challenge-practice { margin-top: 20px; padding: 24px 18px; text-align: center; border-radius: 14px; border: 1px solid var(--border-light); background: var(--surface-2); cursor: text; scroll-margin-top: 100px; }
+.challenge-practice:focus-visible { outline: 2px solid var(--game-accent); outline-offset: 3px; }
+.challenge-word { display: flex; justify-content: center; gap: 3px; margin: 14px 0; font: 600 clamp(23px, 5vw, 42px)/1.6 var(--font-mono); letter-spacing: .05em; }
+.challenge-word span { min-width: .65em; border-bottom: 3px solid transparent; }
+.challenge-word .is-typed { color: var(--game-accent); }
+.challenge-word .is-current { border-bottom-color: var(--game-accent); background: color-mix(in srgb, var(--game-accent) 15%, transparent); border-radius: 3px; }
+.challenge-message { min-height: 24px; font-size: 13px; color: var(--text-primary); }
+#challenge-instructions { max-width: 650px; margin: 16px auto 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.challenge-focus-tip { font-size: 10px; color: var(--text-muted); }
+.challenge-memory-controls { justify-content: center; margin-top: 12px; }
+.challenge-memory-controls:has(button:not([hidden])) { margin-bottom: 16px; }
+.garden-plots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding: 24px 20px 4px; }
+.garden-plot { position: relative; min-width: 0; padding: 12px 2px 8px; border-radius: 50% 50% 12px 12px; background: color-mix(in srgb, var(--game-accent) 6%, var(--surface-1)); text-align: center; border-bottom: 3px solid color-mix(in srgb, var(--game-accent) 30%, var(--surface-3)); }
+.garden-plot > span { display: block; font-size: 33px; filter: saturate(.5); opacity: .6; }
+.garden-plot small { display: block; overflow-wrap: anywhere; color: var(--text-secondary); font: 10px/1.5 var(--font-mono); }
+.garden-plot.is-grown > span { filter: none; opacity: 1; }
+.garden-plot.is-grown { background: color-mix(in srgb, var(--game-accent) 14%, var(--surface-1)); }
+.garden-plot i { position: absolute; top: 2px; right: 7px; color: var(--reward-amber); font-style: normal; font-size: 13px; }
+.stack-city { position: relative; min-height: 340px; display: flex; justify-content: center; align-items: flex-end; padding: 20px 0 0; background: linear-gradient(180deg, transparent 50%, #77bbff0c); }
+.stack-city::before, .stack-city::after { content: ''; position: absolute; bottom: 0; width: 18%; height: 100px; opacity: .25; background: repeating-linear-gradient(0deg, transparent 0 16px, var(--game-accent) 17px 18px), repeating-linear-gradient(90deg, var(--surface-3) 0 20px, transparent 20px 25px); }
+.stack-city::before { left: 5%; height: 145px; }
+.stack-city::after { right: 5%; }
+.stack-moon { position: absolute; top: 12px; right: 12%; font-size: 54px; color: var(--game-accent); opacity: .7; }
+.stack-tower { width: min(50%, 270px); display: flex; flex-direction: column-reverse; z-index: 1; }
+.stack-foundation { border-top: 3px solid var(--game-accent); padding: 8px; text-align: center; font: 9px var(--font-mono); letter-spacing: .1em; color: var(--text-secondary); background: var(--surface-2); }
+.stack-floor { display: flex; justify-content: space-between; height: 18px; padding: 1px 10px; margin: 0 2px 2px; border: 1px solid color-mix(in srgb, var(--game-accent) 45%, transparent); background: color-mix(in srgb, var(--game-accent) 20%, var(--surface-2)); font: 9px/14px var(--font-mono); transform: translateX(calc(mod(var(--floor), 3) * 2px)); }
+.stack-floor:not(.is-clean) { border-color: var(--reward-amber); }
+.stack-floor i { color: var(--game-accent); font-style: normal; }
+.is-fragile .stack-floor { border-color: var(--error-coral); }
+.recall-orbit { padding: 24px; text-align: center; }
+.recall-symbol { display: block; font-size: 74px; line-height: 1.6; color: var(--game-accent); text-shadow: 0 0 50px color-mix(in srgb, var(--game-accent) 35%, transparent); }
+.recall-rounds { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 12px 0; }
+.recall-rounds span { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--border-light); border-radius: 50%; color: var(--text-secondary); font: 12px var(--font-mono); }
+.recall-rounds .is-recalled { color: var(--bg-base); background: var(--game-accent); border-color: var(--game-accent); }
+.recall-orbit p { color: var(--text-secondary); font-size: 12px; margin: 20px 0 4px; }
+.challenge-pause, .challenge-result { text-align: center; padding: 40px 16px; }
+.challenge-pause h2, .challenge-result h2 { font-size: clamp(22px, 4vw, 30px); margin: 10px 0; }
+.challenge-pause p, .challenge-result p { color: var(--text-secondary); margin-bottom: 14px; font-size: 13px; }
+.challenge-result .challenge-controls { justify-content: center; margin-top: 24px; }
+.challenge-result-score { color: var(--game-accent); font: 700 44px/1.8 var(--font-mono); }
+.challenge-result-score span { font-size: 13px; }
+@media (max-width: 600px) {
+  .arcade-challenge { padding: 16px 12px; margin-top: 8px; }
+  .challenge-hud { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .challenge-hud > div { padding: 8px; }
+  .challenge-hud strong { font-size: 15px; }
+  .garden-plots { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; padding: 12px; }
+  .challenge-practice { padding: 20px 8px; }
+  .challenge-word { gap: 1px; letter-spacing: 0; }
+  .challenge-header .challenge-controls { gap: 6px; }
+  .stack-floor i { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .challenge-progress::-webkit-progress-value { transition: none; }
+}
+@media (min-width: 601px) and (max-height: 850px) {
+  .challenge-hud { margin: 16px 0; }
+  .challenge-practice { padding: 16px; margin-top: 14px; }
+  .garden-plots { padding-top: 12px; }
+  .garden-plot { padding-top: 6px; }
+  .stack-city { min-height: 230px; }
+  .recall-symbol { font-size: 48px; line-height: 1.2; }
+  .recall-orbit { padding: 16px; }
+}

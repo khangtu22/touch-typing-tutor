@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arcade browser regression checks</title>
+<link rel="stylesheet" href="../styles/main.css">
+<link rel="stylesheet" href="../styles/components.css">
+<link rel="stylesheet" href="../styles/arcade.css">
+<link rel="stylesheet" href="../styles/arcade-challenges.css">
+<style>body { padding: 20px; } #results { white-space: pre-wrap; padding: 20px; color: var(--success-teal); } #outside { padding: 12px; }</style>
+<h1>Arcade browser regression checks</h1>
+<p>Automatic checks with in-memory results; saved practice data is not modified.</p>
+<button id="outside">Outside the game</button>
+<pre id="results" role="status">Running…</pre>
+<main id="game"></main>
+<script type="module">
+  import { ArcadeChallengeGame, ARCADE_CHALLENGES } from '../js/arcade-challenges.js?v=3.9.0';
+  import { ArcadeHubManager } from '../js/arcade-games.js?v=3.8.1';
+  import { store } from '../js/state.js?v=3.8.1';
+  import { sound } from '../js/sound-engine.js?v=3.8.1';
+
+  // Isolate both result recording and page-hide persistence from actual progress.
+  const records = [];
+  store.writeToStorage = () => {};
+  store.getState = () => ({ arcadeStats: {}, keyStats: {} });
+  store.recordArcadeResult = result => records.push(result);
+  sound.setEnabled(false);
+  const container = document.querySelector('#game');
+  const output = document.querySelector('#results');
+  const messages = [];
+  const assert = (condition, label) => { if (!condition) throw new Error(label); messages.push(`PASS ${label}`); };
+  const key = (game, value, options = {}) => game.practice.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true, ...options }));
+  const completeWord = game => { for (const char of game.run.word.slice(game.run.cursor)) key(game, char); };
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  let active;
+  try {
+    const hub = new ArcadeHubManager(container, {});
+    hub.renderLobby();
+    assert(container.querySelectorAll('.arcade-game-card').length === 8, 'eight games appear in the lobby');
+    for (const game of ARCADE_CHALLENGES) {
+      container.querySelector(`[data-game="${game.key}"] [data-diff="hard"]`).click();
+      container.querySelector(`[data-launch-challenge="${game.key}"]`).click();
+      active = hub.activeGame;
+      assert(active.run.difficulty === 'hard', `${game.title} launches the selected difficulty`);
+      assert(document.activeElement === active.practice, `${game.title} focuses its typing area`);
+      active.root.querySelector('[data-action="exit"]').click();
+      assert(!active.running, `${game.title} exit cleans up the run`);
+      assert(container.querySelector(`[data-game="${game.key}"] [data-diff="hard"]`).getAttribute('aria-pressed') === 'true', `${game.title} remembers its difficulty on return`);
+    }
+    assert(records.length === 0, 'abandoned rounds earn no results or XP');
+
+    for (const config of ARCADE_CHALLENGES) {
+      active = new ArcadeChallengeGame(container, { key: config.key, difficulty: 'easy' });
+      active.mount();
+      if (config.key === 'recall') {
+        key(active, 'Enter');
+        assert(active.run.phase === 'study', 'Enter starts the memory preview');
+        active.run.previewLeftMs = 50;
+        await wait(160);
+        assert(active.run.phase === 'typing', 'preview hides automatically');
+        assert(!active.root.querySelector('.challenge-word').textContent.includes(active.run.word), 'recall word is hidden in the rendered text');
+        assert(!active.root.querySelector('.challenge-word').getAttribute('aria-label').includes(active.run.word), 'recall word is hidden from accessible labels');
+        key(active, active.run.word[0]);
+        active.root.querySelector('[data-action="hint"]').click();
+        assert(active.run.phase === 'study' && active.run.hinted, 'hint reveals the word and marks its bonus forfeited');
+        assert(document.activeElement === active.practice, 'hint returns focus to typing');
+      }
+      key(active, 'a', { ctrlKey: true });
+      key(active, 'a', { repeat: true });
+      key(active, 'a', { isComposing: true });
+      assert(active.run.attempts === (config.key === 'recall' ? 1 : 0), `${config.title} ignores shortcuts, repeats, and composition`);
+      active.pause();
+      const before = [active.run.attempts, active.run.elapsedMs, active.run.previewLeftMs];
+      key(active, 'x');
+      await wait(150);
+      assert(JSON.stringify(before) === JSON.stringify([active.run.attempts, active.run.elapsedMs, active.run.previewLeftMs]), `${config.title} pause freezes input and timers`);
+      assert(active.root.querySelector('.challenge-play').hidden, `${config.title} hides play while paused`);
+      active.resume();
+      assert(document.activeElement === active.practice, `${config.title} resumes with typing focus`);
+      window.dispatchEvent(new Event('blur'));
+      assert(active.paused, `${config.title} pauses when the window loses focus`);
+      active.resume();
+      document.querySelector('#outside').focus();
+      assert(active.paused && document.activeElement.id === 'outside', `${config.title} pauses without stealing outside focus`);
+      active.resume();
+      while (!active.run.finished) {
+        if (active.run.phase === 'study') key(active, 'Enter');
+        completeWord(active);
+      }
+      const count = records.length;
+      assert(!active.root.querySelector('.challenge-result').hidden, `${config.title} shows a winning result`);
+      assert(records.at(-1).gameId === config.id && records.at(-1).victory, `${config.title} records its own result`);
+      active.showResult();
+      key(active, 'a');
+      assert(records.length === count, `${config.title} records a result exactly once`);
+      active.root.querySelector('[data-action="retry"]').click();
+      assert(active.run.score === 0 && active.run.completed.length === 0 && !active.recorded, `${config.title} replay resets all progress`);
+      active.destroy();
+      const attempts = active.run.attempts;
+      key(active, 'x');
+      assert(active.run.attempts === attempts, `${config.title} destroyed games ignore input`);
+    }
+    for (const gameKey of ['stack', 'recall']) {
+      active = new ArcadeChallengeGame(container, { key: gameKey, difficulty: 'easy' });
+      active.mount();
+      if (gameKey === 'recall') { key(active, 'Enter'); key(active, 'Enter'); }
+      for (let i = 0; i < 5; i++) key(active, 'x');
+      assert(!active.root.querySelector('.challenge-result').hidden && !records.at(-1).victory, `${gameKey} shows and saves a loss`);
+      active.destroy();
+    }
+    hub.renderLobby();
+    output.textContent = `${messages.join('\n')}\n\n${messages.length} browser checks passed.`;
+    output.dataset.status = 'passed';
+  } catch (error) {
+    active?.destroy();
+    output.textContent = `${messages.join('\n')}\nFAIL ${error.stack}`;
+    output.dataset.status = 'failed';
+    console.error(error);
+  }
+</script>
+</html>

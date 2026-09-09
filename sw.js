@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.8.3 - AFK detection)
+ * KeyFlow Service Worker (v3.9.0 - eight-game arcade)
  */
 
-const CACHE_NAME = 'keyflow-v3.8.3-afk';
+const CACHE_NAME = 'keyflow-v3.9.0-arcade';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
   './styles/premium.css',
   './styles/arcade.css',
   './styles/typing-quest.css',
+  './styles/arcade-challenges.css',
   './js/app.js',
   './js/state.js',
   './js/sound-engine.js',
@@ -44,6 +45,8 @@ const ASSETS_TO_CACHE = [
   './js/premium-features.js',
   './js/arcade-games.js',
   './js/typing-quest.js',
+  './js/arcade-challenges.js',
+  './js/arcade-challenge-model.js',
   './js/code-snippets.js',
   './js/speed-test.js',
   './js/command-palette.js',

@@ -58,6 +58,13 @@ KeyFlow is a production-quality, standalone web application that teaches users p
 - The Curriculum dashboard recommends the most valuable next action from real practice data: a weak-key drill, weak-finger conditioning session, or the next curriculum lesson.
 - Recommendations include the reason, measurable targets, and a one-click launch so every session starts with a clear purpose.
 
+### 10. 🕹️ Eight-Game Arcade
+- **Word Garden**: Grow twelve flowers through relaxed, untimed typing. Flawless words collect sunshine and combo bonuses.
+- **Skyline Stack**: Build fifteen floors before your stability runs out. Mistakes weaken the tower; flawless words repair it.
+- **Word Recall**: Memorize ten words, then type them after a timed preview. Optional hints exchange the word bonus for another look.
+- Also includes **Typing Quest**, **Type Invaders**, **Nitro Sprint**, **Matrix Rain**, and **KeyBeats**.
+- The three new games offer Easy, Medium, and Hard word banks, saved personal bests, XP rewards, and replay. Press Escape to pause; switching away pauses automatically. Unfinished rounds do not award XP.
+
 ---
 
 ## 🚀 Running KeyFlow Locally
@@ -69,6 +76,8 @@ cd "/Volumes/External Mini M4/Development/touch-typing-tutor"
 python3 -m http.server 8000
 ```
 Open **[http://localhost:8000](http://localhost:8000)** in any modern browser.
+
+Run the arcade rules and persistence checks with `node --test tests/arcade-challenges.test.mjs` (Node 22+). Open `tests/arcade-challenges.html` on the local server for browser lifecycle checks; these use an isolated store and do not change saved progress.
 
 ---
 
