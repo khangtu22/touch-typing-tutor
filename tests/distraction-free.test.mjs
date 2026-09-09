@@ -174,3 +174,64 @@ test('distraction-free speed hints stamp on next word first character and persis
   lastSpeedHintIndex = 0;
   assert.equal(speedHints.size, 0);
 });
+
+test('restarting a round clears old speed hints and resets milestone tracking', () => {
+  const sampleText = 'The quick brown fox jumps over the lazy dog and runs across.';
+  const speedHints = new Map();
+  let lastSpeedHintIndex = 0;
+  let lastSpeedHintRoundIdx = 0;
+  const speedHintStep = 20;
+
+  const handleStateChange = (charIndex, wpm, isDistractionFree, speedHintsEnabled, isStarted, isPaused, roundIdx = 0) => {
+    // Clear old speed hints when round changes or when the round is restarted / not started
+    if (lastSpeedHintRoundIdx !== roundIdx || !isStarted || charIndex === 0) {
+      if (!isStarted || charIndex === 0 || lastSpeedHintRoundIdx !== roundIdx) {
+        speedHints.clear();
+        lastSpeedHintIndex = 0;
+        lastSpeedHintRoundIdx = roundIdx;
+      }
+    }
+
+    const isCurrentlyTyping = isDistractionFree && speedHintsEnabled && isStarted && !isPaused;
+    const currentWpm = Math.round(wpm || 0);
+
+    if (isCurrentlyTyping && currentWpm > 0) {
+      const minThreshold = lastSpeedHintIndex === 0 ? Math.min(speedHintStep, 16) : lastSpeedHintIndex + speedHintStep;
+      if (charIndex >= minThreshold) {
+        const nextWordStart = getNextWordStartIndex(sampleText, charIndex);
+        if (nextWordStart !== -1) {
+          if (!speedHints.has(nextWordStart)) {
+            speedHints.set(nextWordStart, currentWpm);
+          }
+          lastSpeedHintIndex = charIndex;
+        }
+      }
+    }
+  };
+
+  // 1. Type through to create speed hints
+  handleStateChange(16, 70, true, true, true, false, 0);
+  assert.equal(speedHints.size, 1);
+  assert.equal(speedHints.get(20), 70);
+
+  handleStateChange(36, 78, true, true, true, false, 0);
+  assert.equal(speedHints.size, 2);
+  assert.equal(speedHints.get(20), 70);
+  assert.equal(speedHints.get(40), 78);
+
+  // 2. User restarts the round (typingEngine resets charIndex to 0 and isStarted to false)
+  handleStateChange(0, 0, true, true, false, false, 0);
+
+  // All old speed hints MUST be cleared immediately on round restart
+  assert.equal(speedHints.size, 0);
+  assert.equal(lastSpeedHintIndex, 0);
+
+  // 3. User begins typing the restarted round from scratch
+  handleStateChange(1, 0, true, true, true, false, 0);
+  assert.equal(speedHints.size, 0);
+
+  // When reaching threshold in the restarted round, fresh hints stamp accurately
+  handleStateChange(16, 82, true, true, true, false, 0);
+  assert.equal(speedHints.size, 1);
+  assert.equal(speedHints.get(20), 82); // Fresh new WPM recorded
+});

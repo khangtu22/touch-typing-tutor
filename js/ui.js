@@ -54,6 +54,14 @@ export function getNextWordStartIndex(text, currentIndex) {
 }
 
 export class UIManager {
+  clearSpeedHints() {
+    if (this.speedHints) {
+      this.speedHints.clear();
+    }
+    this.lastSpeedHintIndex = 0;
+    this.lastSpeedHintRoundIdx = null;
+  }
+
   constructor() {
     this.activeScreen = 'dashboard';
     this.keyboardRenderer = null;
@@ -263,6 +271,7 @@ export class UIManager {
       if (this.activeScreen === 'lesson' && typingEngine.isPaused && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
         this.hidePauseModal();
+        this.clearSpeedHints();
         typingEngine.retryLesson();
         return;
       }
@@ -456,6 +465,7 @@ export class UIManager {
     typingEngine.onRoundFinished = (data) => this.handleRoundFinished(data);
     typingEngine.onLessonFinished = (summary) => this.handleLessonFinished(summary);
     typingEngine.onSuddenDeathFail = () => {
+      this.clearSpeedHints();
       this.showToast('💀 Sudden Death! Mistake made - round restarted!', 'coral');
     };
 
@@ -564,9 +574,7 @@ export class UIManager {
       if (this.isFocusModeActive) this.exitFocusMode();
       if (this.screens.lesson) this.screens.lesson.classList.remove('distraction-free-typing');
       document.body.classList.remove('blind-mode-active');
-      if (this.speedHints) this.speedHints.clear();
-      this.lastSpeedHintIndex = 0;
-      this.lastSpeedHintRoundIdx = null;
+      this.clearSpeedHints();
       try { goalsManager.setPracticeActive(false); } catch (e) {}
       try { typingEngine.destroy(); } catch (e) {}
       try { ghostRacer.stopRace(); } catch (e) {}
@@ -3123,9 +3131,7 @@ export class UIManager {
     if (this.screens.lesson) {
       this.screens.lesson.classList.remove('distraction-free-typing');
     }
-    if (this.speedHints) this.speedHints.clear();
-    this.lastSpeedHintIndex = 0;
-    this.lastSpeedHintRoundIdx = null;
+    this.clearSpeedHints();
     this.syncDistractionFreeMode();
 
     this.smoothCaretState = null;
@@ -3227,10 +3233,12 @@ export class UIManager {
     const isCurrentlyTyping = isDistractionFree && !!data.isStarted && !data.isPaused;
     const currentWpm = Math.round(data.wpm || 0);
 
-    if (this.lastSpeedHintRoundIdx !== data.roundIdx) {
-      if (this.speedHints) this.speedHints.clear();
-      this.lastSpeedHintIndex = 0;
-      this.lastSpeedHintRoundIdx = data.roundIdx;
+    // Clear old speed hints when round changes or when the round is restarted / not started
+    if (this.lastSpeedHintRoundIdx !== data.roundIdx || !data.isStarted || data.charIndex === 0) {
+      if (!data.isStarted || data.charIndex === 0 || this.lastSpeedHintRoundIdx !== data.roundIdx) {
+        this.clearSpeedHints();
+        this.lastSpeedHintRoundIdx = data.roundIdx;
+      }
     }
 
     if (isCurrentlyTyping && speedHintsEnabled && currentWpm > 0) {
@@ -3536,8 +3544,7 @@ export class UIManager {
   }
 
   handleRoundFinished(data) {
-    if (this.speedHints) this.speedHints.clear();
-    this.lastSpeedHintIndex = 0;
+    this.clearSpeedHints();
     this.lastSpeedHintRoundIdx = data?.roundIdx !== undefined ? data.roundIdx + 1 : null;
     this.showToast(`Round ${data.roundIdx + 1} Complete!`, 'teal');
   }
@@ -3559,9 +3566,7 @@ export class UIManager {
     if (this.screens.lesson) {
       this.screens.lesson.classList.remove('distraction-free-typing');
     }
-    if (this.speedHints) this.speedHints.clear();
-    this.lastSpeedHintIndex = 0;
-    this.lastSpeedHintRoundIdx = null;
+    this.clearSpeedHints();
 
     try {
       if (zenMode?.isActive) {
@@ -3778,6 +3783,7 @@ export class UIManager {
       document.getElementById('resume-lesson-btn')?.addEventListener('click', () => this.toggleLessonPause());
       document.getElementById('restart-lesson-btn')?.addEventListener('click', () => {
         this.hidePauseModal();
+        this.clearSpeedHints();
         typingEngine.retryLesson();
       });
       document.getElementById('exit-lesson-btn')?.addEventListener('click', () => {
@@ -5068,8 +5074,7 @@ export class UIManager {
         }
       }));
       if (!enabled && this.speedHints && this.speedHints.size > 0) {
-        this.speedHints.clear();
-        this.lastSpeedHintIndex = 0;
+        this.clearSpeedHints();
         if (this.activeScreen === 'lesson' && typingEngine.isActive && typingEngine.currentText) {
           this.renderTypingText(
             typingEngine.currentText,
@@ -5507,9 +5512,7 @@ export class UIManager {
     }
 
     if (!isEnabled && this.speedHints && this.speedHints.size > 0) {
-      this.speedHints.clear();
-      this.lastSpeedHintIndex = 0;
-      this.lastSpeedHintRoundIdx = null;
+      this.clearSpeedHints();
       if (this.activeScreen === 'lesson' && typingEngine.isActive && typingEngine.currentText) {
         this.renderTypingText(
           typingEngine.currentText,
