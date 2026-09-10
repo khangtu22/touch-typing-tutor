@@ -539,7 +539,7 @@ export class UIManager {
     };
 
     window.addEventListener('resize', () => {
-      this.checkMobileRestriction();
+      this.updateKeyboardNotice();
       // Re-measure after a responsive reflow without animating an idle layout.
       if (typingEngine.isActive && this.typingViewportState.text) {
         this.updateTypingViewport(this.typingViewportState.text, typingEngine.charIndex);
@@ -617,7 +617,7 @@ export class UIManager {
   start() {
     const state = store.getState();
     StreakEngine.evaluateStreakStatus(store);
-    this.checkMobileRestriction();
+    this.updateKeyboardNotice();
 
     if (!state.onboardingComplete) {
       this.navigateTo('onboarding');
@@ -728,7 +728,10 @@ export class UIManager {
 
     if (levelBadge) levelBadge.textContent = `Lvl ${lvlInfo.currentLvl}`;
     if (xpText) xpText.textContent = `${state.xp.toLocaleString()} XP`;
-    if (xpFill) xpFill.style.width = `${lvlInfo.pct}%`;
+    if (xpFill) {
+      xpFill.style.width = `${lvlInfo.pct}%`;
+      xpFill.parentElement?.setAttribute('aria-valuenow', String(lvlInfo.pct));
+    }
     if (streakCount) streakCount.textContent = `${state.dailyStreak}`;
     if (streakFlame) streakFlame.classList.toggle('flame-active', state.dailyStreak > 0);
   }
@@ -2760,7 +2763,7 @@ export class UIManager {
             <h2 class="section-title">Developer Code Arena</h2>
             <p class="section-subtitle">Real-world syntax typing across 8 programming languages with live formatting and brackets</p>
           </div>
-          <div style="display: flex; gap: 10px; align-items: center;">
+          <div class="code-arena-actions">
             <span class="badge badge-accent">${practiced.length} Snippets Mastered</span>
             <button id="code-random-btn" class="btn btn-primary">
               <span>🎲 Practice Random Snippet</span>
@@ -4471,7 +4474,7 @@ export class UIManager {
         <div class="profile-hero-card">
           <div class="avatar-circle">⌨️</div>
           <div class="profile-info">
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="profile-name-row">
               <h2 class="profile-name">Touch Typist</h2>
               <span class="premium-crown" style="font-size: 11px;">👑 Premium Included</span>
             </div>
@@ -5501,26 +5504,21 @@ export class UIManager {
     }
   }
 
-  checkMobileRestriction() {
-    const isMobile = window.innerWidth < 768;
-    let warning = document.getElementById('mobile-warning-overlay');
-
-    if (isMobile) {
-      if (!warning) {
-        warning = document.createElement('div');
-        warning.id = 'mobile-warning-overlay';
-        warning.className = 'mobile-warning-overlay';
-        warning.innerHTML = `
-          <div class="mobile-warning-card">
-            <span class="warning-icon">⌨️</span>
-            <h3>Physical Keyboard Required</h3>
-            <p>10-Finger touch typing requires a physical hardware keyboard to build tactile muscle memory. Please open this app on a laptop or desktop computer.</p>
-          </div>
-        `;
-        document.body.appendChild(warning);
-      }
-    } else {
-      if (warning) warning.remove();
+  updateKeyboardNotice() {
+    const isNarrow = window.innerWidth < 768;
+    let notice = document.getElementById('keyboard-notice');
+    if (isNarrow && !notice) {
+      notice = document.createElement('aside');
+      notice.id = 'keyboard-notice';
+      notice.className = 'keyboard-notice';
+      notice.setAttribute('aria-label', 'Keyboard guidance');
+      notice.innerHTML = `
+        <span aria-hidden="true">⌨️</span>
+        <p><strong>Practice with a physical keyboard</strong>You can explore lessons and review your progress on any screen.</p>
+      `;
+      document.querySelector('.app-header')?.after(notice);
+    } else if (!isNarrow) {
+      notice?.remove();
     }
   }
 

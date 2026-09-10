@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.5 - fix cursor reset on space)
+ * KeyFlow Service Worker (v3.9.6 - header and responsive UI polish)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.5-cursor-highlight-fix';
+const CACHE_NAME = 'keyflow-v3.9.6-ui-polish';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
