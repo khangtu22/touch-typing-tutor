@@ -230,17 +230,154 @@ export const CODE_SNIPPETS = [
   }
 ];
 
+export const MIGRATED_CODE_PRESETS = [
+  {
+    id: 'js_es6',
+    language: 'javascript',
+    title: 'JavaScript ES6+ & Async',
+    difficulty: 'medium',
+    description: 'Modern asynchronous user fetch and object mapping.',
+    isPreset: true,
+    accuracyTarget: 93,
+    wpmTarget: 35,
+    xpReward: 50,
+    code: `const fetchUserData = async (userId) => {
+  const response = await fetch(\`/api/users/\${userId}\`);
+  if (!response.ok) throw new Error("Failed to load user");
+  const { name, email, roles = [] } = await response.json();
+  return { id: userId, name, email, isAdmin: roles.includes("admin") };
+};`
+  },
+  {
+    id: 'python_structures',
+    language: 'python',
+    title: 'Python Comprehensions & OOP',
+    difficulty: 'medium',
+    description: 'TypingMetric class with list comprehensions and filtering.',
+    isPreset: true,
+    accuracyTarget: 93,
+    wpmTarget: 35,
+    xpReward: 50,
+    code: `class TypingMetric:
+    def __init__(self, wpm: int, accuracy: float):
+        self.wpm = wpm
+        self.accuracy = accuracy
+
+    def is_mastered(self) -> bool:
+        return self.wpm >= 60 and self.accuracy >= 0.96
+
+scores = [TypingMetric(w, 0.98) for w in [45, 62, 78, 85]]
+top_scores = [s.wpm for s in scores if s.is_mastered()]`
+  },
+  {
+    id: 'react_hooks',
+    language: 'typescript',
+    title: 'React Custom Hooks & State',
+    difficulty: 'medium',
+    description: 'Custom useTypingTimer hook with useEffect and state.',
+    isPreset: true,
+    accuracyTarget: 93,
+    wpmTarget: 35,
+    xpReward: 50,
+    code: `export function useTypingTimer(isActive, onTick) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const interval = setInterval(() => {
+      setSeconds(prev => prev + 1);
+      if (onTick) onTick();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isActive]);
+
+  return { seconds, formatted: \`\${Math.floor(seconds / 60)}:\${seconds % 60}\` };
+}`
+  },
+  {
+    id: 'rust_pattern',
+    language: 'rust',
+    title: 'Rust Structs & Pattern Matching',
+    difficulty: 'medium',
+    description: 'KeyStrokeResult enum and evaluate_key pattern match.',
+    isPreset: true,
+    accuracyTarget: 93,
+    wpmTarget: 35,
+    xpReward: 50,
+    code: `pub enum KeyStrokeResult {
+    Correct(char, u32),
+    Mistake(char, char),
+    Completed,
+}
+
+pub fn evaluate_key(expected: char, actual: char, combo: u32) -> KeyStrokeResult {
+    match (expected, actual) {
+        (e, a) if e == a => KeyStrokeResult::Correct(e, combo + 1),
+        (e, a) => KeyStrokeResult::Mistake(e, a),
+    }
+}`
+  },
+  {
+    id: 'sql_queries',
+    language: 'sql',
+    title: 'SQL Complex Aggregations & Joins',
+    difficulty: 'medium',
+    description: 'Aggregate user session speeds with GROUP BY and HAVING.',
+    isPreset: true,
+    accuracyTarget: 93,
+    wpmTarget: 35,
+    xpReward: 50,
+    code: `SELECT u.user_id, u.username, AVG(s.wpm) AS average_wpm, MAX(s.wpm) AS top_wpm
+FROM users u
+INNER JOIN sessions s ON u.user_id = s.user_id
+WHERE s.created_at >= NOW() - INTERVAL '30 days'
+GROUP BY u.user_id, u.username
+HAVING COUNT(s.session_id) >= 10
+ORDER BY top_wpm DESC;`
+  }
+];
+
+// Merge migrated presets into the unified catalog
+CODE_SNIPPETS.push(...MIGRATED_CODE_PRESETS);
+
 /**
- * Returns snippets filtered by language and difficulty
+ * Chunks code into rounds preserving line breaks at max length
+ * @param {string} code
+ * @param {number} [maxRoundLength=130]
+ * @returns {Array<string>}
+ */
+export function chunkCodePreset(code, maxRoundLength = 130) {
+  const normalized = String(code ?? '').replace(/\r\n?/g, '\n');
+  const rounds = [];
+  let remaining = normalized;
+  while (remaining.length > maxRoundLength) {
+    const newlineBreak = remaining.lastIndexOf('\n', maxRoundLength);
+    const breakAt = newlineBreak > Math.floor(maxRoundLength * 0.5) ? newlineBreak + 1 : maxRoundLength;
+    rounds.push(remaining.slice(0, breakAt));
+    remaining = remaining.slice(breakAt);
+  }
+  if (remaining.length > 0) rounds.push(remaining);
+  return rounds;
+}
+
+/**
+ * Returns snippets filtered by language, difficulty, and search query
  * @param {string} [language='all']
  * @param {string} [difficulty='all']
+ * @param {string} [searchQuery='']
  * @returns {Array}
  */
-export function getFilteredSnippets(language = 'all', difficulty = 'all') {
+export function getFilteredSnippets(language = 'all', difficulty = 'all', searchQuery = '') {
+  const query = (searchQuery || '').trim().toLowerCase();
   return CODE_SNIPPETS.filter(s => {
     const langMatch = language === 'all' || s.language === language;
     const diffMatch = difficulty === 'all' || s.difficulty === difficulty;
-    return langMatch && diffMatch;
+    const queryMatch = !query ||
+      s.title.toLowerCase().includes(query) ||
+      s.description.toLowerCase().includes(query) ||
+      s.language.toLowerCase().includes(query) ||
+      s.code.toLowerCase().includes(query);
+    return langMatch && diffMatch && queryMatch;
   });
 }
 

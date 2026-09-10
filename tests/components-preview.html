@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeyFlow Design System & Component Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/main.css">
+  <link rel="stylesheet" href="../styles/themes.css">
+  <link rel="stylesheet" href="../styles/components.css">
+  <style>
+    .preview-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .preview-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .preview-section h2 {
+      font-size: var(--font-heading, 20px);
+      color: var(--text-primary);
+      margin: 0;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .preview-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .token-chip {
+      padding: 8px 12px;
+      border-radius: var(--radius-control, 8px);
+      background: var(--surface-2);
+      border: 1px solid var(--border-light);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .spacing-box {
+      background: var(--accent-glow);
+      border: 1px solid var(--accent-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-primary);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="theme-dark">
+  <main class="preview-container">
+    <header class="preview-header">
+      <div>
+        <h1 style="font-size: var(--font-title-desktop, 32px); font-weight: 800; margin: 0 0 6px;">KeyFlow Design System</h1>
+        <p style="color: var(--text-secondary); margin: 0; font-size: 15px;">Living component specification and interactive token verification.</p>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <label for="theme-select" style="font-size: 13px; font-weight: 600;">Theme:</label>
+        <select id="theme-select" class="field-select" style="width: auto; min-height: 40px;">
+          <option value="dark">Simple Default (Dark)</option>
+          <option value="retro">Retro 1984</option>
+          <option value="cyberpunk">Cyberpunk Neon</option>
+          <option value="botanical">Botanical Forest</option>
+          <option value="tokyo">Tokyo Night</option>
+        </select>
+        <button id="contrast-toggle" class="btn btn-secondary btn-sm" type="button">High Contrast</button>
+      </div>
+    </header>
+
+    <!-- 1. Color Palette Tokens -->
+    <section class="preview-section">
+      <h2>Color Tokens & Contrast</h2>
+      <div class="preview-row">
+        <div class="token-chip"><span class="color-swatch" style="background: var(--bg-base)"></span>--bg-base</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--surface-1)"></span>--surface-1</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--surface-2)"></span>--surface-2</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--surface-3)"></span>--surface-3</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--btn-primary-bg)"></span>--btn-primary-bg</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--color-success)"></span>--color-success</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--color-warning)"></span>--color-warning</div>
+        <div class="token-chip"><span class="color-swatch" style="background: var(--color-error)"></span>--color-error</div>
+      </div>
+    </section>
+
+    <!-- 2. Spacing Scale -->
+    <section class="preview-section">
+      <h2>Spacing Scale (4, 8, 12, 16, 24, 32, 48, 64px)</h2>
+      <div class="preview-row" style="align-items: flex-end;">
+        <div><div class="spacing-box" style="width: 36px; height: 4px;"></div><span style="font-size:11px">4px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 8px;"></div><span style="font-size:11px">8px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 12px;"></div><span style="font-size:11px">12px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 16px;"></div><span style="font-size:11px">16px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 24px;"></div><span style="font-size:11px">24px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 32px;"></div><span style="font-size:11px">32px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 48px;"></div><span style="font-size:11px">48px</span></div>
+        <div><div class="spacing-box" style="width: 36px; height: 64px;"></div><span style="font-size:11px">64px</span></div>
+      </div>
+    </section>
+
+    <!-- 3. Button Variants & Interaction States -->
+    <section class="preview-section">
+      <h2>Button Variants & Accessible Contrast (min 44px)</h2>
+      <div class="preview-row">
+        <button class="btn btn-primary" type="button">Primary Button</button>
+        <button class="btn btn-secondary" type="button">Secondary Button</button>
+        <button class="btn btn-quiet" type="button">Quiet Button</button>
+        <button class="btn btn-destructive" type="button">Destructive</button>
+        <button class="btn btn-icon" type="button" aria-label="Settings preview">⚙️</button>
+        <button class="btn btn-primary" disabled type="button">Disabled</button>
+      </div>
+    </section>
+
+    <!-- 4. Labeled Inputs & Form Controls -->
+    <section class="preview-section">
+      <h2>Form Controls & Segmented Selectors</h2>
+      <div class="preview-grid">
+        <div class="field-group">
+          <label class="field-label" for="sample-input">Standard Text Input <span class="badge badge-accent">Required</span></label>
+          <input id="sample-input" class="field-input" type="text" placeholder="Type here...">
+          <span class="field-hint">Supports full keyboard focus ring and accessible labels.</span>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="sample-select">Select Dropdown</label>
+          <select id="sample-select" class="field-select">
+            <option>Option 1</option>
+            <option>Option 2</option>
+            <option>Option 3</option>
+          </select>
+          <span class="field-hint">Standard 44px control height.</span>
+        </div>
+      </div>
+      <div>
+        <label class="field-label" style="margin-bottom: 8px;">Segmented Selector</label>
+        <div class="segmented-selector" role="tablist">
+          <button class="segment-btn active" role="tab" aria-selected="true">Benchmark</button>
+          <button class="segment-btn" role="tab" aria-selected="false">Passage Sprint</button>
+          <button class="segment-btn" role="tab" aria-selected="false">Custom Text</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Cards & Empty States -->
+    <section class="preview-section">
+      <h2>Card & Empty State Standards</h2>
+      <div class="preview-grid">
+        <div class="app-card">
+          <h3 style="margin: 0 0 8px; font-size: 18px;">Standard 16px Card</h3>
+          <p style="margin: 0 0 16px; color: var(--text-secondary); font-size: 14px;">Surfaces are styled with semantic borders, glassmorphism, and responsive padding.</p>
+          <button class="btn btn-secondary btn-sm" type="button">Card Action →</button>
+        </div>
+        <div class="empty-state" style="margin: 0;">
+          <span class="empty-state-icon" aria-hidden="true">📊</span>
+          <h3 class="empty-state-title">No Practice Telemetry</h3>
+          <p class="empty-state-desc">Complete your first practice run or speed benchmark to populate performance analytics.</p>
+          <button class="btn btn-primary btn-sm empty-state-action" type="button">Start First Lesson</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const themeSelect = document.getElementById('theme-select');
+    themeSelect.addEventListener('change', (e) => {
+      document.body.className = 'theme-' + e.target.value;
+    });
+    const contrastBtn = document.getElementById('contrast-toggle');
+    contrastBtn.addEventListener('click', () => {
+      document.body.classList.toggle('high-contrast');
+    });
+  </script>
+</body>
+</html>

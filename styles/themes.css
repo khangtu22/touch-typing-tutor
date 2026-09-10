@@ -15,6 +15,11 @@ body.theme-dark {
   --accent-primary-hover: #6848E8;
   --accent-glow: rgba(124, 92, 252, 0.35);
 
+  --btn-primary-bg: #7C5CFC;
+  --btn-primary-fg: #FFFFFF;
+  --btn-primary-hover: #6848E8;
+  --btn-primary-active: #5338D6;
+
   --success-teal: #00D4AA;
   --success-glow: rgba(0, 212, 170, 0.3);
 
@@ -128,6 +133,11 @@ body.theme-retro {
   --accent-primary: #FF9500; /* Warm Phosphor Amber LED */
   --accent-primary-hover: #E68500;
   --accent-glow: rgba(255, 149, 0, 0.42);
+
+  --btn-primary-bg: #FF9500;
+  --btn-primary-fg: #141311;
+  --btn-primary-hover: #E68500;
+  --btn-primary-active: #CC7600;
 
   --success-teal: #48C774; /* Phosphor Emerald */
   --success-glow: rgba(72, 199, 116, 0.35);
@@ -488,6 +498,11 @@ body.theme-cyberpunk {
   --accent-primary-hover: #00D2E0;
   --accent-glow: rgba(0, 240, 255, 0.5);
 
+  --btn-primary-bg: #00F0FF;
+  --btn-primary-fg: #080112;
+  --btn-primary-hover: #00D2E0;
+  --btn-primary-active: #00A6B2;
+
   --success-teal: #00FF66; /* Neon Lime */
   --success-glow: rgba(0, 255, 102, 0.4);
 
@@ -696,6 +711,11 @@ body.theme-botanical {
   --accent-primary-hover: #40916C;
   --accent-glow: rgba(82, 183, 136, 0.4);
 
+  --btn-primary-bg: #52B788;
+  --btn-primary-fg: #08120A;
+  --btn-primary-hover: #40916C;
+  --btn-primary-active: #2D6A4F;
+
   --success-teal: #74C69D;
   --success-glow: rgba(116, 198, 157, 0.35);
 
@@ -901,6 +921,11 @@ body.theme-tokyo {
   --accent-primary: #BB9AF7; /* Pastel Violet */
   --accent-primary-hover: #A476F5;
   --accent-glow: rgba(187, 154, 247, 0.4);
+
+  --btn-primary-bg: #BB9AF7;
+  --btn-primary-fg: #13141F;
+  --btn-primary-hover: #A476F5;
+  --btn-primary-active: #8F55E8;
 
   --success-teal: #7DCFFF; /* Pastel Cyan */
   --success-glow: rgba(125, 207, 255, 0.35);

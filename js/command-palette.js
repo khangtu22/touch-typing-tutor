@@ -35,6 +35,13 @@ export class CommandPalette {
       { id: 'act_certificate', title: 'View & Download Typing Certificate', category: 'Quick Action', icon: '📜', action: () => this.ui.openCertificateModal() },
       { id: 'act_speed_60', title: 'Start 60-Second Speed Benchmark (Current Vocab)', category: 'Quick Action', icon: '⏱️', action: () => this.ui.startSpeedTest('60s') },
       { id: 'act_speed_30', title: 'Start 30-Second Speed Sprint', category: 'Quick Action', icon: '⚡', action: () => this.ui.startSpeedTest('30s') },
+      { id: 'act_passage_60', title: 'Start 60s Continuous Passage Sprint', category: 'Quick Action', icon: '🏃', action: () => this.ui.startPassageSprint(60) },
+      { id: 'act_passage_30', title: 'Start 30s Quick Passage Sprint', category: 'Quick Action', icon: '⚡', action: () => this.ui.startPassageSprint(30) },
+      { id: 'act_code_js', title: 'Code Arena: JavaScript ES6+ Modern Syntax', category: 'Code Arena', icon: '💻', action: () => this.ui.startCodeSnippetById('js_es6') },
+      { id: 'act_code_py', title: 'Code Arena: Python Data Structures & Algorithmic Patterns', category: 'Code Arena', icon: '🐍', action: () => this.ui.startCodeSnippetById('python_structures') },
+      { id: 'act_code_react', title: 'Code Arena: React Custom Hooks & State Flow', category: 'Code Arena', icon: '⚛️', action: () => this.ui.startCodeSnippetById('react_hooks') },
+      { id: 'act_code_rust', title: 'Code Arena: Rust Pattern Matching & Enums', category: 'Code Arena', icon: '🦀', action: () => this.ui.startCodeSnippetById('rust_pattern') },
+      { id: 'act_code_sql', title: 'Code Arena: SQL Analytical Queries & CTEs', category: 'Code Arena', icon: '🗄️', action: () => this.ui.startCodeSnippetById('sql_queries') },
       { id: 'act_speed_60_1k', title: 'Start 60s Benchmark: English 1K Mode', category: 'Quick Action', icon: '⚡', action: () => this.ui.startSpeedTest('60s', '1k') },
       { id: 'act_speed_60_5k', title: 'Start 60s Benchmark: English 5K Mode', category: 'Quick Action', icon: '🏆', action: () => this.ui.startSpeedTest('60s', '5k') },
       { id: 'vocab_mode_200', title: 'Vocabulary: English 200 (Common Words)', category: 'Vocabulary', icon: '📝', action: () => { this.store.update(p => ({ ...p, settings: { ...p.settings, speedTestVocab: '200' } })); this.ui.activeSpeedVocabId = '200'; this.ui.showToast('Benchmark vocabulary set to English 200', 'teal'); } },
@@ -98,6 +105,34 @@ export class CommandPalette {
           }));
           this.ui.showToast(!current ? 'Next key banner enabled' : 'Next key banner hidden', 'teal');
         }
+      },
+      {
+        id: 'toggle_highcontrast',
+        title: 'Toggle High-Contrast Mode',
+        category: 'Display',
+        icon: '🌓',
+        action: () => {
+          const current = !!this.store.getState().settings?.highContrast;
+          this.store.update(prev => ({
+            ...prev,
+            settings: { ...prev.settings, highContrast: !current }
+          }));
+          this.ui.showToast(!current ? 'High-contrast mode activated' : 'High-contrast mode deactivated', 'teal');
+        }
+      },
+      {
+        id: 'toggle_reducedmotion',
+        title: 'Toggle Reduced Motion',
+        category: 'Display',
+        icon: '🎬',
+        action: () => {
+          const current = !!this.store.getState().settings?.reducedMotion;
+          this.store.update(prev => ({
+            ...prev,
+            settings: { ...prev.settings, reducedMotion: !current }
+          }));
+          this.ui.showToast(!current ? 'Reduced motion enabled' : 'Reduced motion disabled', 'teal');
+        }
       }
     ];
 
@@ -125,6 +160,7 @@ export class CommandPalette {
   }
 
   injectModal() {
+    if (typeof document === 'undefined') return;
     if (document.getElementById('command-palette-modal')) return;
 
     const overlay = document.createElement('div');
@@ -180,6 +216,7 @@ export class CommandPalette {
   }
 
   attachGlobalHotkeys() {
+    if (typeof window === 'undefined') return;
     window.addEventListener('keydown', (e) => {
       // Cmd+K or Ctrl+K
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {

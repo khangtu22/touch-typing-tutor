@@ -7,8 +7,8 @@
 import { MASTERED_STARS, PASSING_STARS, PERFECT_STARS } from './mastery.js?v=3.8.1';
 
 const STORAGE_KEY = 'typing_tutor_progress';
-export const APP_VERSION = '3.8.1';
-export const CURRENT_SCHEMA_VERSION = 4;
+export const APP_VERSION = '4.0.0';
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * Returns a stable local-calendar date key (YYYY-MM-DD).
@@ -193,6 +193,7 @@ export const DEFAULT_STATE = {
   languagesPracticed: [],      // Array of language codes practiced
   codeSnippetsPracticed: [],   // Array of code snippet ids practiced
   speedTestBests: {},          // Personal bests per speed test preset: { '15s': { wpm, accuracy, consistency, date } }
+  passageSprintBests: {},      // Personal bests per passage sprint: { '15s': { wpm, accuracy, consistency, date } }
   certificateName: '',         // Custom name for printable diploma
 };
 
@@ -218,6 +219,13 @@ function migrateState(rawState) {
     migrated.speedTestBests = {
       ...DEFAULT_STATE.speedTestBests,
       ...(source.speedTestBests || {})
+    };
+  }
+
+  if (sourceVersion < 5) {
+    migrated.passageSprintBests = {
+      ...DEFAULT_STATE.passageSprintBests,
+      ...(source.passageSprintBests || {})
     };
   }
 
@@ -661,6 +669,58 @@ class StateStore {
     return bests[`${presetId}_${normalizedVocab}`] || null;
   }
 
+  getSpeedTestBests() {
+    return this.state.speedTestBests || {};
+  }
+
+  recordPassageSprintResult({ durationSec, wpm, accuracy, consistency = 100 }) {
+    const key = `${durationSec}s`;
+    const prevBests = this.state.passageSprintBests || {};
+    const existing = prevBests[key];
+    const isNewPB = !existing || wpm > existing.wpm;
+
+    const newBest = {
+      wpm: Math.max(existing?.wpm || 0, Math.round(wpm)),
+      accuracy: Math.round(accuracy),
+      consistency: Math.round(consistency),
+      durationSec,
+      date: new Date().toISOString()
+    };
+
+    this.update(prev => {
+      const updated = { ...(prev.passageSprintBests || {}) };
+      if (isNewPB || !existing) {
+        updated[key] = newBest;
+      }
+      return {
+        ...prev,
+        passageSprintBests: updated
+      };
+    });
+
+    return { isNewPB, best: newBest };
+  }
+
+  getPassageSprintBest(durationSec) {
+    const bests = this.state.passageSprintBests || {};
+    const key = typeof durationSec === 'string' && durationSec.endsWith('s') ? durationSec : `${durationSec}s`;
+    return bests[key] || null;
+  }
+
+  recordPassageSprintBest(durationSec, result) {
+    const duration = typeof durationSec === 'number' ? durationSec : parseInt(durationSec, 10) || 60;
+    return this.recordPassageSprintResult({
+      durationSec: duration,
+      wpm: result?.wpm ?? 0,
+      accuracy: result?.accuracy ?? 100,
+      consistency: result?.consistency ?? 100
+    });
+  }
+
+  getPassageSprintBests() {
+    return this.state.passageSprintBests || {};
+  }
+
   recordCodeSnippetCompleted(snippetId) {
     if (!snippetId) return;
     this.update(prev => {
@@ -804,6 +864,39 @@ class StateStore {
     }, null, 2);
   }
 
+  validateBackup(backupObj) {
+    try {
+      const data = backupObj?.data || backupObj?.state || backupObj;
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        return { valid: false, error: 'Invalid JSON structure' };
+      }
+      const arrayFields = [
+        'sessions', 'practiceDatesHistory', 'quotesPracticed', 'quoteBookmarks',
+        'languagesPracticed', 'codeSnippetsPracticed'
+      ];
+      for (const field of arrayFields) {
+        if (data[field] !== undefined && !Array.isArray(data[field])) {
+          return { valid: false, error: `Invalid backup field: ${field} must be an array` };
+        }
+      }
+      const objectFields = [
+        'settings', 'dailyChallengeState', 'starsByLesson', 'lessonCompletion',
+        'achievementsUnlocked', 'keyStats', 'arcadeStats', 'speedTestBests',
+        'passageSprintBests'
+      ];
+      for (const field of objectFields) {
+        if (data[field] !== undefined && (
+          data[field] === null || typeof data[field] !== 'object' || Array.isArray(data[field])
+        )) {
+          return { valid: false, error: `Invalid backup field: ${field} must be an object` };
+        }
+      }
+      return { valid: true };
+    } catch (e) {
+      return { valid: false, error: e.message };
+    }
+  }
+
   // Import state from JSON string with validation
   importBackupJson(jsonStr) {
     try {
@@ -825,7 +918,8 @@ class StateStore {
 
       const objectFields = [
         'settings', 'dailyChallengeState', 'starsByLesson', 'lessonCompletion',
-        'achievementsUnlocked', 'keyStats', 'arcadeStats', 'speedTestBests'
+        'achievementsUnlocked', 'keyStats', 'arcadeStats', 'speedTestBests',
+        'passageSprintBests'
       ];
       objectFields.forEach(field => {
         if (data[field] !== undefined && (
@@ -855,6 +949,10 @@ class StateStore {
         speedTestBests: {
           ...DEFAULT_STATE.speedTestBests,
           ...(safeData.speedTestBests || {})
+        },
+        passageSprintBests: {
+          ...DEFAULT_STATE.passageSprintBests,
+          ...(safeData.passageSprintBests || {})
         },
         settings: {
           ...DEFAULT_STATE.settings,

@@ -26,10 +26,10 @@ import { themeStudio, renderThemeStudioUI } from './theme-studio.js?v=3.8.1';
 import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=3.9.2';
 import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js?v=3.8.1';
 import { ArcadeHubManager } from './arcade-games.js?v=3.9.0';
-import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet } from './code-snippets.js?v=3.8.1';
+import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet, chunkCodePreset } from './code-snippets.js?v=4.0.0';
 import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js?v=3.8.1';
-import { SPEED_TEST_PRESETS, VOCABULARY_PRESETS, VOCABULARY_POOLS, getVocabularyPool, generateSpeedTestLesson, calculateConsistency } from './speed-test.js?v=3.9.4';
-import { CommandPalette } from './command-palette.js?v=3.8.1';
+import { SPEED_TEST_PRESETS, VOCABULARY_PRESETS, VOCABULARY_POOLS, getVocabularyPool, generateSpeedTestLesson, calculateConsistency, PASSAGE_SPRINT_PRESETS, generatePassageSprintLesson } from './speed-test.js?v=4.0.0';
+import { CommandPalette } from './command-palette.js?v=4.0.0';
 import { drawCertificate, downloadCertificatePng, getTypingRank } from './certificate-generator.js?v=3.8.1';
 import { AFKDetector, DEFAULT_AFK_TIMEOUT_MS } from './afk-detector.js?v=3.8.3';
 
@@ -39,6 +39,17 @@ const escapeHtml = value => String(value)
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#039;');
+
+export const DESTINATIONS = [
+  { id: 'dashboard', label: 'Lessons', icon: '⚡', shortcut: null },
+  { id: 'code', label: 'Code Arena', icon: '💻', shortcut: 'C' },
+  { id: 'speedtest', label: 'Speed Test', icon: '⏱️', shortcut: 'T' },
+  { id: 'arcade', label: 'Arcade', icon: '🎮', shortcut: 'G' },
+  { id: 'custom', label: 'Custom', icon: '✏️', shortcut: null },
+  { id: 'quotes', label: 'Quotes', icon: '📚', shortcut: 'Q' },
+  { id: 'profile', label: 'Analytics', icon: '👤', shortcut: 'A' },
+  { id: 'settings', label: 'Settings', icon: '⚙️', shortcut: 'S' }
+];
 
 const TYPING_THEMES = [
   { id: 'dark', name: 'Midnight', color: '#9b87f5' },
@@ -78,7 +89,14 @@ export class UIManager {
     this.arcadeManager = null;
     this.currentLessonData = null;
     this.currentSessionSummary = null;
-    this.activeArenaTab = 'code'; // 'paste' | 'code' | 'sprint' | 'quotes' | 'language'
+    this.practiceOriginContext = null;
+    this.activeArenaTab = 'custom'; // 'custom' | 'language'
+    this.customDraftText = '';
+    this.activeCodeLanguage = 'all';
+    this.activeCodeSearch = '';
+    this.speedTestMode = 'benchmark'; // 'benchmark' | 'sprint'
+    this.profileActiveTab = 'overview'; // 'overview' | 'history' | 'achievements'
+    this.settingsActiveCategory = 'appearance';
     this.activeQuoteCategory = null;
     this.activeQuoteDifficulty = null;
     this.activeQuoteSearch = '';
@@ -202,6 +220,85 @@ export class UIManager {
     this.lastSpeedHintIndex = 0;
     this.speedHintStep = 20;
     this.lastSpeedHintRoundIdx = null;
+
+    // Mobile Navigation Drawer elements
+    this.navDrawer = document.getElementById('nav-mobile-drawer');
+    this.navDrawerToggleBtn = document.getElementById('nav-drawer-toggle-btn');
+    this.navDrawerCloseBtn = document.getElementById('nav-drawer-close-btn');
+    this.navDrawerBackdrop = document.getElementById('nav-drawer-backdrop');
+    this.drawerDashboardBtn = document.getElementById('drawer-dashboard-btn');
+    this.drawerCodeBtn = document.getElementById('drawer-code-btn');
+    this.drawerSpeedtestBtn = document.getElementById('drawer-speedtest-btn');
+    this.drawerArcadeBtn = document.getElementById('drawer-arcade-btn');
+    this.drawerCustomBtn = document.getElementById('drawer-custom-btn');
+    this.drawerQuotesBtn = document.getElementById('drawer-quotes-btn');
+    this.drawerProfileBtn = document.getElementById('drawer-profile-btn');
+    this.drawerSettingsBtn = document.getElementById('drawer-settings-btn');
+  }
+
+  openNavDrawer() {
+    if (!this.navDrawer) return;
+    this.navDrawer.classList.add('drawer-open');
+    this.navDrawer.setAttribute('aria-hidden', 'false');
+    this.navDrawerToggleBtn?.setAttribute('aria-expanded', 'true');
+    const firstFocusable = this.navDrawer.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    firstFocusable?.focus();
+  }
+
+  closeNavDrawer() {
+    if (!this.navDrawer) return;
+    this.navDrawer.classList.remove('drawer-open');
+    this.navDrawer.setAttribute('aria-hidden', 'true');
+    this.navDrawerToggleBtn?.setAttribute('aria-expanded', 'false');
+    if (this.navDrawer.contains(document.activeElement)) {
+      this.navDrawerToggleBtn?.focus();
+    }
+  }
+
+  toggleNavDrawer() {
+    if (this.navDrawer?.classList.contains('drawer-open')) {
+      this.closeNavDrawer();
+    } else {
+      this.openNavDrawer();
+    }
+  }
+
+  captureOriginContext(options = {}) {
+    const currentScreen = this.activeScreen;
+    if (currentScreen !== 'lesson' && currentScreen !== 'results') {
+      this.practiceOriginContext = {
+        screen: currentScreen,
+        scroll: typeof window !== 'undefined' ? (window.scrollY || 0) : 0,
+        controlId: document.activeElement?.id || null,
+        viewState: { ...options }
+      };
+    } else if (!this.practiceOriginContext) {
+      this.practiceOriginContext = {
+        screen: 'dashboard',
+        scroll: 0,
+        controlId: null,
+        viewState: {}
+      };
+    }
+    return this.practiceOriginContext;
+  }
+
+  returnFromPractice() {
+    const context = this.practiceOriginContext || {
+      screen: this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard'
+    };
+    const targetScreen = context.screen || (this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard');
+    this.navigateTo(targetScreen);
+    if (typeof context.scroll === 'number' && context.scroll > 0) {
+      requestAnimationFrame(() => {
+        try { window.scrollTo({ top: context.scroll, behavior: 'instant' }); } catch (e) {}
+      });
+    }
+    if (context.controlId) {
+      requestAnimationFrame(() => {
+        try { document.getElementById(context.controlId)?.focus?.({ preventScroll: true }); } catch (e) {}
+      });
+    }
   }
 
   initEventListeners() {
@@ -224,6 +321,20 @@ export class UIManager {
     if (this.navQuotesBtn) this.navQuotesBtn.addEventListener('click', () => this.navigateTo('quotes'));
     if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
+
+    // Drawer triggers and items
+    if (this.navDrawerToggleBtn) this.navDrawerToggleBtn.addEventListener('click', () => this.toggleNavDrawer());
+    if (this.navDrawerCloseBtn) this.navDrawerCloseBtn.addEventListener('click', () => this.closeNavDrawer());
+    if (this.navDrawerBackdrop) this.navDrawerBackdrop.addEventListener('click', () => this.closeNavDrawer());
+    if (this.drawerDashboardBtn) this.drawerDashboardBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('dashboard'); });
+    if (this.drawerCodeBtn) this.drawerCodeBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('code'); });
+    if (this.drawerSpeedtestBtn) this.drawerSpeedtestBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('speedtest'); });
+    if (this.drawerArcadeBtn) this.drawerArcadeBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('arcade'); });
+    if (this.drawerCustomBtn) this.drawerCustomBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('custom'); });
+    if (this.drawerQuotesBtn) this.drawerQuotesBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('quotes'); });
+    if (this.drawerProfileBtn) this.drawerProfileBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('profile'); });
+    if (this.drawerSettingsBtn) this.drawerSettingsBtn.addEventListener('click', () => { this.closeNavDrawer(); this.navigateTo('settings'); });
+
     if (this.hudDistractionFreeBtn) {
       this.hudDistractionFreeBtn.addEventListener('click', event => {
         this.toggleDistractionFreeMode();
@@ -233,7 +344,7 @@ export class UIManager {
     }
     document.getElementById('lesson-back-btn')?.addEventListener('click', (event) => {
       event?.currentTarget?.blur?.();
-      this.navigateTo(this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard');
+      this.returnFromPractice();
     });
     document.getElementById('lesson-restart-btn')?.addEventListener('click', (event) => {
       if (this.activeScreen !== 'lesson') return;
@@ -672,7 +783,11 @@ export class UIManager {
       }
     });
 
-    [
+    const activeDestinationId = (screenName === 'lesson' || screenName === 'results')
+      ? (this.practiceOriginContext?.screen || (this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard'))
+      : screenName;
+
+    const navPairs = [
       [this.navDashboardBtn, 'dashboard'],
       [this.navCodeBtn, 'code'],
       [this.navSpeedtestBtn, 'speedtest'],
@@ -680,10 +795,20 @@ export class UIManager {
       [this.navCustomBtn, 'custom'],
       [this.navQuotesBtn, 'quotes'],
       [this.navProfileBtn, 'profile'],
-      [this.navSettingsBtn, 'settings']
-    ].forEach(([button, target]) => {
+      [this.navSettingsBtn, 'settings'],
+      [this.drawerDashboardBtn, 'dashboard'],
+      [this.drawerCodeBtn, 'code'],
+      [this.drawerSpeedtestBtn, 'speedtest'],
+      [this.drawerArcadeBtn, 'arcade'],
+      [this.drawerCustomBtn, 'custom'],
+      [this.drawerQuotesBtn, 'quotes'],
+      [this.drawerProfileBtn, 'profile'],
+      [this.drawerSettingsBtn, 'settings']
+    ];
+
+    navPairs.forEach(([button, target]) => {
       if (!button) return;
-      const isCurrent = screenName === target || (screenName === 'lesson' && this.currentLessonData?.isSpeedTest && target === 'speedtest');
+      const isCurrent = activeDestinationId === target;
       button.classList.toggle('nav-btn-active', isCurrent);
       if (isCurrent) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
@@ -739,6 +864,22 @@ export class UIManager {
     }
     if (streakCount) streakCount.textContent = `${state.dailyStreak}`;
     if (streakFlame) streakFlame.classList.toggle('flame-active', state.dailyStreak > 0);
+
+    // Mobile drawer stats sync
+    const drawerLevelBadge = document.getElementById('drawer-level-badge');
+    const drawerXpText = document.getElementById('drawer-xp-text');
+    const drawerXpFill = document.getElementById('drawer-xp-fill');
+    const drawerStreakCount = document.getElementById('drawer-streak-count');
+    const drawerStreakFlame = document.getElementById('drawer-streak-flame');
+
+    if (drawerLevelBadge) drawerLevelBadge.textContent = `Lvl ${lvlInfo.currentLvl}`;
+    if (drawerXpText) drawerXpText.textContent = `${state.xp.toLocaleString()} XP`;
+    if (drawerXpFill) {
+      drawerXpFill.style.width = `${lvlInfo.pct}%`;
+      drawerXpFill.parentElement?.setAttribute('aria-valuenow', String(lvlInfo.pct));
+    }
+    if (drawerStreakCount) drawerStreakCount.textContent = `${state.dailyStreak}`;
+    if (drawerStreakFlame) drawerStreakFlame.classList.toggle('flame-active', state.dailyStreak > 0);
   }
 
   // ==========================================
@@ -1754,97 +1895,51 @@ export class UIManager {
     const container = this.screens.custom;
     if (!container) return;
 
+    if (!this.activeArenaTab || (this.activeArenaTab !== 'custom' && this.activeArenaTab !== 'language')) {
+      this.activeArenaTab = 'custom';
+    }
+
+    const draftText = this.customDraftText || '';
+    const charCount = draftText.length;
+    const wordCount = draftText.trim() ? draftText.trim().split(/\s+/).length : 0;
+
     container.innerHTML = `
       <div class="custom-arena-layout">
         <div class="custom-arena-header">
-          <h2 class="custom-arena-title">Custom Practice & Code Studio</h2>
-          <p class="custom-arena-subtitle">Paste articles, practice developer syntax, or test your speed in timed sprints</p>
+          <h2 class="custom-arena-title">Custom Practice &amp; Language Lab</h2>
+          <p class="custom-arena-subtitle">Paste articles, speeches, prose, or train muscle memory across international languages</p>
         </div>
 
-        <div class="arena-tab-bar">
-          <button class="arena-tab-btn ${this.activeArenaTab === 'code' ? 'tab-active' : ''}" data-tab="code">
-            <span>⚡ Developer Code Presets</span>
+        <div class="screen-tabs-bar" role="tablist" aria-label="Custom practice mode">
+          <button type="button" role="tab" class="settings-nav-btn ${this.activeArenaTab === 'custom' ? 'active' : ''}" data-arena-tab="custom" aria-selected="${this.activeArenaTab === 'custom'}">
+            <span>📝 Custom Practice Text</span>
           </button>
-          <button class="arena-tab-btn ${this.activeArenaTab === 'paste' ? 'tab-active' : ''}" data-tab="paste">
-            <span>📝 Paste Custom Text</span>
-          </button>
-          <button class="arena-tab-btn ${this.activeArenaTab === 'sprint' ? 'tab-active' : ''}" data-tab="sprint">
-            <span>⏱️ Timed Speed Sprints</span>
-          </button>
-          <button class="arena-tab-btn ${this.activeArenaTab === 'language' ? 'tab-active' : ''}" data-tab="language">
-            <span>🌍 Multi-Language</span>
+          <button type="button" role="tab" class="settings-nav-btn ${this.activeArenaTab === 'language' ? 'active' : ''}" data-arena-tab="language" aria-selected="${this.activeArenaTab === 'language'}">
+            <span>🌍 Multi-Language Lab</span>
           </button>
         </div>
 
-        <!-- 1. Code Presets Tab -->
-        <div class="custom-sub-view ${this.activeArenaTab === 'code' ? 'sub-active' : ''}" id="arena-sub-code">
-          <div class="code-presets-grid">
-            ${CODE_PRESETS.map(preset => `
-              <div class="code-preset-card" data-preset-id="${preset.id}">
-                <div class="preset-header">
-                  <div class="preset-title-group">
-                    <span>${preset.icon}</span>
-                    <h3 class="preset-title">${preset.title}</h3>
-                  </div>
-                  <span class="badge badge-accent">${preset.language}</span>
-                </div>
-                <div class="preset-code-snippet">${preset.code}</div>
-                <button class="btn btn-secondary btn-sm">Practice Code →</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- 2. Paste Custom Text Tab -->
-        <div class="custom-sub-view ${this.activeArenaTab === 'paste' ? 'sub-active' : ''}" id="arena-sub-paste">
+        <!-- 1. Paste / Type Custom Text -->
+        <div class="custom-sub-view ${this.activeArenaTab === 'custom' ? 'sub-active' : ''}" id="arena-sub-custom" ${this.activeArenaTab !== 'custom' ? 'hidden' : ''}>
           <div class="custom-editor-card">
-            <textarea id="custom-paste-input" class="custom-textarea" placeholder="Paste your article, book excerpt, poetry, or code snippet here..."></textarea>
+            <label for="custom-paste-input" class="setting-label" style="margin-bottom: 8px; display: block;">Paste or Type Practice Material</label>
+            <textarea id="custom-paste-input" class="custom-textarea" placeholder="Paste your article, book excerpt, poetry, or custom text here..." aria-label="Custom practice text">${escapeHtml(draftText)}</textarea>
             <div class="editor-footer">
-              <span id="custom-paste-count" class="editor-counter">0 characters</span>
+              <span id="custom-paste-count" class="editor-counter">${charCount} characters · ${wordCount} words</span>
               <button id="start-custom-paste-btn" class="btn btn-primary">Start Custom Lesson →</button>
             </div>
           </div>
         </div>
 
-        <!-- 3. Timed Sprints Tab -->
-        <div class="custom-sub-view ${this.activeArenaTab === 'sprint' ? 'sub-active' : ''}" id="arena-sub-sprint">
-          <div class="sprints-grid">
-            <div class="sprint-card" data-sprint="15">
-              <span class="sprint-time">15s</span>
-              <h3 class="sprint-title">Lightning Burst</h3>
-              <p class="sprint-desc">Short explosive speed sprint</p>
-              <button class="btn btn-secondary btn-sm">Start Sprint</button>
-            </div>
-            <div class="sprint-card" data-sprint="30">
-              <span class="sprint-time">30s</span>
-              <h3 class="sprint-title">Power Sprint</h3>
-              <p class="sprint-desc">Standard velocity calibration</p>
-              <button class="btn btn-secondary btn-sm">Start Sprint</button>
-            </div>
-            <div class="sprint-card" data-sprint="60">
-              <span class="sprint-time">60s</span>
-              <h3 class="sprint-title">1-Minute Standard</h3>
-              <p class="sprint-desc">Official benchmark test</p>
-              <button class="btn btn-secondary btn-sm">Start Sprint</button>
-            </div>
-            <div class="sprint-card" data-sprint="120">
-              <span class="sprint-time">120s</span>
-              <h3 class="sprint-title">Endurance Trial</h3>
-              <p class="sprint-desc">Long stamina endurance run</p>
-              <button class="btn btn-secondary btn-sm">Start Sprint</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4. Multi-Language Tab -->
-        <div class="custom-sub-view ${this.activeArenaTab === 'language' ? 'sub-active' : ''}" id="arena-sub-language">
-          <div style="background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 24px;">
+        <!-- 2. Multi-Language Tab -->
+        <div class="custom-sub-view ${this.activeArenaTab === 'language' ? 'sub-active' : ''}" id="arena-sub-language" ${this.activeArenaTab !== 'language' ? 'hidden' : ''}>
+          <div style="background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-card); padding: 24px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
               <div>
                 <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Multi-Language Vocabulary Conditioning</h3>
                 <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Train muscle memory with 200 common words and 20 sentences in 6 major languages.</p>
               </div>
-              <span class="badge badge-teal">👑 Premium Included</span>
+              <span class="badge badge-teal">👑 Included</span>
             </div>
 
             <div class="lang-selector-grid">
@@ -1878,52 +1973,38 @@ export class UIManager {
     `;
 
     // Tab buttons
-    container.querySelectorAll('.arena-tab-btn').forEach(btn => {
+    container.querySelectorAll('[data-arena-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.activeArenaTab = btn.dataset.tab;
+        this.activeArenaTab = btn.dataset.arenaTab;
         this.renderCustomArena();
       });
     });
 
-    // Code preset clicks
-    container.querySelectorAll('.code-preset-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = card.dataset.presetId;
-        const preset = CODE_PRESETS.find(p => p.id === id);
-        if (preset) {
-          const lesson = CustomPracticeManager.createLessonFromText(preset.title, preset.code, { isCode: true });
-          this.startLesson(lesson);
-        }
-      });
-    });
-
-    // Textarea input
+    // Textarea input and draft preservation
     const pasteInput = document.getElementById('custom-paste-input');
     const pasteCount = document.getElementById('custom-paste-count');
     if (pasteInput && pasteCount) {
       pasteInput.addEventListener('input', () => {
-        pasteCount.textContent = `${pasteInput.value.length} characters`;
+        this.customDraftText = pasteInput.value;
+        const cCount = pasteInput.value.length;
+        const wCount = pasteInput.value.trim() ? pasteInput.value.trim().split(/\s+/).length : 0;
+        pasteCount.textContent = `${cCount} characters · ${wCount} words`;
       });
     }
 
     document.getElementById('start-custom-paste-btn')?.addEventListener('click', () => {
       const val = pasteInput ? pasteInput.value.trim() : '';
       if (!val) {
-        this.showToast('Please paste some text first!', 'amber');
+        this.showToast('Please paste or type some text first!', 'amber');
+        pasteInput?.focus();
         return;
       }
+      this.captureOriginContext({ tab: 'custom' });
       const lesson = CustomPracticeManager.createLessonFromText('Custom Practice Passage', val);
-      if (lesson) lesson.isCustom = true;
-      this.startLesson(lesson);
-    });
-
-    // Sprint clicks
-    container.querySelectorAll('.sprint-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const seconds = parseInt(card.dataset.sprint, 10) || 60;
-        const sprintLesson = CustomPracticeManager.createSprintLesson(seconds);
-        this.startLesson(sprintLesson);
-      });
+      if (lesson) {
+        lesson.isCustom = true;
+        this.startLesson(lesson);
+      }
     });
 
     // Language option clicks
@@ -1942,12 +2023,14 @@ export class UIManager {
       const state = store.getState();
       const lang = state.settings.practiceLanguage || 'en';
       const langLesson = generateLanguagePractice(lang);
+      this.captureOriginContext({ tab: 'language', language: lang });
       this.startLesson(langLesson);
     });
   }
 
   startQuotePractice(quote, options = {}) {
     if (!quote) return;
+    this.captureOriginContext({ quoteId: quote.id, category: this.activeQuoteCategory, difficulty: this.activeQuoteDifficulty });
     const lesson = CustomPracticeManager.createLessonFromText(`Quote: ${quote.author}`, quote.text);
     if (!lesson) return;
     lesson.id = `quote-${quote.id}`;
@@ -2758,7 +2841,7 @@ export class UIManager {
 
     const state = store.getState();
     const currentLang = this.activeCodeLanguage || 'all';
-    const snippets = getFilteredSnippets(currentLang);
+    const snippets = getFilteredSnippets(currentLang, this.activeCodeSearch);
     const practiced = state.codeSnippetsPracticed || [];
 
     container.innerHTML = `
@@ -2776,6 +2859,16 @@ export class UIManager {
           </div>
         </div>
 
+        <div class="code-search-bar">
+          <div class="code-search-input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="code-search-input" class="field-input" placeholder="Search syntax, functions, frameworks (e.g. Hooks, ES6, SQL)..." value="${escapeHtml(this.activeCodeSearch || '')}" aria-label="Search code snippets">
+          </div>
+          ${this.activeCodeSearch ? `
+            <button type="button" id="code-search-clear-btn" class="btn btn-quiet btn-sm">Clear Search</button>
+          ` : ''}
+        </div>
+
         <div class="code-lang-tabs">
           ${CODE_LANGUAGES.map(l => `
             <button class="code-lang-pill ${currentLang === l.id ? 'active' : ''}" data-code-lang="${l.id}">
@@ -2785,33 +2878,64 @@ export class UIManager {
           `).join('')}
         </div>
 
-        <div class="code-grid">
-          ${snippets.map(s => {
-            const isPracticed = practiced.includes(s.id);
-            const diffClass = s.difficulty === 'easy' ? 'badge-teal' : s.difficulty === 'medium' ? 'badge-amber' : 'badge-coral';
-            return `
-              <div class="code-card" data-snippet-id="${s.id}">
-                <div>
-                  <div class="code-card-header">
-                    <span class="badge ${diffClass}" style="text-transform: uppercase;">${s.difficulty}</span>
-                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">${s.language}</span>
+        ${snippets.length === 0 ? `
+          <div class="empty-state">
+            <span class="empty-state-icon" aria-hidden="true">🔍</span>
+            <h3 class="empty-state-title">No matching code snippets</h3>
+            <p class="empty-state-desc">No snippets found matching "${escapeHtml(this.activeCodeSearch)}". Try another search or reset.</p>
+            <div class="empty-state-actions">
+              <button type="button" id="code-empty-reset-btn" class="btn btn-secondary">Reset Filters</button>
+            </div>
+          </div>
+        ` : `
+          <div class="code-grid">
+            ${snippets.map(s => {
+              const isPracticed = practiced.includes(s.id);
+              const diffClass = s.difficulty === 'easy' ? 'badge-teal' : s.difficulty === 'medium' ? 'badge-amber' : 'badge-coral';
+              const chunks = chunkCodePreset(s.code);
+              return `
+                <div class="code-card" data-snippet-id="${s.id}">
+                  <div>
+                    <div class="code-card-header">
+                      <span class="badge ${diffClass}" style="text-transform: uppercase;">${s.difficulty}</span>
+                      <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">${s.language}</span>
+                    </div>
+                    <h3 class="code-card-title">${escapeHtml(s.title)}</h3>
+                    <p class="code-card-desc">${escapeHtml(s.description)}</p>
                   </div>
-                  <h3 class="code-card-title">${escapeHtml(s.title)}</h3>
-                  <p class="code-card-desc">${escapeHtml(s.description)}</p>
+                  <div class="code-preview-box">${escapeHtml(s.code)}</div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <span style="font-size: 11.5px; color: var(--text-muted);">${s.code.length} chars · ${chunks.length} sections</span>
+                    <button class="btn btn-secondary btn-sm start-snippet-btn" data-snippet-id="${s.id}">
+                      ${isPracticed ? '✓ Practice Again' : 'Type Snippet →'}
+                    </button>
+                  </div>
                 </div>
-                <div class="code-preview-box">${escapeHtml(s.code)}</div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                  <span style="font-size: 11.5px; color: var(--text-muted);">${s.code.length} chars</span>
-                  <button class="btn btn-secondary btn-sm start-snippet-btn" data-snippet-id="${s.id}">
-                    ${isPracticed ? '✓ Practice Again' : 'Type Snippet →'}
-                  </button>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
+              `;
+            }).join('')}
+          </div>
+        `}
       </div>
     `;
+
+    // Search input handlers
+    const searchInput = container.querySelector('#code-search-input');
+    searchInput?.addEventListener('input', (e) => {
+      this.activeCodeSearch = e.target.value;
+      this.renderCodeArena();
+      container.querySelector('#code-search-input')?.focus();
+    });
+
+    container.querySelector('#code-search-clear-btn')?.addEventListener('click', () => {
+      this.activeCodeSearch = '';
+      this.renderCodeArena();
+    });
+
+    container.querySelector('#code-empty-reset-btn')?.addEventListener('click', () => {
+      this.activeCodeSearch = '';
+      this.activeCodeLanguage = 'all';
+      this.renderCodeArena();
+    });
 
     // Filter clicks
     container.querySelectorAll('[data-code-lang]').forEach(btn => {
@@ -2846,6 +2970,7 @@ export class UIManager {
 
   startCodePractice(snippet) {
     if (!snippet) return;
+    this.captureOriginContext({ snippetId: snippet.id, language: this.activeCodeLanguage, search: this.activeCodeSearch });
     const lesson = {
       id: snippet.id,
       title: `💻 ${snippet.title}`,
@@ -2869,6 +2994,13 @@ export class UIManager {
     }
   }
 
+  startCodeSnippetById(snippetId) {
+    const snippet = CODE_SNIPPETS.find(s => s.id === snippetId);
+    if (snippet) {
+      this.startCodePractice(snippet);
+    }
+  }
+
   // ==========================================
   // BENCHMARK SPEED TEST SCREEN
   // ==========================================
@@ -2879,6 +3011,7 @@ export class UIManager {
     const state = store.getState();
     const settings = state.settings || {};
     const bests = state.speedTestBests || {};
+    const sprintBests = state.passageSprintBests || {};
     const activeVocabId = this.activeSpeedVocabId || settings.speedTestVocab || '200';
     this.activeSpeedVocabId = activeVocabId;
     const selectedVocab = VOCABULARY_PRESETS.find(v => v.id === activeVocabId) || VOCABULARY_PRESETS[0];
@@ -2903,125 +3036,218 @@ export class UIManager {
     };
     const preview = previewSnippets[activeVocabId] || previewSnippets['200'];
 
+    const isSprintMode = this.speedTestMode === 'sprint';
+
     container.innerHTML = `
       <div class="speedtest-container">
         <header class="speedtest-header">
           <div>
             <p class="speedtest-eyebrow">Speed test</p>
-            <h2 class="speedtest-title">Find your flow.</h2>
-            <p class="section-subtitle">A little focus. A steady rhythm. See what your fingers can do.</p>
+            <h2 class="speedtest-title">${isSprintMode ? 'Passage Sprints.' : 'Find your flow.'}</h2>
+            <p class="section-subtitle">${isSprintMode ? 'High-density authentic paragraph sprints calibrated for rhythm and sustained endurance.' : 'A little focus. A steady rhythm. See what your fingers can do.'}</p>
           </div>
-          <div class="speedtest-completion" aria-label="${completedCount} of ${SPEED_TEST_PRESETS.length} personal records in ${selectedVocab.label}">
-            <strong>${completedCount}<span> / ${SPEED_TEST_PRESETS.length}</span></strong>
-            <span>${selectedVocab.shortLabel.toUpperCase()} records logged</span>
+          <div class="speedtest-completion" aria-label="${isSprintMode ? 'Passage sprint challenges' : `${completedCount} of ${SPEED_TEST_PRESETS.length} personal records in ${selectedVocab.label}`}">
+            <strong>${isSprintMode ? Object.keys(sprintBests).length : completedCount}<span> / ${isSprintMode ? PASSAGE_SPRINT_PRESETS.length : SPEED_TEST_PRESETS.length}</span></strong>
+            <span>${isSprintMode ? 'sprint records logged' : `${selectedVocab.shortLabel.toUpperCase()} records logged`}</span>
           </div>
         </header>
 
-        <div class="speedtest-workspace">
-          <section class="speedtest-launch-card" aria-labelledby="speedtest-selected-title">
-            <div class="speedtest-presets-bar" role="group" aria-label="Choose a benchmark test">
-              ${['time', 'words'].map(type => `
-                <div class="speedtest-preset-group" role="group" aria-label="${type === 'time' ? 'Timed tests' : 'Word tests'}">
-                  <span class="speedtest-group-label">${type === 'time' ? 'Time' : 'Words'}</span>
-                  ${SPEED_TEST_PRESETS.filter(p => p.type === type).map(p => `
-                    <button type="button" class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-label="${p.label}" aria-pressed="${activePresetId === p.id}">${p.value}${type === 'time' ? 's' : ''}</button>
-                  `).join('')}
-                </div>
-              `).join('')}
-              <div class="speedtest-preset-group speedtest-vocab-group" role="group" aria-label="Vocabulary dictionary">
-                <span class="speedtest-group-label">Vocab</span>
-                ${VOCABULARY_PRESETS.map(v => `
-                  <button type="button" class="speedtest-pill speedtest-vocab-pill ${activeVocabId === v.id ? 'active' : ''}" data-vocab-preset="${v.id}" aria-label="${v.label}" title="${v.label} · ${v.desc}" aria-pressed="${activeVocabId === v.id}">${v.shortLabel}</button>
-                `).join('')}
-              </div>
-            </div>
-
-            <div class="speedtest-launch-main">
-              <div class="speedtest-duration" aria-hidden="true">${selectedPreset.value}<span>${timed ? 'sec' : 'words'}</span></div>
-              <div>
-                <h3 id="speedtest-selected-title">${selectedPreset.label}${activeVocabId !== '200' ? ` · ${selectedVocab.shortLabel.toUpperCase()}` : ''}</h3>
-                <p>${selectedVocab.desc}.</p>
-                <span class="speedtest-language">English <span aria-hidden="true">/</span> ${selectedVocab.label} <span class="speedtest-vocab-badge">${selectedVocab.badge}</span></span>
-              </div>
-            </div>
-
-            <div class="speedtest-preview" aria-label="Typing theme preview">
-              <span class="speedtest-preview-done">${preview.done}</span><span class="speedtest-preview-current">${preview.current}</span><span>${preview.rest}</span>
-            </div>
-
-            <div class="speedtest-launch-bottom">
-              <div>
-                <button id="speedtest-launch-btn" class="btn btn-primary speedtest-start-btn" type="button">Start test <span aria-hidden="true">→</span></button>
-                <p>${timed ? 'The timer starts on your first keystroke.' : `Take your time. Finish all ${selectedPreset.value} words.`}</p>
-              </div>
-              <div class="speedtest-launch-record">
-                <span class="speedtest-record-label">${selectedRecord ? `Best (${selectedVocab.shortLabel.toUpperCase()})` : `Next ${selectedVocab.shortLabel.toUpperCase()} milestone`}</span>
-                ${selectedRecord ? `<strong>${safeNumber(selectedRecord.wpm)} <small>WPM</small></strong>` : '<strong class="speedtest-baseline">Set your first record</strong>'}
-              </div>
-            </div>
-          </section>
-
-          <aside class="speedtest-preferences" aria-labelledby="speedtest-preferences-title">
-            <div>
-              <p class="speedtest-eyebrow">Your typing space</p>
-              <h3 id="speedtest-preferences-title">Make it yours.</h3>
-              <p>A comfortable space for your next personal best.</p>
-            </div>
-            <fieldset class="speedtest-theme-picker">
-              <legend>Theme</legend>
-              <div class="speedtest-theme-options">
-                ${TYPING_THEMES.map(theme => `
-                  <button type="button" class="speedtest-theme-option" data-typing-theme="${theme.id}" aria-label="${theme.name} theme" aria-pressed="${!settings.customThemeId && settings.theme === theme.id}">
-                    <span style="--swatch-color: ${theme.color}" aria-hidden="true"></span>${theme.name}
-                  </button>
-                `).join('')}
-              </div>
-              ${settings.customThemeId ? '<p class="speedtest-custom-theme-note">Your custom theme is active.</p>' : ''}
-            </fieldset>
-            <div class="speedtest-focus-setting">
-              <div><label for="speedtest-focus-toggle">Distraction-free</label><p>Fade the stats. Keep your place.</p></div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="speedtest-focus-toggle" ${settings.distractionFreeMode ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <p class="speedtest-preference-note">Your theme carries into the test. You can change it any time.</p>
-          </aside>
+        <div class="screen-tabs-bar speedtest-mode-bar" role="tablist" aria-label="Speed test mode">
+          <button type="button" role="tab" class="settings-nav-btn ${!isSprintMode ? 'active' : ''}" id="tab-speed-benchmark" data-speed-mode="benchmark" aria-selected="${!isSprintMode}">
+            <span>⚡ Vocabulary Benchmark</span>
+          </button>
+          <button type="button" role="tab" class="settings-nav-btn ${isSprintMode ? 'active' : ''}" id="tab-speed-sprint" data-speed-mode="sprint" aria-selected="${isSprintMode}">
+            <span>📖 Passage Sprint</span>
+          </button>
         </div>
 
-        <section class="speedtest-records" aria-labelledby="speedtest-records-title">
-          <div class="speedtest-section-heading">
-            <div>
-              <h3 id="speedtest-records-title">Personal records (${selectedVocab.label})</h3>
-              <p>Same ${selectedVocab.shortLabel.toUpperCase()} word pool. Your own pace to beat.</p>
+        ${!isSprintMode ? `
+          <div class="speedtest-workspace">
+            <section class="speedtest-launch-card" aria-labelledby="speedtest-selected-title">
+              <div class="speedtest-presets-bar" role="group" aria-label="Choose a benchmark test">
+                ${['time', 'words'].map(type => `
+                  <div class="speedtest-preset-group" role="group" aria-label="${type === 'time' ? 'Timed tests' : 'Word tests'}">
+                    <span class="speedtest-group-label">${type === 'time' ? 'Time' : 'Words'}</span>
+                    ${SPEED_TEST_PRESETS.filter(p => p.type === type).map(p => `
+                      <button type="button" class="speedtest-pill ${activePresetId === p.id ? 'active' : ''}" data-speed-preset="${p.id}" aria-label="${p.label}" aria-pressed="${activePresetId === p.id}">${p.value}${type === 'time' ? 's' : ''}</button>
+                    `).join('')}
+                  </div>
+                `).join('')}
+                <div class="speedtest-preset-group speedtest-vocab-group" role="group" aria-label="Vocabulary dictionary">
+                  <span class="speedtest-group-label">Vocab</span>
+                  ${VOCABULARY_PRESETS.map(v => `
+                    <button type="button" class="speedtest-pill speedtest-vocab-pill ${activeVocabId === v.id ? 'active' : ''}" data-vocab-preset="${v.id}" aria-label="${v.label}" title="${v.label} · ${v.desc}" aria-pressed="${activeVocabId === v.id}">${v.shortLabel}</button>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="speedtest-launch-main">
+                <div class="speedtest-duration" aria-hidden="true">${selectedPreset.value}<span>${timed ? 'sec' : 'words'}</span></div>
+                <div>
+                  <h3 id="speedtest-selected-title">${selectedPreset.label}${activeVocabId !== '200' ? ` · ${selectedVocab.shortLabel.toUpperCase()}` : ''}</h3>
+                  <p>${selectedVocab.desc}.</p>
+                  <span class="speedtest-language">English <span aria-hidden="true">/</span> ${selectedVocab.label} <span class="speedtest-vocab-badge">${selectedVocab.badge}</span></span>
+                </div>
+              </div>
+
+              <div class="speedtest-preview" aria-label="Typing theme preview">
+                <span class="speedtest-preview-done">${preview.done}</span><span class="speedtest-preview-current">${preview.current}</span><span>${preview.rest}</span>
+              </div>
+
+              <div class="speedtest-launch-bottom">
+                <div>
+                  <button id="speedtest-launch-btn" class="btn btn-primary speedtest-start-btn" type="button">Start test <span aria-hidden="true">→</span></button>
+                  <p>${timed ? 'The timer starts on your first keystroke.' : `Take your time. Finish all ${selectedPreset.value} words.`}</p>
+                </div>
+                <div class="speedtest-launch-record">
+                  <span class="speedtest-record-label">${selectedRecord ? `Best (${selectedVocab.shortLabel.toUpperCase()})` : `Next ${selectedVocab.shortLabel.toUpperCase()} milestone`}</span>
+                  ${selectedRecord ? `<strong>${safeNumber(selectedRecord.wpm)} <small>WPM</small></strong>` : '<strong class="speedtest-baseline">Set your first record</strong>'}
+                </div>
+              </div>
+            </section>
+
+            <aside class="speedtest-preferences" aria-labelledby="speedtest-preferences-title">
+              <div>
+                <p class="speedtest-eyebrow">Your typing space</p>
+                <h3 id="speedtest-preferences-title">Make it yours.</h3>
+                <p>A comfortable space for your next personal best.</p>
+              </div>
+              <fieldset class="speedtest-theme-picker">
+                <legend>Theme</legend>
+                <div class="speedtest-theme-options">
+                  ${TYPING_THEMES.map(theme => `
+                    <button type="button" class="speedtest-theme-option" data-typing-theme="${theme.id}" aria-label="${theme.name} theme" aria-pressed="${!settings.customThemeId && settings.theme === theme.id}">
+                      <span style="--swatch-color: ${theme.color}" aria-hidden="true"></span>${theme.name}
+                    </button>
+                  `).join('')}
+                </div>
+                ${settings.customThemeId ? '<p class="speedtest-custom-theme-note">Your custom theme is active.</p>' : ''}
+              </fieldset>
+              <div class="speedtest-focus-setting">
+                <div><label for="speedtest-focus-toggle">Distraction-free</label><p>Fade the stats. Keep your place.</p></div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="speedtest-focus-toggle" ${settings.distractionFreeMode ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <p class="speedtest-preference-note">Your theme carries into the test. You can change it any time.</p>
+            </aside>
+          </div>
+
+          <section class="speedtest-records" aria-labelledby="speedtest-records-title">
+            <div class="speedtest-section-heading">
+              <div>
+                <h3 id="speedtest-records-title">Personal records (${selectedVocab.label})</h3>
+                <p>Same ${selectedVocab.shortLabel.toUpperCase()} word pool. Your own pace to beat.</p>
+              </div>
+              <span>${completedCount ? `${completedCount} benchmark${completedCount === 1 ? '' : 's'} recorded` : 'Complete a test to set a record'}</span>
             </div>
-            <span>${completedCount ? `${completedCount} benchmark${completedCount === 1 ? '' : 's'} recorded` : 'Complete a test to set a record'}</span>
+            <div class="speedtest-records-scroll" role="region" aria-label="Personal records table" tabindex="0">
+              <table class="speedtest-records-table">
+                <thead><tr><th scope="col">Test</th><th scope="col">Speed</th><th scope="col">Accuracy</th><th scope="col">Consistency</th><th scope="col">Best set</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
+                <tbody>
+              ${SPEED_TEST_PRESETS.map(p => {
+                const record = store.getSpeedTestBest ? store.getSpeedTestBest(p.id, activeVocabId) : bests[p.id];
+                return `
+                  <tr class="${activePresetId === p.id ? 'is-selected' : ''}">
+                    <th scope="row"><span class="speedtest-record-kind" aria-hidden="true">${p.type === 'time' ? '◷' : '≡'}</span>${p.label}</th>
+                    <td class="speedtest-record-speed">${record ? `${safeNumber(record.wpm)} <span>WPM</span>` : '<span aria-label="No record">—</span>'}</td>
+                    <td>${record ? `${safeNumber(record.accuracy)}%` : '—'}</td>
+                    <td>${record ? `${safeNumber(record.consistency ?? 100)}%` : '—'}</td>
+                    <td class="speedtest-record-date">${record ? escapeHtml(formatRecordDate(record.date)) : 'Not yet attempted'}</td>
+                    <td><button class="speedtest-record-start" type="button" data-start-preset="${p.id}" aria-label="${record ? 'Retry' : 'Start'} ${p.label}">${record ? 'Retry' : 'Try it'} <span aria-hidden="true">↗</span></button></td>
+                  </tr>
+                `;
+              }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ` : `
+          <div class="passage-sprints-workspace">
+            <div class="passage-sprints-grid">
+              ${PASSAGE_SPRINT_PRESETS.map(preset => {
+                const record = store.getPassageSprintBest ? store.getPassageSprintBest(preset.seconds) : sprintBests[preset.seconds];
+                return `
+                  <div class="passage-sprint-card" data-sprint-seconds="${preset.seconds}">
+                    <div>
+                      <div class="passage-sprint-top">
+                        <span class="passage-sprint-duration">${preset.seconds}s</span>
+                        <span class="badge badge-accent">${preset.badge}</span>
+                      </div>
+                      <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 8px 0 4px;">${escapeHtml(preset.title)}</h3>
+                      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">${escapeHtml(preset.desc)}</p>
+                      <p class="passage-sprint-excerpt">"${escapeHtml(preset.excerpt)}"</p>
+                    </div>
+                    <div>
+                      ${record ? `
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between;">
+                          <span>🏆 Best: <strong>${record.wpm} WPM</strong></span>
+                          <span>${record.accuracy}% acc</span>
+                        </div>
+                      ` : ''}
+                      <button type="button" class="btn btn-primary" style="width: 100%;" data-start-sprint="${preset.seconds}">
+                        ${record ? 'Retry Sprint →' : 'Start Sprint →'}
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <section class="speedtest-records" aria-labelledby="sprint-records-title">
+              <div class="speedtest-section-heading">
+                <div>
+                  <h3 id="sprint-records-title">Passage Sprint Personal Bests</h3>
+                  <p>Authentic text endurance records.</p>
+                </div>
+                <span>${Object.keys(sprintBests).length} recorded</span>
+              </div>
+              <div class="speedtest-records-scroll" role="region" aria-label="Passage sprint records table" tabindex="0">
+                <table class="speedtest-records-table">
+                  <thead><tr><th scope="col">Sprint</th><th scope="col">Speed</th><th scope="col">Accuracy</th><th scope="col">Consistency</th><th scope="col">Best set</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
+                  <tbody>
+                    ${PASSAGE_SPRINT_PRESETS.map(preset => {
+                      const record = store.getPassageSprintBest ? store.getPassageSprintBest(preset.seconds) : sprintBests[preset.seconds];
+                      return `
+                        <tr>
+                          <th scope="row"><span class="speedtest-record-kind" aria-hidden="true">📖</span>${preset.seconds}s · ${preset.title}</th>
+                          <td class="speedtest-record-speed">${record ? `${safeNumber(record.wpm)} <span>WPM</span>` : '<span aria-label="No record">—</span>'}</td>
+                          <td>${record ? `${safeNumber(record.accuracy)}%` : '—'}</td>
+                          <td>${record ? `${safeNumber(record.consistency ?? 100)}%` : '—'}</td>
+                          <td class="speedtest-record-date">${record ? escapeHtml(formatRecordDate(record.date)) : 'Not yet attempted'}</td>
+                          <td><button class="speedtest-record-start" type="button" data-start-sprint="${preset.seconds}" aria-label="${record ? 'Retry' : 'Start'} ${preset.title}">${record ? 'Retry' : 'Try it'} <span aria-hidden="true">↗</span></button></td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
-          <div class="speedtest-records-scroll" role="region" aria-label="Personal records table" tabindex="0">
-            <table class="speedtest-records-table">
-              <thead><tr><th scope="col">Test</th><th scope="col">Speed</th><th scope="col">Accuracy</th><th scope="col">Consistency</th><th scope="col">Best set</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
-              <tbody>
-            ${SPEED_TEST_PRESETS.map(p => {
-              const record = store.getSpeedTestBest ? store.getSpeedTestBest(p.id, activeVocabId) : bests[p.id];
-              return `
-                <tr class="${activePresetId === p.id ? 'is-selected' : ''}">
-                  <th scope="row"><span class="speedtest-record-kind" aria-hidden="true">${p.type === 'time' ? '◷' : '≡'}</span>${p.label}</th>
-                  <td class="speedtest-record-speed">${record ? `${safeNumber(record.wpm)} <span>WPM</span>` : '<span aria-label="No record">—</span>'}</td>
-                  <td>${record ? `${safeNumber(record.accuracy)}%` : '—'}</td>
-                  <td>${record ? `${safeNumber(record.consistency ?? 100)}%` : '—'}</td>
-                  <td class="speedtest-record-date">${record ? escapeHtml(formatRecordDate(record.date)) : 'Not yet attempted'}</td>
-                  <td><button class="speedtest-record-start" type="button" data-start-preset="${p.id}" aria-label="${record ? 'Retry' : 'Start'} ${p.label}">${record ? 'Retry' : 'Try it'} <span aria-hidden="true">↗</span></button></td>
-                </tr>
-              `;
-            }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        `}
+
         <div class="speedtest-footnotes"><span><strong>WPM</strong> measures speed</span><span><strong>Accuracy</strong> rewards precision</span><span><strong>Consistency</strong> tracks your rhythm</span></div>
       </div>
     `;
 
+    // Mode tabs
+    container.querySelectorAll('[data-speed-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.speedTestMode = btn.dataset.speedMode;
+        this.renderSpeedTest();
+      });
+    });
+
+    // Passage sprint triggers
+    container.querySelectorAll('[data-start-sprint]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sec = parseInt(btn.dataset.startSprint, 10) || 60;
+        this.startPassageSprint(sec);
+      });
+    });
+
+    // Benchmark triggers
     container.querySelectorAll('[data-speed-preset]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.activeSpeedPresetId = btn.dataset.speedPreset;
@@ -3064,10 +3290,17 @@ export class UIManager {
     });
   }
 
+  startPassageSprint(seconds = 60) {
+    this.captureOriginContext({ mode: 'sprint', seconds });
+    const lesson = generatePassageSprintLesson(seconds);
+    this.startLesson(lesson);
+  }
+
   startSpeedTest(presetId = '60s', vocabMode = null) {
     const state = store.getState();
     const vocab = vocabMode || this.activeSpeedVocabId || state.settings?.speedTestVocab || '200';
     this.activeSpeedVocabId = vocab;
+    this.captureOriginContext({ mode: 'benchmark', presetId, vocab });
     const lesson = generateSpeedTestLesson(presetId, vocab);
     this.activeSpeedPresetId = lesson.speedTestPreset;
     this.startLesson(lesson);
@@ -3211,12 +3444,19 @@ export class UIManager {
   // ==========================================
   // LESSON SCREEN & RACING HUD
   // ==========================================
-  startLesson(lessonData) {
+  startLesson(lessonData, originContext = null) {
     document.activeElement?.blur?.();
+    if (originContext) {
+      this.practiceOriginContext = { ...originContext };
+    } else if (this.activeScreen !== 'lesson' && this.activeScreen !== 'results') {
+      this.captureOriginContext();
+    }
     this.currentLessonData = lessonData;
     this.screens.lesson?.classList.toggle('speedtest-session', !!lessonData.isSpeedTest);
+    const originScreen = this.practiceOriginContext?.screen || (lessonData.isSpeedTest ? 'speedtest' : 'dashboard');
+    const dest = DESTINATIONS.find(d => d.id === originScreen);
     const backLabel = document.getElementById('lesson-back-label');
-    if (backLabel) backLabel.textContent = lessonData.isSpeedTest ? 'Speed tests' : 'Lessons';
+    if (backLabel) backLabel.textContent = dest ? dest.label : (lessonData.isSpeedTest ? 'Speed tests' : 'Lessons');
     goalsManager.setPracticeActive(true);
     this.typingViewportState = {
       text: null,
@@ -3809,6 +4049,21 @@ export class UIManager {
         summary.speedTestPB = pbResult.best;
       }
 
+      if (this.currentLessonData?.isPassageSprint) {
+        const sprintSec = this.currentLessonData.sprintDurationSec || 60;
+        const pbResult = store.recordPassageSprintResult({
+          sprintSec,
+          wpm: summary.wpm,
+          accuracy: summary.accuracy,
+          consistency: summary.consistency || 100,
+          durationSec: summary.durationSec
+        });
+        summary.isPassageSprint = true;
+        summary.sprintDurationSec = sprintSec;
+        summary.isNewPB = pbResult.isNewPB;
+        summary.passageSprintPB = pbResult.best;
+      }
+
       if (this.currentLessonData?.isAdaptiveDrill) {
         summary.isAdaptiveDrill = true;
         summary.targetKeys = this.currentLessonData.targetKeys;
@@ -3821,6 +4076,7 @@ export class UIManager {
       let sessionKind = 'lesson';
       if (summary.isPlacementTest) sessionKind = 'placement';
       else if (summary.isSpeedTest) sessionKind = 'speedtest';
+      else if (summary.isPassageSprint) sessionKind = 'sprint';
       else if (summary.isCodeLesson) sessionKind = 'code';
       else if (summary.isQuote) sessionKind = 'quote';
       else if (this.currentLessonData?.isZen) sessionKind = 'zen';
@@ -3944,7 +4200,7 @@ export class UIManager {
           <div class="modal-actions">
             <button id="resume-lesson-btn" class="btn btn-primary">Resume (Esc)</button>
             <button id="restart-lesson-btn" class="btn btn-secondary">Restart Round (R)</button>
-            <button id="exit-lesson-btn" class="btn btn-outline">Exit to Dashboard</button>
+            <button id="exit-lesson-btn" class="btn btn-outline">Exit Practice</button>
           </div>
         </div>
       `;
@@ -3964,7 +4220,7 @@ export class UIManager {
       document.getElementById('exit-lesson-btn')?.addEventListener('click', (event) => {
         event?.currentTarget?.blur?.();
         this.hidePauseModal();
-        this.navigateTo('dashboard');
+        this.returnFromPractice();
       });
     } else {
       modal.classList.add('modal-active');
@@ -4115,13 +4371,9 @@ export class UIManager {
             ? 'Replay Quote (R)'
             : 'Retry Lesson (R)';
 
-      const backActionLabel = isCodeLesson
-        ? 'Back to Code Arena'
-        : isSpeedTest
-          ? 'Back to Speed Tests'
-          : isQuoteLesson
-            ? 'Back to Quote Vault'
-            : 'Back to Dashboard';
+      const originScreen = this.practiceOriginContext?.screen || (isSpeedTest ? 'speedtest' : isCodeLesson ? 'code' : isQuoteLesson ? 'quotes' : 'dashboard');
+      const originDest = DESTINATIONS.find(d => d.id === originScreen);
+      const backActionLabel = originDest ? `Back to ${originDest.label}` : 'Return';
 
       const hasMissedWords = Array.isArray(summary.mistypedWords) && summary.mistypedWords.length > 0;
       const isCertEligible = (summary.wpm || 0) >= 50 || (summary.stars || 0) >= 3 || (state.bestWpm && state.bestWpm >= 50);
@@ -4366,10 +4618,14 @@ export class UIManager {
         }
 
         const nextLesson = CURRICULUM.find(lesson => lesson.id === summary.lessonId + 1) || CURRICULUM[0];
-        this.startLesson(nextLesson);
+        this.startLesson(nextLesson, this.practiceOriginContext);
       });
 
       document.getElementById('results-retry-btn')?.addEventListener('click', () => {
+        if (summary.isPassageSprint && summary.sprintDurationSec) {
+          this.startPassageSprint(summary.sprintDurationSec);
+          return;
+        }
         if (isCodeLesson && summary.snippetData) {
           this.startCodePractice(summary.snippetData);
           return;
@@ -4382,31 +4638,23 @@ export class UIManager {
           if (summary.quoteData) {
             this.startQuotePractice(summary.quoteData);
           } else if (this.currentLessonData) {
-            this.startLesson(this.currentLessonData);
+            this.startLesson(this.currentLessonData, this.practiceOriginContext);
           }
           return;
         }
         const lesson = CURRICULUM.find(l => l.id === summary.lessonId) || this.currentLessonData;
-        if (lesson) this.startLesson(lesson);
+        if (lesson) this.startLesson(lesson, this.practiceOriginContext);
       });
 
       document.getElementById('results-dashboard-btn')?.addEventListener('click', () => {
-        if (isCodeLesson) {
-          this.navigateTo('code');
-        } else if (isSpeedTest) {
-          this.navigateTo('speedtest');
-        } else if (isQuoteLesson) {
-          this.navigateTo('quotes');
-        } else {
-          this.navigateTo('dashboard');
-        }
+        this.returnFromPractice();
       });
 
       container.querySelectorAll('.rec-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const keys = btn.dataset.keys.split(',');
           const weakLesson = generateWeakKeysLesson(keys);
-          this.startLesson(weakLesson);
+          this.startLesson(weakLesson, this.practiceOriginContext);
         });
       });
     } catch (fatalErr) {
@@ -4437,17 +4685,17 @@ export class UIManager {
             <div class="results-actions" style="margin-top: 24px;">
               <button id="results-next-btn" class="btn btn-primary btn-large">Next Practice →</button>
               <button id="results-retry-btn" class="btn btn-secondary">Retry (R)</button>
-              <button id="results-dashboard-btn" class="btn btn-outline">Dashboard</button>
+              <button id="results-dashboard-btn" class="btn btn-outline">Return</button>
             </div>
           </div>
         </div>
       `;
-      document.getElementById('results-next-btn')?.addEventListener('click', () => this.navigateTo('dashboard'));
+      document.getElementById('results-next-btn')?.addEventListener('click', () => this.returnFromPractice());
       document.getElementById('results-retry-btn')?.addEventListener('click', () => {
-        if (this.currentLessonData) this.startLesson(this.currentLessonData);
-        else this.navigateTo('dashboard');
+        if (this.currentLessonData) this.startLesson(this.currentLessonData, this.practiceOriginContext);
+        else this.returnFromPractice();
       });
-      document.getElementById('results-dashboard-btn')?.addEventListener('click', () => this.navigateTo('dashboard'));
+      document.getElementById('results-dashboard-btn')?.addEventListener('click', () => this.returnFromPractice());
     }
   }
 
@@ -4460,6 +4708,7 @@ export class UIManager {
 
     const state = store.getState();
     const lvlInfo = getLevelProgress(state.xp);
+    const activeTab = this.profileActiveTab || 'overview';
 
     container.innerHTML = `
       <div class="profile-layout">
@@ -4469,7 +4718,7 @@ export class UIManager {
           <div class="profile-info">
             <div class="profile-name-row">
               <h2 class="profile-name">Touch Typist</h2>
-              <span class="premium-crown" style="font-size: 11px;">👑 Premium Included</span>
+              <span class="premium-crown" style="font-size: 11px;">👑 Included</span>
             </div>
             <p class="profile-level-badge">Level ${lvlInfo.currentLvl} • ${lvlInfo.title}</p>
             <div class="profile-xp-bar-track">
@@ -4479,94 +4728,138 @@ export class UIManager {
           </div>
         </div>
 
-        <!-- Official Diploma Action Banner -->
-        <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(124, 92, 252, 0.12)); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
-          <div style="display: flex; align-items: center; gap: 16px;">
-            <span style="font-size: 36px;">📜</span>
-            <div>
-              <h3 style="font-size: 16px; font-weight: 800; color: #D4AF37; margin: 0 0 4px;">KeyFlow Touch Typing Diploma</h3>
-              <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Verified 300 DPI high-resolution printable certificate with custom name &amp; official credentials</p>
-            </div>
-          </div>
-          <button id="profile-cert-btn" class="btn btn-primary" style="background: #D4AF37; color: #16162A; border-color: #D4AF37; font-weight: 700;">
-            <span>🏆 View &amp; Download Diploma</span>
+        <!-- Tab Selector Bar -->
+        <div class="screen-tabs-bar profile-tabs-bar" role="tablist" aria-label="Profile Views">
+          <button type="button" role="tab" class="settings-nav-btn ${activeTab === 'overview' ? 'active' : ''}" data-profile-tab="overview" aria-selected="${activeTab === 'overview'}">
+            <span>📊 Performance Overview</span>
+          </button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeTab === 'history' ? 'active' : ''}" data-profile-tab="history" aria-selected="${activeTab === 'history'}">
+            <span>⏱️ Session History</span>
+          </button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeTab === 'achievements' ? 'active' : ''}" data-profile-tab="achievements" aria-selected="${activeTab === 'achievements'}">
+            <span>🏆 Diploma &amp; Badges</span>
           </button>
         </div>
 
-        <!-- Advanced Analytics Dashboard Slot (Scorecards, Dual Velocity Charts, Diagnostics, Session History) -->
-        <div id="advanced-analytics-slot"></div>
+        <!-- Tab 1: Overview & Analytics -->
+        <div id="profile-tab-pane-overview" class="profile-tab-pane" ${activeTab !== 'overview' ? 'hidden' : ''}>
+          <!-- Advanced Analytics Dashboard Slot (Scorecards, Charts, Diagnostics) -->
+          <div id="advanced-analytics-slot"></div>
 
-        <!-- Physical Keyboard Accuracy Heatmap Card -->
-        <div class="profile-section-card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">Physical Keyboard Accuracy Heatmap</h3>
-              <p class="card-subtitle">Visual accuracy performance breakdown per physical keycap</p>
+          <!-- Physical Keyboard Accuracy Heatmap Card -->
+          <div class="profile-section-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Physical Keyboard Accuracy Heatmap</h3>
+                <p class="card-subtitle">Visual accuracy performance breakdown per physical keycap</p>
+              </div>
+              <div class="heatmap-legend">
+                <span class="legend-item"><span class="legend-box untested"></span> Untested</span>
+                <span class="legend-item"><span class="legend-box poor"></span> Needs Practice (&lt;80%)</span>
+                <span class="legend-item"><span class="legend-box improving"></span> Improving (80-89%)</span>
+                <span class="legend-item"><span class="legend-box good"></span> Good (90-96%)</span>
+                <span class="legend-item"><span class="legend-box mastered"></span> Mastered (97%+)</span>
+              </div>
             </div>
-            <div class="heatmap-legend">
-              <span class="legend-item"><span class="legend-box untested"></span> Untested</span>
-              <span class="legend-item"><span class="legend-box poor"></span> Needs Practice (&lt;80%)</span>
-              <span class="legend-item"><span class="legend-box improving"></span> Improving (80-89%)</span>
-              <span class="legend-item"><span class="legend-box good"></span> Good (90-96%)</span>
-              <span class="legend-item"><span class="legend-box mastered"></span> Mastered (97%+)</span>
-            </div>
+            ${Object.keys(state.keyStats || {}).length === 0 ? `
+              <div style="padding: 10px 14px; margin-bottom: 12px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); font-size: 12.5px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+                <span>💡 <strong>Live Telemetry:</strong> Complete practice lessons to illuminate your physical key accuracy heatmap.</span>
+                <button id="profile-demo-seed-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">Load Demo Data</button>
+              </div>
+            ` : ''}
+            <div id="profile-heatmap-container" class="profile-heatmap-container"></div>
           </div>
-          ${Object.keys(state.keyStats || {}).length === 0 ? `
-            <div style="padding: 10px 14px; margin-bottom: 12px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); font-size: 12.5px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
-              <span>💡 <strong>Live Telemetry:</strong> Complete practice lessons to illuminate your physical key accuracy heatmap.</span>
-              <button id="profile-demo-seed-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">Load Demo Data</button>
-            </div>
-          ` : ''}
-          <div id="profile-heatmap-container" class="profile-heatmap-container"></div>
         </div>
 
-        <!-- Milestone Achievements Card -->
-        <div class="profile-section-card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">Milestone Achievements (${Object.keys(state.achievementsUnlocked || {}).length}/${ACHIEVEMENTS.length})</h3>
-              <p class="card-subtitle">Unlock badges through dedication, accuracy, speed, quotes, and zen practice</p>
+        <!-- Tab 2: Session History -->
+        <div id="profile-tab-pane-history" class="profile-tab-pane" ${activeTab !== 'history' ? 'hidden' : ''}>
+          <div id="advanced-analytics-history-slot"></div>
+        </div>
+
+        <!-- Tab 3: Diploma & Badges -->
+        <div id="profile-tab-pane-achievements" class="profile-tab-pane" ${activeTab !== 'achievements' ? 'hidden' : ''}>
+          <!-- Official Diploma Action Banner -->
+          <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(124, 92, 252, 0.12)); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: var(--radius-card); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <span style="font-size: 36px;">📜</span>
+              <div>
+                <h3 style="font-size: 16px; font-weight: 800; color: #D4AF37; margin: 0 0 4px;">KeyFlow Touch Typing Diploma</h3>
+                <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Verified 300 DPI high-resolution printable certificate with custom name &amp; official credentials</p>
+              </div>
             </div>
+            <button id="profile-cert-btn" class="btn btn-primary" style="background: #D4AF37; color: #16162A; border-color: #D4AF37; font-weight: 700;">
+              <span>🏆 View &amp; Download Diploma</span>
+            </button>
           </div>
-          <div class="achievements-grid">
-            ${ACHIEVEMENTS.map(ach => {
-              const isUnlocked = !!state.achievementsUnlocked?.[ach.id];
-              return `
-                <div class="achievement-card ${isUnlocked ? 'ach-unlocked' : 'ach-locked'}">
-                  <div class="ach-icon">${ach.icon}</div>
-                  <div class="ach-info">
-                    <h4 class="ach-title">${ach.title}</h4>
-                    <p class="ach-desc">${ach.description}</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                      <span class="ach-status">${isUnlocked ? '✓ Unlocked' : '🔒 Locked'}</span>
-                      <span style="font-size: 11px; color: var(--reward-amber); font-weight: 700;">+${ach.xpBonus || 50} XP</span>
+
+          <!-- Milestone Achievements Card -->
+          <div class="profile-section-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Milestone Achievements (${Object.keys(state.achievementsUnlocked || {}).length}/${ACHIEVEMENTS.length})</h3>
+                <p class="card-subtitle">Unlock badges through dedication, accuracy, speed, quotes, and zen practice</p>
+              </div>
+            </div>
+            <div class="achievements-grid">
+              ${ACHIEVEMENTS.map(ach => {
+                const isUnlocked = !!state.achievementsUnlocked?.[ach.id];
+                return `
+                  <div class="achievement-card ${isUnlocked ? 'ach-unlocked' : 'ach-locked'}">
+                    <div class="ach-icon">${ach.icon}</div>
+                    <div class="ach-info">
+                      <h4 class="ach-title">${ach.title}</h4>
+                      <p class="ach-desc">${ach.description}</p>
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                        <span class="ach-status">${isUnlocked ? '✓ Unlocked' : '🔒 Locked'}</span>
+                        <span style="font-size: 11px; color: var(--reward-amber); font-weight: 700;">+${ach.xpBonus || 50} XP</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              `;
-            }).join('')}
+                `;
+              }).join('')}
+            </div>
           </div>
         </div>
       </div>
     `;
 
-    // Render Advanced Analytics
-    const analyticsSlot = document.getElementById('advanced-analytics-slot');
-    if (analyticsSlot) {
-      renderAdvancedAnalyticsDashboard(analyticsSlot, state, this);
-    }
-
-    const heatmapContainer = document.getElementById('profile-heatmap-container');
-    if (heatmapContainer) {
-      const kb = new KeyboardRenderer(heatmapContainer, { interactive: false, layoutId: state.settings.layout || 'qwerty' });
-      kb.applyHeatmap(state.keyStats || {});
-    }
-
-    const seedBtn = document.getElementById('profile-demo-seed-btn');
-    if (seedBtn) {
-      seedBtn.addEventListener('click', () => {
-        store.seedDemoData();
+    // Tab buttons
+    container.querySelectorAll('[data-profile-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.profileActiveTab = btn.dataset.profileTab;
         this.renderProfile();
+      });
+    });
+
+    // Render Advanced Analytics into appropriate slots
+    const analyticsSlot = document.getElementById('advanced-analytics-slot');
+    const historySlot = document.getElementById('advanced-analytics-history-slot');
+
+    if (activeTab === 'overview' && analyticsSlot) {
+      renderAdvancedAnalyticsDashboard(analyticsSlot, state, this);
+      // Hide history card in overview
+      const historyCard = analyticsSlot.querySelector('#aa-history-table-slot')?.closest('.aa-card');
+      if (historyCard) historyCard.style.display = 'none';
+
+      const heatmapContainer = document.getElementById('profile-heatmap-container');
+      if (heatmapContainer) {
+        const kb = new KeyboardRenderer(heatmapContainer, { interactive: false, layoutId: state.settings.layout || 'qwerty' });
+        kb.applyHeatmap(state.keyStats || {});
+      }
+
+      const seedBtn = document.getElementById('profile-demo-seed-btn');
+      if (seedBtn) {
+        seedBtn.addEventListener('click', () => {
+          store.seedDemoData();
+          this.renderProfile();
+        });
+      }
+    } else if (activeTab === 'history' && historySlot) {
+      renderAdvancedAnalyticsDashboard(historySlot, state, this);
+      // In history pane, hide scorecards, charts, and diagnostics, keeping only historyCard
+      const historyCard = historySlot.querySelector('#aa-history-table-slot')?.closest('.aa-card');
+      Array.from(historySlot.children).forEach(child => {
+        if (child !== historyCard) child.style.display = 'none';
       });
     }
 
@@ -4578,6 +4871,29 @@ export class UIManager {
     }
   }
 
+  switchSettingsCategory(category) {
+    this.settingsActiveCategory = category;
+    const container = this.screens.settings;
+    if (!container) return;
+
+    container.querySelectorAll('.settings-nav-btn').forEach(btn => {
+      const isTarget = btn.dataset.settingsCategory === category;
+      btn.classList.toggle('active', isTarget);
+      btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+    });
+
+    container.querySelectorAll('.settings-category-panel').forEach(panel => {
+      const cat = panel.dataset.category;
+      const isVisible = category === 'all' || cat === category;
+      panel.classList.toggle('hidden', !isVisible);
+      panel.hidden = !isVisible;
+      const accordionBtn = panel.querySelector('.settings-accordion-toggle');
+      if (accordionBtn) {
+        accordionBtn.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+      }
+    });
+  }
+
   // ==========================================
   // SETTINGS SCREEN
   // ==========================================
@@ -4587,459 +4903,579 @@ export class UIManager {
 
     const state = store.getState();
     const settings = state.settings;
+    const activeCat = this.settingsActiveCategory || 'appearance';
 
     container.innerHTML = `
       <div class="settings-layout">
         <div class="settings-header">
           <h2 class="settings-title">Application Settings</h2>
-          <p class="settings-subtitle">Themes, switch sound profiles, layouts, ghost racing, and data backup</p>
+          <p class="settings-subtitle">Themes, switch sound profiles, layouts, ghost racing, goals, and data backup</p>
         </div>
 
-        <!-- 1. Keycap Visual Themes -->
-        <div class="settings-group-card">
-          <h3 class="group-title">Keycap Aesthetic Themes</h3>
-          <div class="theme-selector-grid">
-            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'dark' ? 'theme-active' : ''}" data-theme="dark">
-              <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #0F1117"></span>
-                <span class="palette-dot" style="background: #191E2C"></span>
-                <span class="palette-dot" style="background: #7C5CFC"></span>
-              </div>
-              <span class="theme-name">Simple Default</span>
-            </div>
+        <nav class="settings-nav-bar" role="tablist" aria-label="Settings Categories">
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'appearance' ? 'active' : ''}" data-settings-category="appearance" id="settings-tab-appearance" aria-selected="${activeCat === 'appearance'}">🎨 Appearance</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'typing' ? 'active' : ''}" data-settings-category="typing" id="settings-tab-typing" aria-selected="${activeCat === 'typing'}">⌨️ Typing &amp; Layout</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'sound' ? 'active' : ''}" data-settings-category="sound" id="settings-tab-sound" aria-selected="${activeCat === 'sound'}">🔊 Sound</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'wellness' ? 'active' : ''}" data-settings-category="wellness" id="settings-tab-wellness" aria-selected="${activeCat === 'wellness'}">🧘 Focus &amp; Wellness</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'goals' ? 'active' : ''}" data-settings-category="goals" id="settings-tab-goals" aria-selected="${activeCat === 'goals'}">🎯 Goals</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'accessibility' ? 'active' : ''}" data-settings-category="accessibility" id="settings-tab-accessibility" aria-selected="${activeCat === 'accessibility'}">👁️ Accessibility</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'data' ? 'active' : ''}" data-settings-category="data" id="settings-tab-data" aria-selected="${activeCat === 'data'}">💾 Data</button>
+          <button type="button" role="tab" class="settings-nav-btn ${activeCat === 'all' ? 'active' : ''}" data-settings-category="all" id="settings-tab-all" aria-selected="${activeCat === 'all'}">📋 All Settings</button>
+        </nav>
 
-            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'retro' ? 'theme-active' : ''}" data-theme="retro">
-              <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #1E1C18"></span>
-                <span class="palette-dot" style="background: #E8E3D5"></span>
-                <span class="palette-dot" style="background: #FF9500"></span>
-              </div>
-              <span class="theme-name">Retro 1984</span>
-            </div>
-
-            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'cyberpunk' ? 'theme-active' : ''}" data-theme="cyberpunk">
-              <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #080112"></span>
-                <span class="palette-dot" style="background: #17072E"></span>
-                <span class="palette-dot" style="background: #00F0FF"></span>
-              </div>
-              <span class="theme-name">Cyberpunk</span>
-            </div>
-
-            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'botanical' ? 'theme-active' : ''}" data-theme="botanical">
-              <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #08120A"></span>
-                <span class="palette-dot" style="background: #DCE7DF"></span>
-                <span class="palette-dot" style="background: #52B788"></span>
-              </div>
-              <span class="theme-name">Botanical</span>
-            </div>
-
-            <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'tokyo' ? 'theme-active' : ''}" data-theme="tokyo">
-              <div class="theme-preview-palette">
-                <span class="palette-dot" style="background: #13141F"></span>
-                <span class="palette-dot" style="background: #1F2134"></span>
-                <span class="palette-dot" style="background: #BB9AF7"></span>
-              </div>
-              <span class="theme-name">Tokyo Night</span>
-            </div>
-
-            ${(() => {
-              try {
-                const customThemes = JSON.parse(localStorage.getItem('typing_tutor_custom_themes') || '[]');
-                return customThemes.map(t => `
-                  <div class="theme-card-option ${settings.customThemeId === t.id ? 'theme-active' : ''}" data-custom-theme-id="${t.id}">
-                    <div class="theme-preview-palette">
-                      <span class="palette-dot" style="background: ${t.bgBase || '#0F1117'}"></span>
-                      <span class="palette-dot" style="background: ${t.surface2 || '#1B2030'}"></span>
-                      <span class="palette-dot" style="background: ${t.accentPrimary || '#7C5CFC'}"></span>
-                    </div>
-                    <span class="theme-name">${escapeHtml(t.name || 'Custom Theme')}</span>
+        <!-- 1. APPEARANCE PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'appearance' ? '' : 'hidden'}" data-category="appearance" id="settings-cat-appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" ${activeCat === 'all' || activeCat === 'appearance' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="appearance" aria-expanded="${activeCat === 'all' || activeCat === 'appearance' ? 'true' : 'false'}" aria-controls="settings-panel-body-appearance">
+            <span>🎨 Keycap Aesthetic Themes &amp; Studio</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-appearance">
+            <div class="settings-group-card">
+              <h3 class="group-title">Keycap Aesthetic Themes</h3>
+              <div class="theme-selector-grid">
+                <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'dark' ? 'theme-active' : ''}" data-theme="dark">
+                  <div class="theme-preview-palette">
+                    <span class="palette-dot" style="background: #0F1117"></span>
+                    <span class="palette-dot" style="background: #191E2C"></span>
+                    <span class="palette-dot" style="background: #7C5CFC"></span>
                   </div>
-                `).join('');
-              } catch { return ''; }
-            })()}
-          </div>
-        </div>
+                  <span class="theme-name">Simple Default</span>
+                </div>
 
-        <!-- 2. Custom Theme Studio -->
-        <div id="theme-studio-slot"></div>
+                <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'retro' ? 'theme-active' : ''}" data-theme="retro">
+                  <div class="theme-preview-palette">
+                    <span class="palette-dot" style="background: #1E1C18"></span>
+                    <span class="palette-dot" style="background: #E8E3D5"></span>
+                    <span class="palette-dot" style="background: #FF9500"></span>
+                  </div>
+                  <span class="theme-name">Retro 1984</span>
+                </div>
 
-        <!-- 3. Goal Setting & Smart Reminders -->
-        <div class="settings-group-card">
-          <div class="group-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div>
-              <h3 class="group-title">🎯 Goal Setting &amp; Smart Reminders</h3>
-              <p class="setting-desc">Set daily velocity, duration, and weekly milestones with optional desktop alerts</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-goals-toggle" ${settings.goals?.enabled !== false ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
+                <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'cyberpunk' ? 'theme-active' : ''}" data-theme="cyberpunk">
+                  <div class="theme-preview-palette">
+                    <span class="palette-dot" style="background: #080112"></span>
+                    <span class="palette-dot" style="background: #17072E"></span>
+                    <span class="palette-dot" style="background: #00F0FF"></span>
+                  </div>
+                  <span class="theme-name">Cyberpunk</span>
+                </div>
 
-          <div class="goals-settings-grid">
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Daily Practice Time Goal</label>
-                <p class="setting-desc">Minutes of practice targeted each day</p>
+                <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'botanical' ? 'theme-active' : ''}" data-theme="botanical">
+                  <div class="theme-preview-palette">
+                    <span class="palette-dot" style="background: #08120A"></span>
+                    <span class="palette-dot" style="background: #DCE7DF"></span>
+                    <span class="palette-dot" style="background: #52B788"></span>
+                  </div>
+                  <span class="theme-name">Botanical</span>
+                </div>
+
+                <div class="theme-card-option ${!settings.customThemeId && settings.theme === 'tokyo' ? 'theme-active' : ''}" data-theme="tokyo">
+                  <div class="theme-preview-palette">
+                    <span class="palette-dot" style="background: #13141F"></span>
+                    <span class="palette-dot" style="background: #1F2134"></span>
+                    <span class="palette-dot" style="background: #BB9AF7"></span>
+                  </div>
+                  <span class="theme-name">Tokyo Night</span>
+                </div>
+
+                ${(() => {
+                  try {
+                    const customThemes = JSON.parse(localStorage.getItem('typing_tutor_custom_themes') || '[]');
+                    return customThemes.map(t => `
+                      <div class="theme-card-option ${settings.customThemeId === t.id ? 'theme-active' : ''}" data-custom-theme-id="${t.id}">
+                        <div class="theme-preview-palette">
+                          <span class="palette-dot" style="background: ${t.bgBase || '#0F1117'}"></span>
+                          <span class="palette-dot" style="background: ${t.surface2 || '#1B2030'}"></span>
+                          <span class="palette-dot" style="background: ${t.accentPrimary || '#7C5CFC'}"></span>
+                        </div>
+                        <span class="theme-name">${escapeHtml(t.name || 'Custom Theme')}</span>
+                      </div>
+                    `).join('');
+                  } catch { return ''; }
+                })()}
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="number" id="setting-goal-minutes" min="1" max="180" value="${settings.goals?.dailyMinutes || 15}" class="goal-number-input">
-                <span style="font-size: 13px; color: var(--text-secondary);">min</span>
+            </div>
+
+            <!-- Custom Theme Studio -->
+            <div id="theme-studio-slot" style="margin-top: 20px;"></div>
+          </div>
+        </section>
+
+        <!-- 2. TYPING & LAYOUT PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'typing' ? '' : 'hidden'}" data-category="typing" id="settings-cat-typing" role="tabpanel" aria-labelledby="settings-tab-typing" ${activeCat === 'all' || activeCat === 'typing' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="typing" aria-expanded="${activeCat === 'all' || activeCat === 'typing' ? 'true' : 'false'}" aria-controls="settings-panel-body-typing">
+            <span>⌨️ Keyboard Layout, Overlays &amp; Training Modes</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-typing">
+            <div class="settings-group-card">
+              <h3 class="group-title">Keyboard Layout &amp; Training Modes</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Keyboard Layout</label>
+                  <p class="setting-desc">Select your target physical layout matrix</p>
+                </div>
+                <select id="setting-layout-select" class="select-input">
+                  ${Object.values(LAYOUTS).map(l => `
+                    <option value="${l.id}" ${settings.layout === l.id ? 'selected' : ''}>${l.name} (${l.tagline})</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">On-Screen Keyboard</label>
+                  <p class="setting-desc">Display the interactive mechanical keyboard during practice</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-keyboard-toggle" ${settings.keyboardVisible !== false ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row" id="row-handguide-toggle" style="${settings.keyboardVisible === false ? 'opacity: 0.5;' : ''}">
+                <div>
+                  <label class="setting-label">Hands Guide Overlay</label>
+                  <p class="setting-desc">Display 3D animated hands overlaid on the keyboard</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-handguide-toggle" ${settings.handGuideVisible !== false ? 'checked' : ''} ${settings.keyboardVisible === false ? 'disabled' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row" id="row-reachbanner-toggle" style="${settings.keyboardVisible === false ? 'opacity: 0.5;' : ''}">
+                <div>
+                  <label class="setting-label">Next Key Guidance Banner</label>
+                  <p class="setting-desc">Display the next key finger reach indicator pill above the keyboard</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-reachbanner-toggle" ${settings.reachBannerVisible !== false ? 'checked' : ''} ${settings.keyboardVisible === false ? 'disabled' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Blind Typing Mode</label>
+                  <p class="setting-desc">Masks on-screen key legends and character preview to enforce 100% muscle memory</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-blind-toggle" ${settings.blindMode ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Word Correction Mode (Backspace to Fix)</label>
+                  <p class="setting-desc">Keep typing through mistakes. Wrong keys are red; use Backspace to correct them and corrected keys turn yellow.</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-wordcorrection-toggle" ${settings.wordCorrectionMode ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Sudden Death Mode</label>
+                  <p class="setting-desc">A single mistake immediately restarts the current round</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-suddendeath-toggle" ${settings.suddenDeath ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
               </div>
             </div>
 
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Daily WPM Target</label>
-                <p class="setting-desc">Speed goal for today's best run</p>
+            <div class="settings-group-card" style="margin-top: 20px;">
+              <h3 class="group-title">Ghost Racer &amp; Bot Competitors</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Race Track Competitor</label>
+                  <p class="setting-desc">Display head-to-head racing progress above the lesson HUD</p>
+                </div>
+                <select id="setting-ghost-mode" class="select-input">
+                  <option value="bot" ${settings.ghostMode === 'bot' ? 'selected' : ''}>AI Bot Pacemaker</option>
+                  <option value="personal_best" ${settings.ghostMode === 'personal_best' ? 'selected' : ''}>Personal Best Ghost</option>
+                  <option value="off" ${settings.ghostMode === 'off' ? 'selected' : ''}>Disabled</option>
+                </select>
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="number" id="setting-goal-wpm" min="15" max="150" value="${settings.goals?.dailyWpm || 50}" class="goal-number-input">
-                <span style="font-size: 13px; color: var(--text-secondary);">WPM</span>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">AI Bot Pace</label>
+                  <p class="setting-desc">Target speed for AI Bot competitor</p>
+                </div>
+                <select id="setting-bot-wpm" class="select-input">
+                  <option value="30" ${settings.botWpm === 30 ? 'selected' : ''}>🐢 Turtle Bot (30 WPM)</option>
+                  <option value="50" ${settings.botWpm === 50 ? 'selected' : ''}>🦊 Fox Bot (50 WPM)</option>
+                  <option value="80" ${settings.botWpm === 80 ? 'selected' : ''}>🦅 Falcon Bot (80 WPM)</option>
+                  <option value="110" ${settings.botWpm === 110 ? 'selected' : ''}>⚡ Cyber Bot (110 WPM)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. SOUND & AUDIO PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'sound' ? '' : 'hidden'}" data-category="sound" id="settings-cat-sound" role="tabpanel" aria-labelledby="settings-tab-sound" ${activeCat === 'all' || activeCat === 'sound' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="sound" aria-expanded="${activeCat === 'all' || activeCat === 'sound' ? 'true' : 'false'}" aria-controls="settings-panel-body-sound">
+            <span>🔊 Switch Audio &amp; Rhythm Metronome</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-sound">
+            <div class="settings-group-card">
+              <h3 class="group-title">Mechanical Switch Sound Profiles</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Sound Effects</label>
+                  <p class="setting-desc">Enable procedural mechanical switch audio</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-sound-toggle" ${settings.soundEnabled ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Switch Sound Profile</label>
+                  <p class="setting-desc">Choose your synthesized key switch acoustic character</p>
+                </div>
+                <select id="setting-switch-profile" class="select-input">
+                  <option value="buckling_spring" ${settings.switchProfile === 'buckling_spring' ? 'selected' : ''}>IBM Model M (Buckling Spring)</option>
+                  <option value="cherry_blue" ${settings.switchProfile === 'cherry_blue' ? 'selected' : ''}>Cherry MX Blue (Clicky)</option>
+                  <option value="gateron_brown" ${settings.switchProfile === 'gateron_brown' ? 'selected' : ''}>Gateron Brown (Warm Tactile)</option>
+                  <option value="holy_panda" ${settings.switchProfile === 'holy_panda' ? 'selected' : ''}>Holy Panda / Topre (Deep Thock)</option>
+                  <option value="typewriter" ${settings.switchProfile === 'typewriter' ? 'selected' : ''}>Vintage Typewriter (Mechanical Ping)</option>
+                  <option value="bubble_pop" ${settings.switchProfile === 'bubble_pop' ? 'selected' : ''}>Bubble Wrap / Soft Pop</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Audio Volume</label>
+                  <p class="setting-desc">Adjust sound output volume</p>
+                </div>
+                <input type="range" id="setting-volume-slider" min="0" max="1" step="0.05" value="${settings.soundVolume}" class="range-input">
               </div>
             </div>
 
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Weekly Lesson Milestone</label>
-                <p class="setting-desc">Number of lessons to complete each week</p>
+            <div class="settings-group-card" style="margin-top: 20px;">
+              <h3 class="group-title">Cadence Metronome</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Audible Metronome</label>
+                  <p class="setting-desc">Plays steady ticks during active lessons to train even cadence</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-metronome-toggle" ${settings.metronomeEnabled ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
               </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="number" id="setting-goal-lessons" min="1" max="30" value="${settings.goals?.weeklyLessons || 5}" class="goal-number-input">
-                <span style="font-size: 13px; color: var(--text-secondary);">lessons</span>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Metronome Tempo (${settings.metronomeBpm || 100} BPM)</label>
+                  <p class="setting-desc">Speed of rhythm pulse</p>
+                </div>
+                <input type="range" id="setting-metronome-bpm" min="50" max="220" step="5" value="${settings.metronomeBpm || 100}" class="range-input">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. FOCUS & WELLNESS PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'wellness' ? '' : 'hidden'}" data-category="wellness" id="settings-cat-wellness" role="tabpanel" aria-labelledby="settings-tab-wellness" ${activeCat === 'all' || activeCat === 'wellness' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="wellness" aria-expanded="${activeCat === 'all' || activeCat === 'wellness' ? 'true' : 'false'}" aria-controls="settings-panel-body-wellness">
+            <span>🧘 Ergonomic Wellness &amp; Focus Mode</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-wellness">
+            <div class="settings-group-card">
+              <h3 class="group-title">Ergonomic Wellness &amp; Focus</h3>
+              <div class="wellness-settings">
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Break Reminder Interval</label>
+                    <p class="setting-desc">Gentle full-screen stretch prompt after continuous typing</p>
+                  </div>
+                  <select id="setting-break-interval" class="select-input" style="width: 140px;">
+                    <option value="15" ${(settings.wellness?.breakInterval || 30) === 15 ? 'selected' : ''}>Every 15 mins</option>
+                    <option value="30" ${(settings.wellness?.breakInterval || 30) === 30 ? 'selected' : ''}>Every 30 mins</option>
+                    <option value="45" ${(settings.wellness?.breakInterval || 30) === 45 ? 'selected' : ''}>Every 45 mins</option>
+                    <option value="60" ${(settings.wellness?.breakInterval || 30) === 60 ? 'selected' : ''}>Every 60 mins</option>
+                  </select>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Ergonomic Break Reminders</label>
+                    <p class="setting-desc">Enable periodic 20-second posture and wrist stretch reminders</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-break-toggle" ${settings.wellness?.breakEnabled ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Eye Care (20-20-20 Rule)</label>
+                    <p class="setting-desc">Remind to look at an object 20 feet away for 20 seconds</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-eyecare-toggle" ${settings.wellness?.eyeCareEnabled ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Focus Mode Shortcut (⌘/Ctrl + Shift + F)</label>
+                    <p class="setting-desc">Press ⌘/Ctrl + Shift + F during a lesson to toggle the minimalist zero-distraction layout</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-focus-shortcut-toggle" ${settings.wellness?.focusModeShortcut !== false ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Distraction-Free Mode (⌘/Ctrl + Shift + D)</label>
+                    <p class="setting-desc">Hides the bot race track, lesson info, and live metrics when typing. Only displays remaining time if timed.</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-distraction-free-toggle" ${settings.distractionFreeMode ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row" id="row-distraction-collapse-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
+                  <div>
+                    <label class="setting-label">Compact Distraction-Free Layout</label>
+                    <p class="setting-desc">Hide the race track and extra stats before the test begins, keeping the text in place when you start or pause.</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-distraction-collapse-toggle" ${settings.distractionFreeCollapse ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row" id="row-distraction-speed-hints-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
+                  <div>
+                    <label class="setting-label">Speed Milestone Hints</label>
+                    <p class="setting-desc">Display subtle speed hints above characters at intervals while typing in distraction-free mode</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-distraction-speed-hints-toggle" ${settings.distractionFreeSpeedHints !== false ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">AFK Auto-Pause</label>
+                    <p class="setting-desc">Pause a started lesson when there is no keyboard or pointer activity</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-afk-toggle" ${settings.wellness?.afkDetectionEnabled !== false ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">AFK Timeout</label>
+                    <p class="setting-desc">How long a lesson can remain idle before it pauses</p>
+                  </div>
+                  <select id="setting-afk-timeout" class="select-input" style="width: 140px;">
+                    <option value="15" ${(settings.wellness?.afkTimeoutSec || 30) === 15 ? 'selected' : ''}>After 15 secs</option>
+                    <option value="30" ${(settings.wellness?.afkTimeoutSec || 30) === 30 ? 'selected' : ''}>After 30 secs</option>
+                    <option value="60" ${(settings.wellness?.afkTimeoutSec || 30) === 60 ? 'selected' : ''}>After 60 secs</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. GOALS PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'goals' ? '' : 'hidden'}" data-category="goals" id="settings-cat-goals" role="tabpanel" aria-labelledby="settings-tab-goals" ${activeCat === 'all' || activeCat === 'goals' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="goals" aria-expanded="${activeCat === 'all' || activeCat === 'goals' ? 'true' : 'false'}" aria-controls="settings-panel-body-goals">
+            <span>🎯 Daily Goals &amp; Reminders</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-goals">
+            <div class="settings-group-card">
+              <div class="group-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                  <h3 class="group-title" style="border-bottom: none; padding-bottom: 0;">Goal Setting &amp; Smart Reminders</h3>
+                  <p class="setting-desc">Set daily velocity, duration, and weekly milestones with optional desktop alerts</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-goals-toggle" ${settings.goals?.enabled !== false ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="goals-settings-grid">
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Daily Practice Time Goal</label>
+                    <p class="setting-desc">Minutes of practice targeted each day</p>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="number" id="setting-goal-minutes" min="1" max="180" value="${settings.goals?.dailyMinutes || 15}" class="goal-number-input">
+                    <span style="font-size: 13px; color: var(--text-secondary);">min</span>
+                  </div>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Daily WPM Target</label>
+                    <p class="setting-desc">Speed goal for today's best run</p>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="number" id="setting-goal-wpm" min="15" max="150" value="${settings.goals?.dailyWpm || 50}" class="goal-number-input">
+                    <span style="font-size: 13px; color: var(--text-secondary);">WPM</span>
+                  </div>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Weekly Lesson Milestone</label>
+                    <p class="setting-desc">Number of lessons to complete each week</p>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="number" id="setting-goal-lessons" min="1" max="30" value="${settings.goals?.weeklyLessons || 5}" class="goal-number-input">
+                    <span style="font-size: 13px; color: var(--text-secondary);">lessons</span>
+                  </div>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Desktop Notifications</label>
+                    <p class="setting-desc">Gentle reminder if your daily practice goal hasn't been met</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-goal-notif-toggle" ${settings.goals?.notificationsEnabled ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <label class="setting-label">Reminder Time</label>
+                    <p class="setting-desc">Hour to deliver daily notification</p>
+                  </div>
+                  <select id="setting-goal-notif-hour" class="select-input" style="width: 130px;">
+                    <option value="18" ${(settings.goals?.notificationHour || 20) === 18 ? 'selected' : ''}>6:00 PM</option>
+                    <option value="19" ${(settings.goals?.notificationHour || 20) === 19 ? 'selected' : ''}>7:00 PM</option>
+                    <option value="20" ${(settings.goals?.notificationHour || 20) === 20 ? 'selected' : ''}>8:00 PM</option>
+                    <option value="21" ${(settings.goals?.notificationHour || 20) === 21 ? 'selected' : ''}>9:00 PM</option>
+                    <option value="22" ${(settings.goals?.notificationHour || 20) === 22 ? 'selected' : ''}>10:00 PM</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. ACCESSIBILITY PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'accessibility' ? '' : 'hidden'}" data-category="accessibility" id="settings-cat-accessibility" role="tabpanel" aria-labelledby="settings-tab-accessibility" ${activeCat === 'all' || activeCat === 'accessibility' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="accessibility" aria-expanded="${activeCat === 'all' || activeCat === 'accessibility' ? 'true' : 'false'}" aria-controls="settings-panel-body-accessibility">
+            <span>👁️ Accessibility &amp; Visual Comfort</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-accessibility">
+            <div class="settings-group-card">
+              <h3 class="group-title">Accessibility &amp; Visual Comfort</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">High-Contrast Mode</label>
+                  <p class="setting-desc">Increase contrast ratio to pure black/white and luminous accents for maximum legibility</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-highcontrast-toggle" ${settings.highContrast ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Reduced Motion</label>
+                  <p class="setting-desc">Minimize animated transitions, bouncy pulses, and animated decorations</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="setting-reducedmotion-toggle" ${settings.reducedMotion ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Typing Text Scale</label>
+                  <p class="setting-desc">Adjust the default character size of typing passages during practice</p>
+                </div>
+                <select id="setting-textsize-select" class="select-input" style="width: 140px;">
+                  <option value="small" ${(settings.textSize || 'medium') === 'small' ? 'selected' : ''}>Small (22px)</option>
+                  <option value="medium" ${(settings.textSize || 'medium') === 'medium' ? 'selected' : ''}>Medium (28px)</option>
+                  <option value="large" ${(settings.textSize || 'medium') === 'large' ? 'selected' : ''}>Large (36px)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. DATA & BACKUP PANEL -->
+        <section class="settings-category-panel ${activeCat === 'all' || activeCat === 'data' ? '' : 'hidden'}" data-category="data" id="settings-cat-data" role="tabpanel" aria-labelledby="settings-tab-data" ${activeCat === 'all' || activeCat === 'data' ? '' : 'hidden'}>
+          <button type="button" class="settings-accordion-toggle" data-category="data" aria-expanded="${activeCat === 'all' || activeCat === 'data' ? 'true' : 'false'}" aria-controls="settings-panel-body-data">
+            <span>💾 Data Backup &amp; Danger Zone</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="settings-panel-body" id="settings-panel-body-data">
+            <div class="settings-group-card">
+              <h3 class="group-title">Data Backup &amp; Restore</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Export / Import Progress</label>
+                  <p class="setting-desc">Save a local JSON backup or restore your progress on another device</p>
+                </div>
+                <div class="backup-actions-row">
+                  <button id="export-backup-btn" class="btn btn-secondary btn-sm">Download Backup JSON</button>
+                  <label class="btn btn-outline btn-sm" style="cursor: pointer;">
+                    Restore JSON
+                    <input type="file" id="import-backup-file" accept=".json" style="display: none;">
+                  </label>
+                </div>
               </div>
             </div>
 
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Desktop Notifications</label>
-                <p class="setting-desc">Gentle reminder if your daily practice goal hasn't been met</p>
+            <div class="settings-group-card danger-zone" style="margin-top: 20px;">
+              <h3 class="group-title text-error">Danger Zone</h3>
+              <div class="setting-row">
+                <div>
+                  <label class="setting-label">Reset All Progress</label>
+                  <p class="setting-desc">Permanently erase all lesson stars, XP, streaks, and analytics</p>
+                </div>
+                <button id="reset-progress-btn" class="btn btn-danger">Reset Progress</button>
               </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-goal-notif-toggle" ${settings.goals?.notificationsEnabled ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Reminder Time</label>
-                <p class="setting-desc">Hour to deliver daily notification</p>
-              </div>
-              <select id="setting-goal-notif-hour" class="select-input" style="width: 130px;">
-                <option value="18" ${(settings.goals?.notificationHour || 20) === 18 ? 'selected' : ''}>6:00 PM</option>
-                <option value="19" ${(settings.goals?.notificationHour || 20) === 19 ? 'selected' : ''}>7:00 PM</option>
-                <option value="20" ${(settings.goals?.notificationHour || 20) === 20 ? 'selected' : ''}>8:00 PM</option>
-                <option value="21" ${(settings.goals?.notificationHour || 20) === 21 ? 'selected' : ''}>9:00 PM</option>
-                <option value="22" ${(settings.goals?.notificationHour || 20) === 22 ? 'selected' : ''}>10:00 PM</option>
-              </select>
             </div>
           </div>
-        </div>
-
-        <!-- 4. Ergonomic Wellness & Break Timer -->
-        <div class="settings-group-card">
-          <h3 class="group-title">🧘 Ergonomic Wellness &amp; Focus</h3>
-          <div class="wellness-settings">
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Break Reminder Interval</label>
-                <p class="setting-desc">Gentle full-screen stretch prompt after continuous typing</p>
-              </div>
-              <select id="setting-break-interval" class="select-input" style="width: 140px;">
-                <option value="15" ${(settings.wellness?.breakInterval || 30) === 15 ? 'selected' : ''}>Every 15 mins</option>
-                <option value="30" ${(settings.wellness?.breakInterval || 30) === 30 ? 'selected' : ''}>Every 30 mins</option>
-                <option value="45" ${(settings.wellness?.breakInterval || 30) === 45 ? 'selected' : ''}>Every 45 mins</option>
-                <option value="60" ${(settings.wellness?.breakInterval || 30) === 60 ? 'selected' : ''}>Every 60 mins</option>
-              </select>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Ergonomic Break Reminders</label>
-                <p class="setting-desc">Enable periodic 20-second posture and wrist stretch reminders</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-break-toggle" ${settings.wellness?.breakEnabled ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Eye Care (20-20-20 Rule)</label>
-                <p class="setting-desc">Remind to look at an object 20 feet away for 20 seconds</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-eyecare-toggle" ${settings.wellness?.eyeCareEnabled ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Focus Mode Shortcut (⌘/Ctrl + Shift + F)</label>
-                <p class="setting-desc">Press ⌘/Ctrl + Shift + F during a lesson to toggle the minimalist zero-distraction layout</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-focus-shortcut-toggle" ${settings.wellness?.focusModeShortcut !== false ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">Distraction-Free Mode (⌘/Ctrl + Shift + D)</label>
-                <p class="setting-desc">Hides the bot race track, lesson info, and live metrics when typing. Only displays remaining time if timed.</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-distraction-free-toggle" ${settings.distractionFreeMode ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row" id="row-distraction-collapse-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
-              <div>
-                <label class="setting-label">Compact Distraction-Free Layout</label>
-                <p class="setting-desc">Hide the race track and extra stats before the test begins, keeping the text in place when you start or pause.</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-distraction-collapse-toggle" ${settings.distractionFreeCollapse ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row" id="row-distraction-speed-hints-toggle" style="${!settings.distractionFreeMode ? 'opacity: 0.5;' : ''}">
-              <div>
-                <label class="setting-label">Speed Milestone Hints</label>
-                <p class="setting-desc">Display subtle speed hints above characters at intervals while typing in distraction-free mode</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-distraction-speed-hints-toggle" ${settings.distractionFreeSpeedHints !== false ? 'checked' : ''} ${!settings.distractionFreeMode ? 'disabled' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">AFK Auto-Pause</label>
-                <p class="setting-desc">Pause a started lesson when there is no keyboard or pointer activity</p>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-afk-toggle" ${settings.wellness?.afkDetectionEnabled !== false ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <label class="setting-label">AFK Timeout</label>
-                <p class="setting-desc">How long a lesson can remain idle before it pauses</p>
-              </div>
-              <select id="setting-afk-timeout" class="select-input" style="width: 140px;">
-                <option value="15" ${(settings.wellness?.afkTimeoutSec || 30) === 15 ? 'selected' : ''}>After 15 secs</option>
-                <option value="30" ${(settings.wellness?.afkTimeoutSec || 30) === 30 ? 'selected' : ''}>After 30 secs</option>
-                <option value="60" ${(settings.wellness?.afkTimeoutSec || 30) === 60 ? 'selected' : ''}>After 60 secs</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- 5. Audio & Switch Sound Profiles -->
-        <div class="settings-group-card">
-          <h3 class="group-title">Mechanical Switch Sound Profiles</h3>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Sound Effects</label>
-              <p class="setting-desc">Enable procedural mechanical switch audio</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-sound-toggle" ${settings.soundEnabled ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Switch Sound Profile</label>
-              <p class="setting-desc">Choose your synthesized key switch acoustic character</p>
-            </div>
-            <select id="setting-switch-profile" class="select-input">
-              <option value="buckling_spring" ${settings.switchProfile === 'buckling_spring' ? 'selected' : ''}>IBM Model M (Buckling Spring)</option>
-              <option value="cherry_blue" ${settings.switchProfile === 'cherry_blue' ? 'selected' : ''}>Cherry MX Blue (Clicky)</option>
-              <option value="gateron_brown" ${settings.switchProfile === 'gateron_brown' ? 'selected' : ''}>Gateron Brown (Warm Tactile)</option>
-              <option value="holy_panda" ${settings.switchProfile === 'holy_panda' ? 'selected' : ''}>Holy Panda / Topre (Deep Thock)</option>
-              <option value="typewriter" ${settings.switchProfile === 'typewriter' ? 'selected' : ''}>Vintage Typewriter (Mechanical Ping)</option>
-              <option value="bubble_pop" ${settings.switchProfile === 'bubble_pop' ? 'selected' : ''}>Bubble Wrap / Soft Pop</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Audio Volume</label>
-              <p class="setting-desc">Adjust sound output volume</p>
-            </div>
-            <input type="range" id="setting-volume-slider" min="0" max="1" step="0.05" value="${settings.soundVolume}" class="range-input">
-          </div>
-        </div>
-
-        <!-- 6. Metronome & Cadence Rhythm -->
-        <div class="settings-group-card">
-          <h3 class="group-title">Cadence Metronome</h3>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Audible Metronome</label>
-              <p class="setting-desc">Plays steady ticks during active lessons to train even cadence</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-metronome-toggle" ${settings.metronomeEnabled ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Metronome Tempo (${settings.metronomeBpm || 100} BPM)</label>
-              <p class="setting-desc">Speed of rhythm pulse</p>
-            </div>
-            <input type="range" id="setting-metronome-bpm" min="50" max="220" step="5" value="${settings.metronomeBpm || 100}" class="range-input">
-          </div>
-        </div>
-
-        <!-- 7. Keyboard Layouts & Hardcore Modes -->
-        <div class="settings-group-card">
-          <h3 class="group-title">Keyboard Layout &amp; Training Modes</h3>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Keyboard Layout</label>
-              <p class="setting-desc">Select your target physical layout matrix</p>
-            </div>
-            <select id="setting-layout-select" class="select-input">
-              ${Object.values(LAYOUTS).map(l => `
-                <option value="${l.id}" ${settings.layout === l.id ? 'selected' : ''}>${l.name} (${l.tagline})</option>
-              `).join('')}
-            </select>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">On-Screen Keyboard</label>
-              <p class="setting-desc">Display the interactive mechanical keyboard during practice</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-keyboard-toggle" ${settings.keyboardVisible !== false ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row" id="row-handguide-toggle" style="${settings.keyboardVisible === false ? 'opacity: 0.5;' : ''}">
-            <div>
-              <label class="setting-label">Hands Guide Overlay</label>
-              <p class="setting-desc">Display 3D animated hands overlaid on the keyboard</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-handguide-toggle" ${settings.handGuideVisible !== false ? 'checked' : ''} ${settings.keyboardVisible === false ? 'disabled' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row" id="row-reachbanner-toggle" style="${settings.keyboardVisible === false ? 'opacity: 0.5;' : ''}">
-            <div>
-              <label class="setting-label">Next Key Guidance Banner</label>
-              <p class="setting-desc">Display the next key finger reach indicator pill above the keyboard</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-reachbanner-toggle" ${settings.reachBannerVisible !== false ? 'checked' : ''} ${settings.keyboardVisible === false ? 'disabled' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Blind Typing Mode</label>
-              <p class="setting-desc">Masks on-screen key legends and character preview to enforce 100% muscle memory</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-blind-toggle" ${settings.blindMode ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Word Correction Mode (Backspace to Fix)</label>
-              <p class="setting-desc">Keep typing through mistakes. Wrong keys are red; use Backspace to correct them and corrected keys turn yellow.</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-wordcorrection-toggle" ${settings.wordCorrectionMode ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Sudden Death Mode</label>
-              <p class="setting-desc">A single mistake immediately restarts the current round</p>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-suddendeath-toggle" ${settings.suddenDeath ? 'checked' : ''}>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- 8. Ghost Racer Competitors -->
-        <div class="settings-group-card">
-          <h3 class="group-title">Ghost Racer &amp; Bot Competitors</h3>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Race Track Competitor</label>
-              <p class="setting-desc">Display head-to-head racing progress above the lesson HUD</p>
-            </div>
-            <select id="setting-ghost-mode" class="select-input">
-              <option value="bot" ${settings.ghostMode === 'bot' ? 'selected' : ''}>AI Bot Pacemaker</option>
-              <option value="personal_best" ${settings.ghostMode === 'personal_best' ? 'selected' : ''}>Personal Best Ghost</option>
-              <option value="off" ${settings.ghostMode === 'off' ? 'selected' : ''}>Disabled</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">AI Bot Pace</label>
-              <p class="setting-desc">Target speed for AI Bot competitor</p>
-            </div>
-            <select id="setting-bot-wpm" class="select-input">
-              <option value="30" ${settings.botWpm === 30 ? 'selected' : ''}>🐢 Turtle Bot (30 WPM)</option>
-              <option value="50" ${settings.botWpm === 50 ? 'selected' : ''}>🦊 Fox Bot (50 WPM)</option>
-              <option value="80" ${settings.botWpm === 80 ? 'selected' : ''}>🦅 Falcon Bot (80 WPM)</option>
-              <option value="110" ${settings.botWpm === 110 ? 'selected' : ''}>⚡ Cyber Bot (110 WPM)</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 9. Data Portability (Backup & Restore) -->
-        <div class="settings-group-card">
-          <h3 class="group-title">Data Backup &amp; Restore</h3>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Export / Import Progress</label>
-              <p class="setting-desc">Save a local JSON backup or restore your progress on another device</p>
-            </div>
-            <div class="backup-actions-row">
-              <button id="export-backup-btn" class="btn btn-secondary btn-sm">Download Backup JSON</button>
-              <label class="btn btn-outline btn-sm" style="cursor: pointer;">
-                Restore JSON
-                <input type="file" id="import-backup-file" accept=".json" style="display: none;">
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- 10. Danger Zone -->
-        <div class="settings-group-card danger-zone">
-          <h3 class="group-title text-error">Danger Zone</h3>
-          <div class="setting-row">
-            <div>
-              <label class="setting-label">Reset All Progress</label>
-              <p class="setting-desc">Permanently erase all lesson stars, XP, streaks, and analytics</p>
-            </div>
-            <button id="reset-progress-btn" class="btn btn-danger">Reset Progress</button>
-          </div>
-        </div>
+        </section>
       </div>
     `;
+
+    // Category Tabs Switching
+    container.querySelectorAll('.settings-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cat = btn.dataset.settingsCategory;
+        if (cat) this.switchSettingsCategory(cat);
+      });
+    });
+
+    // Mobile Accordion Switching
+    container.querySelectorAll('.settings-accordion-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cat = btn.dataset.category;
+        const isCurrent = this.settingsActiveCategory === cat;
+        this.switchSettingsCategory(isCurrent ? 'all' : cat);
+      });
+    });
 
     // Render Theme Studio in its designated slot
     const studioSlot = document.getElementById('theme-studio-slot');
@@ -5415,6 +5851,38 @@ export class UIManager {
         ...prev,
         settings: { ...prev.settings, botWpm: parseInt(e.target.value, 10) }
       }));
+    });
+
+    // Accessibility Settings (High Contrast, Reduced Motion, Text Size)
+    document.getElementById('setting-highcontrast-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, highContrast: e.target.checked }
+      }));
+      this.showToast(
+        e.target.checked ? 'High-contrast mode activated' : 'High-contrast mode deactivated',
+        'teal'
+      );
+    });
+
+    document.getElementById('setting-reducedmotion-toggle')?.addEventListener('change', (e) => {
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, reducedMotion: e.target.checked }
+      }));
+      this.showToast(
+        e.target.checked ? 'Reduced motion enabled' : 'Reduced motion disabled',
+        'teal'
+      );
+    });
+
+    document.getElementById('setting-textsize-select')?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      store.update(prev => ({
+        ...prev,
+        settings: { ...prev.settings, textSize: val }
+      }));
+      this.showToast(`Typing text size set to ${val}`, 'teal');
     });
 
     // Export Backup

@@ -109,3 +109,46 @@ export function generateSpeedTestLesson(presetId = '60s', vocabMode = '200') {
     speedTestType: preset.type
   };
 }
+
+export const SPRINT_TEXT_POOL = [
+  "The quick brown fox jumps over the lazy dog while rhythm and muscle memory take over.",
+  "Focus entirely on smooth cadence rather than frantic speed. True velocity is effortless precision.",
+  "Every keystroke reinforces neuromuscular pathways that turn deliberate thought into pure tactile reflex.",
+  "Consistency is the secret superpower. Ten minutes of mindful daily typing transforms your speed forever.",
+  "Breathe steadily, relax your shoulders, keep your wrists elevated, and let your fingers find their anchors."
+];
+
+export const PASSAGE_SPRINT_PRESETS = [
+  { id: '15s', seconds: 15, durationSec: 15, label: '15s Burst', title: 'Lightning Burst', icon: '⚡', desc: 'Short explosive speed sprint' },
+  { id: '30s', seconds: 30, durationSec: 30, label: '30s Sprint', title: 'Power Sprint', icon: '⏱️', desc: 'Standard velocity calibration' },
+  { id: '60s', seconds: 60, durationSec: 60, label: '60s Standard', title: '1-Minute Standard', icon: '🏆', desc: 'Official benchmark test' },
+  { id: '120s', seconds: 120, durationSec: 120, label: '120s Endurance', title: 'Endurance Trial', icon: '🔋', desc: 'Long stamina endurance run' }
+];
+
+export function generatePassageSprintLesson(duration = 60) {
+  const seconds = typeof duration === 'number' ? duration : parseInt(duration, 10) || 60;
+  const count = Math.ceil(seconds / 15);
+  const shuffled = [...SPRINT_TEXT_POOL].sort(() => Math.random() - 0.5);
+  const rounds = shuffled.slice(0, Math.min(count, SPRINT_TEXT_POOL.length));
+  const preset = PASSAGE_SPRINT_PRESETS.find(p => p.seconds === seconds) || PASSAGE_SPRINT_PRESETS[2];
+
+  return {
+    id: `sprint-${seconds}s`,
+    level: 0,
+    levelTitle: `${seconds}s Speed Sprint`,
+    title: `${preset.title} (${seconds}s)`,
+    subtitle: `Push your maximum typing velocity under a ${seconds}s time limit`,
+    description: 'Maintain maximum rhythm and velocity without sacrificing accuracy.',
+    keys: ['all'],
+    targetFingerIds: [],
+    rounds,
+    timeLimitSec: seconds,
+    accuracyTarget: 95,
+    wpmTarget: 50,
+    xpReward: 60,
+    isSpeedTest: false,
+    isPassageSprint: true,
+    sprintDuration: seconds,
+    sprintDurationSec: seconds
+  };
+}

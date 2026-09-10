@@ -1,12 +1,13 @@
 /**
- * KeyFlow Service Worker (v3.9.8 - smooth caret gliding fix under reduced motion)
+ * KeyFlow Service Worker (v4.0.0 - Workspace & Design System Redesign)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.8-smooth-caret-fix';
+const CACHE_NAME = 'keyflow-v4.0.0-workspace-redesign';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
+  './tests/components-preview.html',
   './styles/main.css',
   './styles/keyboard.css',
   './styles/hand-guide.css',

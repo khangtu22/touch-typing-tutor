@@ -178,6 +178,14 @@ class ThemeStudio {
     set('--accent-primary-hover', lightenHex(theme.accentPrimary, 0.1));
     set('--accent-glow',          hexToRgba(theme.accentPrimary, 0.35));
 
+    // Decoupled accessible primary button colors
+    const rgb = hexToRgb(theme.accentPrimary);
+    const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    const btnFg = lum > 0.55 ? '#0F1117' : '#FFFFFF';
+    set('--btn-primary-bg', theme.accentPrimary);
+    set('--btn-primary-fg', btnFg);
+    set('--btn-primary-hover', lightenHex(theme.accentPrimary, lum > 0.55 ? -0.08 : 0.1));
+
     set('--success-teal',  theme.successTeal);
     set('--success-glow',  hexToRgba(theme.successTeal, 0.35));
 
@@ -205,6 +213,7 @@ class ThemeStudio {
     const propsToRemove = [
       '--bg-base', '--surface-1', '--surface-2', '--surface-3', '--surface-glass',
       '--accent-primary', '--accent-primary-hover', '--accent-glow',
+      '--btn-primary-bg', '--btn-primary-fg', '--btn-primary-hover',
       '--success-teal', '--success-glow',
       '--text-primary', '--text-secondary', '--text-muted', '--typing-upcoming-color',
       '--keycap-bg', '--keycap-legend',
