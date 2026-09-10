@@ -68,7 +68,12 @@ KeyFlow is a production-quality, standalone web application that teaches users p
 - The Curriculum dashboard recommends the most valuable next action from real practice data: a weak-key drill, weak-finger conditioning session, or the next curriculum lesson.
 - Recommendations include the reason, measurable targets, and a one-click launch so every session starts with a clear purpose.
 
-### 11. 🕹️ Eight-Game Arcade
+### 11. 📈 Interactive Lesson Results
+- Inspect your complete run with a WPM curve, raw pace, and red mistype markers grouped by second.
+- Hover, touch, or use the arrow keys to see speed and the typed/expected keys behind each error. Toggle raw pace and mistypes in the legend.
+- Pauses are excluded from the timeline; corrected errors remain visible. Older runs without timing data are handled without inventing markers.
+
+### 12. 🕹️ Eight-Game Arcade
 - **Word Garden**: Grow twelve flowers through relaxed, untimed typing. Flawless words collect sunshine and combo bonuses.
 - **Skyline Stack**: Build fifteen floors before your stability runs out. Mistakes weaken the tower; flawless words repair it.
 - **Word Recall**: Memorize ten words, then type them after a timed preview. Optional hints exchange the word bonus for another look.
@@ -86,6 +91,10 @@ cd "/Volumes/External Mini M4/Development/touch-typing-tutor"
 python3 -m http.server 8000
 ```
 Open **[http://localhost:8000](http://localhost:8000)** in any modern browser.
+
+Run all JavaScript checks with `node --test tests/*.test.mjs`.
+
+Open `tests/lesson-chart.html` for an interactive results preview and browser checks for the chart, tooltips, legend controls, keyboard navigation, and older/short runs. Add `?theme=retro`, `botanical`, `tokyo`, or `cyberpunk` to check a theme. Fixtures use an in-memory store and leave saved progress unchanged.
 
 Run curriculum content and targeted-drill checks with `node --test tests/curriculum.test.mjs`.
 

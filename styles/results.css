@@ -616,3 +616,91 @@
   .sparkline-wrapper { height: 132px; }
   .results-graph-card .card-badge { display: none; }
 }
+
+/* Lesson replay: restrained speed traces with a separate error-count axis. */
+.results-graph-card.lesson-pace-card {
+  --pace-accent: var(--reward-amber);
+  padding: 24px 26px 18px;
+  gap: 0;
+  min-width: 0;
+  background: var(--surface-1);
+  border-color: var(--border-light);
+  border-radius: var(--radius-lg);
+}
+.pace-heading, .pace-toolbar, .pace-legend, .pace-footnote { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pace-eyebrow { font: 600 9px var(--font-mono); letter-spacing: .13em; color: var(--text-muted); }
+.pace-heading h3 { margin: 6px 0 0; color: var(--text-primary); font-size: 19px; font-weight: 600; letter-spacing: -.035em; }
+.pace-status { display: inline-flex; align-items: center; gap: 6px; color: var(--error-coral); background: color-mix(in srgb, var(--error-coral) 8%, transparent); border: 1px solid color-mix(in srgb, var(--error-coral) 18%, transparent); padding: 6px 10px; border-radius: var(--radius-full); font: 500 11px var(--font-mono); white-space: nowrap; }
+.pace-status > span { font-size: 16px; line-height: 1; }
+.pace-status.is-clean { color: var(--success-teal); background: color-mix(in srgb, var(--success-teal) 7%, transparent); border-color: color-mix(in srgb, var(--success-teal) 18%, transparent); }
+.pace-toolbar { margin: 14px 0 18px; flex-wrap: wrap; }
+.pace-toolbar > p { color: var(--text-muted); font-size: 12px; margin: 0; }
+.pace-legend { justify-content: flex-start; gap: 14px; font: 500 11px var(--font-mono); }
+.pace-legend button, .pace-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.pace-legend button { min-height: 32px; padding: 3px 0; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font: inherit; }
+.pace-legend i { display: block; width: 14px; height: 0; border-top: 2px solid currentColor; font-style: normal; }
+.pace-legend-wpm { color: var(--pace-accent); }
+.pace-legend [data-series="raw"] i { border-top-style: dashed; }
+.pace-legend [data-series="errors"] { color: var(--error-coral); }
+.pace-legend [data-series="errors"] i { border: 0; height: auto; font-size: 18px; line-height: 1; text-align: center; }
+.pace-legend button[aria-pressed="false"] { opacity: .5; text-decoration: line-through; }
+.pace-legend button:disabled { opacity: .35; cursor: default; }
+.pace-legend button:focus-visible, .pace-plot:focus-visible { outline: 2px solid var(--pace-accent); outline-offset: 5px; border-radius: 4px; }
+.pace-plot { position: relative; width: 100%; min-width: 0; touch-action: pan-y; }
+.pace-svg { display: block; width: 100%; overflow: visible; cursor: crosshair; }
+.pace-svg text { font: 500 10px var(--font-mono); fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pace-grid line { stroke: var(--border-subtle); stroke-width: 1; }
+.pace-svg .pace-error-label { fill: var(--error-coral); opacity: .8; }
+.pace-wpm-line, .pace-raw-line { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.pace-wpm-line { stroke: var(--pace-accent); stroke-width: 2.5; }
+.pace-raw-line { stroke: var(--text-secondary); stroke-width: 1.5; opacity: .55; stroke-dasharray: 4 3; }
+.pace-endpoint { fill: var(--pace-accent); stroke: var(--surface-1); stroke-width: 2; }
+.pace-target line { stroke: var(--success-teal); stroke-width: 1; stroke-dasharray: 3 5; opacity: .35; }
+.pace-target text { fill: var(--success-teal); opacity: .8; paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; }
+.pace-error-markers circle { fill: var(--surface-1); opacity: .9; }
+.pace-error-markers path { stroke: var(--error-coral); stroke-width: 2; stroke-linecap: round; fill: none; }
+.pace-cursor { pointer-events: none; }
+.pace-cursor line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 4; opacity: .6; }
+.pace-cursor circle { fill: var(--pace-accent); stroke: var(--surface-1); stroke-width: 2; }
+.pace-tooltip { position: absolute; z-index: 3; top: 24px; width: 204px; max-width: calc(100% - 16px); padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border-light); border-radius: 10px; box-shadow: var(--shadow-md); pointer-events: none; font: 500 11px var(--font-mono); color: var(--text-primary); }
+.pace-tooltip[hidden] { display: none; }
+.pace-tooltip-time { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.pace-tooltip-time > span { color: var(--text-muted); font-size: 9px; }
+.pace-tooltip-values { display: flex; gap: 20px; font-size: 22px; line-height: 1.2; margin-bottom: 12px; }
+.pace-tooltip-values small { font-size: 10px; color: var(--text-muted); }
+.pace-tooltip-wpm { color: var(--pace-accent); }
+.pace-tooltip-errors { color: var(--text-muted); font: 500 11px var(--font-sans); border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+.pace-tooltip-errors.has-errors { color: var(--error-coral); }
+.pace-tooltip ul { padding: 0; margin: 9px 0 0; list-style: none; display: grid; gap: 6px; }
+.pace-tooltip li { display: flex; align-items: center; gap: 7px; }
+.pace-tooltip li > span { font: 400 10px var(--font-sans); color: var(--text-muted); }
+.pace-tooltip kbd { font: inherit; border: 1px solid var(--border-light); border-radius: 3px; padding: 2px 5px; min-width: 22px; text-align: center; overflow-wrap: anywhere; }
+.pace-tooltip kbd:first-child { color: var(--error-coral); }
+.pace-tooltip-more { margin-top: 8px; font-size: 9px; color: var(--text-muted); }
+.pace-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 20px 0 0; padding: 17px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
+.pace-metric dt { font: 500 10px var(--font-mono); color: var(--text-muted); margin-bottom: 8px; }
+.pace-metric dd { margin: 0; font: 500 24px/1 var(--font-mono); letter-spacing: -.05em; color: var(--text-secondary); }
+.pace-metric-accent dd { color: var(--pace-accent); }
+.pace-footnote { flex-wrap: wrap; color: var(--text-muted); font-size: 10px; gap: 6px 16px; padding-top: 13px; }
+.pace-footnote b { color: var(--error-coral); font-size: 14px; font-weight: 500; margin-right: 3px; }
+.pace-empty { min-height: 215px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: var(--text-muted); text-align: center; }
+.pace-empty > span { color: var(--pace-accent); font-size: 42px; }
+.pace-empty strong { font-size: 14px; color: var(--text-secondary); }
+.pace-empty p { font-size: 12px; margin: 0; }
+@media (max-width: 600px) {
+  .results-graph-card.lesson-pace-card { padding: 20px 16px 16px; }
+  .pace-heading { align-items: flex-start; }
+  .pace-heading h3 { font-size: 18px; }
+  .pace-eyebrow { font-size: 8px; letter-spacing: .06em; }
+  .pace-status { font-size: 9px; padding: 5px 7px; }
+  .pace-toolbar { gap: 8px; margin-bottom: 12px; }
+  .pace-toolbar > p { width: 100%; font-size: 11px; }
+  .pace-legend { gap: 18px; }
+  .pace-metrics { gap: 12px; margin-top: 14px; }
+  .pace-metric dt { font-size: 8px; letter-spacing: -.025em; }
+  .pace-metric dd { font-size: 20px; }
+  .pace-footnote { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-pace-card *, .lesson-pace-card *::before { transition: none; animation: none; }
+}

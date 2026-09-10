@@ -11,6 +11,7 @@ import { typingEngine } from './typing-engine.js?v=3.8.1';
 import { KeyboardRenderer } from './keyboard-renderer.js?v=3.8.1';
 import { HandRenderer } from './hand-renderer.js?v=3.8.1';
 import { AnalyticsEngine } from './analytics.js?v=3.8.1';
+import { mountLessonChart } from './lesson-chart.js?v=3.9.7';
 import { ACHIEVEMENTS, AchievementEngine } from './achievements.js?v=3.8.1';
 import { StreakEngine } from './streak-challenge.js?v=3.9.2';
 import { sound } from './sound-engine.js?v=3.8.1';
@@ -418,12 +419,12 @@ export class UIManager {
       if (this.activeScreen === 'results') {
         const target = e.target;
         const isInteractiveTarget = target?.closest?.(
-          'input, textarea, select, [contenteditable="true"]'
+          'input, textarea, select, button, summary, a, .pace-plot, [contenteditable="true"]'
         );
 
         if (!isInteractiveTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
           // Always prevent default browser scrolling (Space, Arrows, PageUp/Down, Backspace) on results screen
-          if (['Space', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.code) || e.key === ' ') {
+          if (['Space', 'Backspace', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.code) || e.key === ' ') {
             e.preventDefault();
           }
 
@@ -3831,6 +3832,7 @@ export class UIManager {
         xpEarned: summary.xpEarned,
         keyStatsDelta: summary.keyStatsDelta,
         wpmHistory: summary.wpmHistory,
+        errorHistory: summary.errorHistory,
         mastery: summary.mastery,
         isPlacementTest: summary.isPlacementTest,
         placementRecommendation: summary.placementRecommendation,
@@ -4119,7 +4121,6 @@ export class UIManager {
 
       const hasMissedWords = Array.isArray(summary.mistypedWords) && summary.mistypedWords.length > 0;
       const isCertEligible = (summary.wpm || 0) >= 50 || (summary.stars || 0) >= 3 || (state.bestWpm && state.bestWpm >= 50);
-      const paceSampleCount = Array.isArray(summary.wpmHistory) ? summary.wpmHistory.length : 0;
       const resultBadge = summary.isPlacementTest
         ? 'Placement ready'
         : isSpeedTest
@@ -4169,13 +4170,7 @@ export class UIManager {
           ? '<div class="results-comparison-row"><span class="results-comparison-chip is-neutral">First recorded run for this activity</span></div>'
           : '';
 
-      let sparklineHtml = '';
-      try {
-        sparklineHtml = AnalyticsEngine.renderWpmSparklineSvg(summary.wpmHistory, 640, 170, summary.wpmTarget);
-      } catch (sparkErr) {
-        console.warn('Sparkline rendering error:', sparkErr);
-        sparklineHtml = '<div class="sparkline-empty"><span>Session Pace Logged</span></div>';
-      }
+      this.disposeLessonChart?.();
 
       container.innerHTML = `
         <div class="results-layout">
@@ -4197,9 +4192,9 @@ export class UIManager {
                 <span class="metric-target ${(summary.wpm || 0) >= (summary.wpmTarget || 0) ? 'target-met' : ''}">Target: ${summary.wpmTarget || 15} WPM</span>
               </div>
               <div class="result-metric-card">
-                <span class="metric-val">${summary.accuracy || 100}%</span>
+                <span class="metric-val">${summary.accuracy ?? 100}%</span>
                 <span class="metric-lbl">Accuracy</span>
-                <span class="metric-target ${(summary.accuracy || 100) >= (summary.accuracyTarget || 90) ? 'target-met' : ''}">Target: ${summary.accuracyTarget || 90}%</span>
+                <span class="metric-target ${(summary.accuracy ?? 100) >= (summary.accuracyTarget || 90) ? 'target-met' : ''}">Target: ${summary.accuracyTarget || 90}%</span>
               </div>
               <div class="result-metric-card">
                 <span class="metric-val">${summary.maxCombo || 0} 🔥</span>
@@ -4229,6 +4224,8 @@ export class UIManager {
             </div>
           </div>
 
+          <section class="results-graph-card lesson-pace-card" id="lesson-pace-chart" aria-label="Session performance chart"></section>
+
           <div class="results-mastery-card ${summary.isPlacementTest ? 'placement-result' : mastery.isMastered ? 'mastered-result' : 'review-result'}">
             ${summary.isPlacementTest ? `
               <div class="mastery-result-icon">🗺️</div>
@@ -4252,16 +4249,6 @@ export class UIManager {
                 <p>${escapeHtml(mastery.nextGoal || 'Keep practicing to earn the next star.')}</p>
               </div>
             `}
-          </div>
-
-          <div class="results-graph-card">
-            <div class="card-header">
-              <h3 class="card-title">WPM Velocity Curve</h3>
-              <span class="card-badge">${paceSampleCount ? `${paceSampleCount} pace samples` : 'Session pace'}</span>
-            </div>
-            <div class="sparkline-wrapper">
-              ${sparklineHtml}
-            </div>
           </div>
 
           ${hasMissedWords ? `
@@ -4310,6 +4297,8 @@ export class UIManager {
 
         </div>
       `;
+
+      this.disposeLessonChart = mountLessonChart(container.querySelector('#lesson-pace-chart'), summary);
 
       // Missed Words Drill button
       if (hasMissedWords) {
@@ -4429,7 +4418,7 @@ export class UIManager {
                 <span class="metric-lbl">WPM Speed</span>
               </div>
               <div class="result-metric-card">
-                <span class="metric-val">${summary.accuracy || 100}%</span>
+                <span class="metric-val">${summary.accuracy ?? 100}%</span>
                 <span class="metric-lbl">Accuracy</span>
               </div>
               <div class="result-metric-card">

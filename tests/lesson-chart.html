@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson chart preview and regression checks</title>
+<body class="theme-dark">
+<details style="padding:12px 20px">
+  <summary id="test-summary" role="status">Running chart checks… Saved progress is not modified.</summary>
+  <pre id="test-results" style="white-space:pre-wrap"></pre>
+</details>
+<script type="module">
+import { UIManager } from '../js/ui.js?v=3.9.7';
+import { store, DEFAULT_STATE } from '../js/state.js?v=3.8.1';
+import { mountLessonChart } from '../js/lesson-chart.js?v=3.9.7';
+const savedProgress = localStorage.getItem('typing_tutor_progress');
+store.writeToStorage = () => {};
+store.state = structuredClone(DEFAULT_STATE);
+store.state.settings.soundEnabled = false;
+const theme = new URLSearchParams(location.search).get('theme');
+if (['dark','retro','botanical','tokyo','cyberpunk'].includes(theme)) store.state.settings.theme = theme;
+store.state.settings.wellness.afkDetectionEnabled = false;
+const source = new DOMParser().parseFromString(await (await fetch('../index.html', {cache:'no-store'})).text(), 'text/html');
+await Promise.all([...source.querySelectorAll('link[rel="stylesheet"]')].map(original => new Promise(resolve => {
+  const link = original.cloneNode();
+  link.href = new URL(original.getAttribute('href'), new URL('../index.html', location.href));
+  link.onload = link.onerror = resolve;
+  document.head.append(link);
+})));
+const app = source.querySelector('.app-container');
+document.body.append(app);
+await document.fonts.ready;
+const ui = new UIManager();
+ui.showToast = () => {};
+const wpm = [35,43,49,54,58,60,59,62,61,64,67,69,68,67,69,70,68,67,68,71,72,70,72,71,69,71,73,72,74,73];
+const raw = [38,52,64,72,78,69,64,79,68,83,92,87,60,58,85,91,60,54,83,99,91,60,87,74,57,92,104,71,101,68];
+const errorHistory = [
+  {timeSec:6.4, typed:'r', expected:'t'}, {timeSec:6.7, typed:'r', expected:'t'},
+  {timeSec:12.5, typed:'i', expected:'o'}, {timeSec:17.1, typed:' ', expected:'e'},
+  {timeSec:24.5, typed:'n', expected:'m'}, {timeSec:24.7, typed:'n', expected:'m'},
+  {timeSec:24.8, typed:'<', expected:'>'}
+];
+const summary = {
+  lessonId: 20, lessonTitle: 'Build a steady rhythm', wpm:73, accuracy:97,
+  durationSec:30.4, stars:3, xpEarned:65, maxCombo:42, totalKeystrokes:194,
+  totalCorrect:187, totalErrors:7, rawWpm:77, consistency:88, accuracyTarget:95, wpmTarget:60,
+  keyStatsDelta:{}, mistypedWords:[], errorHistory,
+  wpmHistory:wpm.map((value,i) => ({ timeSec:i === 29 ? 30.4 : i+1, wpm:value, rawWpm:raw[i] }))
+};
+const messages=[];
+const assert=(condition,label)=>{if(!condition) throw new Error(label);messages.push('PASS '+label);};
+const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const show=()=>{ui.currentSessionSummary=summary;ui.navigateTo('results');ui.renderResults(summary);};
+try {
+  show(); await frame();
+  const root=document.querySelector('#lesson-pace-chart');
+  assert(root.querySelector('.pace-svg') && root.querySelectorAll('[data-error-second]').length===4, 'results show the speed chart and every error bucket');
+  assert(document.querySelector('.results-mastery-card').previousElementSibling===root, 'chart is prominent directly after the main result');
+  const rawButton=root.querySelector('[data-series="raw"]');
+  rawButton.click();
+  assert(!root.querySelector('.pace-raw-line') && rawButton.getAttribute('aria-pressed')==='false','raw legend toggles the actual trace');
+  rawButton.click();
+  const errorButton=root.querySelector('[data-series="errors"]');
+  errorButton.click();
+  assert(!root.querySelector('.pace-error-markers'),'mistype legend toggles markers');
+  errorButton.click();
+  const plot=root.querySelector('.pace-plot');
+  plot.focus();
+  plot.dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}));
+  assert(root.querySelector('.pace-tooltip').textContent.includes('30.4s'),'keyboard reaches the final fractional sample');
+  plot.dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true,cancelable:true}));
+  assert(root.querySelector('.pace-tooltip').textContent.includes('1s'),'keyboard reaches the first sample');
+  for(let i=0;i<8;i++) plot.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));
+  assert(ui.activeScreen==='results','chart navigation stays on the result screen');
+  const marker=root.querySelector('[data-error-second="24"]').getBoundingClientRect();
+  plot.dispatchEvent(new PointerEvent('pointermove',{clientX:marker.x+marker.width/2,clientY:marker.y+marker.height/2,bubbles:true}));
+  assert(root.querySelector('.pace-tooltip').textContent.includes('3 mistypes'),'hover selects the nearby error bucket');
+  assert(root.querySelectorAll('.pace-tooltip kbd').length===6 && root.querySelector('.pace-tooltip').textContent.includes('<'),'tooltip shows escaped typed and expected keys');
+  const tooltip=root.querySelector('.pace-tooltip').getBoundingClientRect(), bounds=plot.getBoundingClientRect();
+  assert(tooltip.left>=bounds.left && tooltip.right<=bounds.right,'tooltip stays inside the chart');
+  plot.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  assert(root.querySelector('.pace-tooltip').hidden && ui.activeScreen==='results','Escape dismisses chart details without leaving results');
+  plot.blur();
+  const scratch=document.createElement('section');scratch.className='results-graph-card lesson-pace-card';root.after(scratch);
+  let dispose=mountLessonChart(scratch,{wpmHistory:[{timeSec:1,wpm:0}],errorHistory:[],durationSec:1,totalErrors:0,consistency:0});
+  assert(scratch.querySelector('.pace-endpoint') && scratch.querySelector('.is-clean'),'one-sample zero-WPM runs remain visible and show clean status');
+  assert(scratch.querySelector('.pace-metrics').textContent.includes('0%'),'zero consistency remains zero');
+  dispose();dispose=mountLessonChart(scratch,{wpmHistory:[20,30],totalErrors:3,durationSec:3});
+  assert(scratch.querySelector('[data-series="raw"]').disabled && scratch.querySelector('[data-series="errors"]').disabled,'legacy runs do not invent raw speed or mistype timings');
+  dispose();dispose=mountLessonChart(scratch,{});
+  assert(scratch.querySelector('.pace-empty'),'empty runs have a clear empty state');
+  dispose();scratch.remove();
+  assert(document.documentElement.scrollWidth<=innerWidth,'result layout fits the viewport');
+  let shortcutUsed = false;
+  const nextButton = document.querySelector('#results-next-btn');
+  nextButton.addEventListener('click', event => { shortcutUsed = true; event.stopImmediatePropagation(); }, {capture:true,once:true});
+  ui.resultsShortcutLockoutUntil = 0;
+  ui.screens.results.focus();
+  ui.screens.results.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+  assert(shortcutUsed && ui.activeScreen === 'results','Enter on the result screen still activates the next action');
+  ui.screens.results.blur();
+  assert(localStorage.getItem('typing_tutor_progress')===savedProgress,'preview does not modify saved progress');
+  document.querySelector('#test-results').textContent=messages.join('\n');
+  document.querySelector('#test-summary').textContent=`${messages.length} chart checks passed at ${innerWidth}px · Demo session`;
+  root.scrollIntoView({block:'center'});
+} catch(error) {
+  document.querySelector('#test-summary').textContent='FAIL: '+error.message;
+  document.querySelector('#test-results').textContent=messages.join('\n')+'\n'+error.stack;
+  console.error(error);
+}
+</script>
+</body>
+</html>

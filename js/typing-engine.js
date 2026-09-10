@@ -79,6 +79,8 @@ export class TypingEngine {
     this.maxCombo = 0;
     this.keyStatsDelta = {};
     this.wpmHistory = [];
+    this.errorHistory = [];
+    this.lastPaceSample = { timeSec: 0, attempts: 0 };
     this.wpmSampleTimer = null;
 
     // Timed sprint countdown
@@ -110,6 +112,8 @@ export class TypingEngine {
     this.maxCombo = 0;
     this.keyStatsDelta = {};
     this.wpmHistory = [];
+    this.errorHistory = [];
+    this.lastPaceSample = { timeSec: 0, attempts: 0 };
     this.sessionMistypedWords = new Set();
     this.isActive = true;
     this.isPaused = false;
@@ -369,6 +373,16 @@ export class TypingEngine {
     this.totalAttempts += 1;
 
     const isMatch = typedKey === expectedChar;
+    // Capture errors before correction / sudden-death can move the cursor.
+    // This shares the same pause-aware clock as the speed samples.
+    if (!isMatch) {
+      this.errorHistory.push({
+        timeSec: this.getActiveElapsedMs() / 1000,
+        expected: expectedChar,
+        typed: typedKey,
+        round: this.currentRoundIdx + 1
+      });
+    }
 
     if (!isWordCorrectionMode) {
       // ═════════════════════════════════════════════════════════════
@@ -663,6 +677,7 @@ export class TypingEngine {
     const durationSec = activeElapsedMs / 1000;
     const wpm = this.calculateLiveWpm();
     const accuracy = this.calculateLiveAccuracy();
+    this.recordPaceSample(durationSec, wpm);
 
     const accTarget = this.lesson.accuracyTarget || 90;
     const wpmTarget = this.lesson.wpmTarget || 15;
@@ -705,6 +720,8 @@ export class TypingEngine {
       totalErrors: this.totalErrors,
       keyStatsDelta: this.keyStatsDelta,
       wpmHistory: this.wpmHistory,
+      errorHistory: this.errorHistory,
+      rawWpm: Math.round((this.totalAttempts / 5) / (durationSec / 60)),
       consistency,
       mistypedWords: Array.from(this.sessionMistypedWords),
       accuracyTarget: accTarget,
@@ -739,11 +756,8 @@ export class TypingEngine {
     this.stopWpmSampling();
     this.wpmSampleTimer = setInterval(() => {
       if (this.isActive && this.startTime && !this.isPaused) {
-        const activeElapsedMs = this.getActiveElapsedMs();
-        const timeSec = Math.round(activeElapsedMs / 1000);
-        const wpm = this.calculateLiveWpm();
-        this.wpmHistory.push({ timeSec, wpm });
-        if (this.wpmHistory.length > 80) this.wpmHistory.shift();
+        // Retain the entire lesson, including its opening and final fraction.
+        if (this.getActiveElapsedMs() >= 1200) this.recordPaceSample();
         if (this.timeRemainingSec === null) {
           this.emitState();
         }
@@ -751,10 +765,32 @@ export class TypingEngine {
     }, 1000);
   }
 
+  recordPaceSample(timeSec = this.getActiveElapsedMs() / 1000, wpm = this.calculateLiveWpm()) {
+    if (!this.startTime || timeSec <= 0) return;
+    const previous = this.lastPaceSample;
+    const intervalSec = timeSec - previous.timeSec;
+    if (intervalSec < 0) return;
+    const attempts = this.totalAttempts - previous.attempts;
+    const last = this.wpmHistory[this.wpmHistory.length - 1];
+    // Merge very short final fragments so one closing key cannot create a
+    // misleading multi-thousand-WPM spike. Boundary samples stay idempotent.
+    if (last && intervalSec < 0.25) {
+      last.timeSec = timeSec;
+      last.wpm = wpm;
+      last.attempts += attempts;
+      last.intervalSec += intervalSec;
+      last.rawWpm = Math.round(last.attempts * 12 / last.intervalSec);
+    } else if (intervalSec > 0) {
+      this.wpmHistory.push({ timeSec, wpm, attempts, intervalSec,
+        rawWpm: Math.round(attempts * 12 / intervalSec) });
+    }
+    this.lastPaceSample = { timeSec, attempts: this.totalAttempts };
+  }
+
   getActiveElapsedMs() {
     if (!this.startTime) return 0;
 
-    const elapsedMs = Math.max(0, (Date.now() - this.startTime) - (this.totalPausedMs || 0));
+    const elapsedMs = Math.max(0, ((this.pausedAt ?? Date.now()) - this.startTime) - (this.totalPausedMs || 0));
     const timeLimitMs = Number(this.lesson?.timeLimitSec) > 0
       ? Number(this.lesson.timeLimitSec) * 1000
       : null;

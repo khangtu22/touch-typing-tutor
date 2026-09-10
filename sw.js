@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.6 - header and responsive UI polish)
+ * KeyFlow Service Worker (v3.9.7 - interactive lesson pace and mistype timeline)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.6-ui-polish';
+const CACHE_NAME = 'keyflow-v3.9.7-lesson-chart';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -35,6 +35,7 @@ const ASSETS_TO_CACHE = [
   './js/hand-model.js',
   './js/afk-detector.js',
   './js/analytics.js',
+  './js/lesson-chart.js',
   './js/achievements.js',
   './js/streak-challenge.js',
   './js/ghost-racer.js',
