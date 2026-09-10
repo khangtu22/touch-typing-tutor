@@ -16,7 +16,7 @@
   --accent-glow: rgba(124, 92, 252, 0.35);
 
   /* Primary Action Tokens (Decoupled foreground for accessible contrast) */
-  --btn-primary-bg: var(--accent-primary);
+  --btn-primary-bg: #7250D9;
   --btn-primary-fg: #FFFFFF;
   --btn-primary-hover: var(--accent-primary-hover);
   --btn-primary-active: #5338D6;
@@ -46,8 +46,19 @@
   --border-strong: rgba(255, 255, 255, 0.24);
   --border-active: rgba(124, 92, 252, 0.5);
 
+  --accent-surface: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-1));
+  --accent-border: color-mix(in srgb, var(--accent-primary) 50%, var(--surface-1));
+  --border-medium: var(--border-light);
+  --border-control: color-mix(in srgb, var(--text-primary) 42%, var(--surface-2));
+  --color-success: var(--success-teal);
+  --color-warning: var(--reward-amber);
+  --color-error: var(--error-coral);
+  --chart-wpm: var(--accent-primary);
+  --chart-raw: var(--text-secondary);
+  --chart-errors: var(--error-coral);
+
   /* Focus Ring */
-  --focus-ring-color: #7C5CFC;
+  --focus-ring-color: var(--accent-primary);
   --focus-ring-offset: 2px;
   --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--focus-ring-color);
 
@@ -63,8 +74,8 @@
   --radius-dialog: 24px;
   --radius-pill: 9999px;
   --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  --radius-md: var(--radius-card);
+  --radius-lg: var(--radius-card);
   --radius-full: 9999px;
 
   /* Standard Spacing Scale (4, 8, 12, 16, 24, 32, 48, 64px) */
@@ -94,9 +105,9 @@
   --font-caption: 12px;
 
   /* Chart Series Tokens */
-  --chart-wpm: #7C5CFC;
-  --chart-raw: #00D4AA;
-  --chart-errors: #FF5C7A;
+  --chart-wpm: var(--accent-primary);
+  --chart-raw: var(--text-secondary);
+  --chart-errors: var(--error-coral);
   --chart-grid: rgba(255, 255, 255, 0.08);
 
   /* Transitions */
@@ -107,22 +118,22 @@
 
 /* High Contrast Mode */
 body.high-contrast {
-  --bg-base: #050608;
-  --surface-1: #10141D;
-  --surface-2: #161B26;
-  --surface-3: #222938;
-  --border-subtle: rgba(255, 255, 255, 0.3);
-  --border-light: rgba(255, 255, 255, 0.5);
-  --border-strong: #FFFFFF;
-  --border-active: #FFFFFF;
-  --text-primary: #FFFFFF;
-  --text-secondary: #E2E8F0;
-  --text-muted: #CBD5E1;
-  --focus-ring-color: #FFFFFF;
-  --btn-primary-bg: #FFFFFF;
-  --btn-primary-fg: #000000;
-  --btn-primary-hover: #E2E8F0;
-  --btn-primary-active: #CBD5E1;
+  --bg-base: #050608 !important;
+  --surface-1: #10141D !important;
+  --surface-2: #161B26 !important;
+  --surface-3: #222938 !important;
+  --border-subtle: rgba(255, 255, 255, 0.3) !important;
+  --border-light: rgba(255, 255, 255, 0.5) !important;
+  --border-strong: #FFFFFF !important;
+  --border-active: #FFFFFF !important;
+  --text-primary: #FFFFFF !important;
+  --text-secondary: #E2E8F0 !important;
+  --text-muted: #CBD5E1 !important;
+  --focus-ring-color: #FFFFFF !important;
+  --btn-primary-bg: #FFFFFF !important;
+  --btn-primary-fg: #000000 !important;
+  --btn-primary-hover: #E2E8F0 !important;
+  --btn-primary-active: #CBD5E1 !important;
 }
 
 /* Reduced Motion Mode */
@@ -156,7 +167,7 @@ html, body {
   background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--font-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

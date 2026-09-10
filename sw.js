@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v4.0.0 - Workspace & Design System Redesign)
+ * KeyFlow Service Worker (v4.0.3 - Workspace & Design System Redesign)
  */
 
-const CACHE_NAME = 'keyflow-v4.0.0-workspace-redesign';
+const CACHE_NAME = 'keyflow-v4.0.3-workspace-redesign';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -56,6 +56,8 @@ const ASSETS_TO_CACHE = [
   './js/command-palette.js',
   './js/certificate-generator.js',
   './js/weakness-engine.js',
+  './js/workspace.js',
+  './styles/workspace.css',
   './js/ui.js'
 ];
 

@@ -73,9 +73,20 @@ function hexToRgba(hex, alpha = 1) {
  */
 function lightenHex(hex, amount = 0.12) {
   const { r, g, b } = hexToRgb(hex);
-  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  const target = amount < 0 ? 0 : 255;
+  const lerp = (a, b, t) => Math.round(a + (target - a) * Math.min(1, Math.abs(t)));
   const toHex = n => n.toString(16).padStart(2, '0');
   return `#${toHex(lerp(r, 255, amount))}${toHex(lerp(g, 255, amount))}${toHex(lerp(b, 255, amount))}`;
+}
+
+export function accessibleForeground(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const linear = [r, g, b].map(value => {
+    const channel = value / 255;
+    return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+  });
+  const luminance = linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
+  return (luminance + .05) / .05 >= 1.05 / (luminance + .05) ? '#000000' : '#FFFFFF';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,7 +175,8 @@ class ThemeStudio {
    * @param {Object} theme
    */
   applyTheme(theme) {
-    const root = document.documentElement;
+    const root = document.body;
+    root.dataset.customTheme = theme.id || 'preview';
     const set = (prop, value) => root.style.setProperty(prop, value);
 
     set('--bg-base',        theme.bgBase);
@@ -179,24 +191,24 @@ class ThemeStudio {
     set('--accent-glow',          hexToRgba(theme.accentPrimary, 0.35));
 
     // Decoupled accessible primary button colors
-    const rgb = hexToRgb(theme.accentPrimary);
-    const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-    const btnFg = lum > 0.55 ? '#0F1117' : '#FFFFFF';
+    const btnFg = accessibleForeground(theme.accentPrimary);
     set('--btn-primary-bg', theme.accentPrimary);
     set('--btn-primary-fg', btnFg);
-    set('--btn-primary-hover', lightenHex(theme.accentPrimary, lum > 0.55 ? -0.08 : 0.1));
+    set('--btn-primary-hover', lightenHex(theme.accentPrimary, btnFg === '#FFFFFF' ? -.08 : .08));
+    set('--btn-primary-active', lightenHex(theme.accentPrimary, btnFg === '#FFFFFF' ? -.16 : .16));
 
     set('--success-teal',  theme.successTeal);
     set('--success-glow',  hexToRgba(theme.successTeal, 0.35));
 
     set('--text-primary',   theme.textPrimary);
     set('--text-secondary', theme.textSecondary);
-    set('--text-muted',     lightenHex(theme.surface2, 0.45));
+    set('--text-muted',     theme.textSecondary);
     set('--typing-upcoming-color', theme.textSecondary);
 
     // Keycap-specific variables (consumed by keyboard.css)
     set('--keycap-bg',      theme.keycapBg);
     set('--keycap-legend',  theme.keycapLegend);
+    set('--keycap-highlight', theme.keycapHighlight || theme.accentPrimary);
 
     // Border derivatives based on text
     set('--border-subtle', hexToRgba(theme.textPrimary, 0.08));
@@ -209,14 +221,15 @@ class ThemeStudio {
    * built-in theme (from themes.css) takes over again.
    */
   resetToBuiltIn() {
-    const root = document.documentElement;
+    const root = document.body;
+    delete root.dataset.customTheme;
     const propsToRemove = [
       '--bg-base', '--surface-1', '--surface-2', '--surface-3', '--surface-glass',
       '--accent-primary', '--accent-primary-hover', '--accent-glow',
-      '--btn-primary-bg', '--btn-primary-fg', '--btn-primary-hover',
+      '--btn-primary-bg', '--btn-primary-fg', '--btn-primary-hover', '--btn-primary-active',
       '--success-teal', '--success-glow',
       '--text-primary', '--text-secondary', '--text-muted', '--typing-upcoming-color',
-      '--keycap-bg', '--keycap-legend',
+      '--keycap-bg', '--keycap-legend', '--keycap-highlight',
       '--border-subtle', '--border-light', '--border-active'
     ];
     propsToRemove.forEach(p => root.style.removeProperty(p));
@@ -1003,10 +1016,10 @@ export function renderThemeStudioUI(container, onThemeApplied) {
       <div class="ts-header-subtitle">Create and manage your own custom colour themes.</div>
     </div>
     <div class="ts-header-actions">
-      <label class="ts-import-label" title="Import a theme JSON file">
+      <button type="button" class="ts-import-label btn btn-secondary" title="Import a theme JSON file">
         &#x2B06; Import JSON
-        <input type="file" class="ts-import-file" accept=".json,application/json" />
-      </label>
+      </button>
+      <input type="file" class="ts-import-file" accept=".json,application/json" aria-label="Import theme file" />
       <button class="btn btn-primary ts-btn-create">&#xFF0B; Create New Theme</button>
     </div>
   `;
@@ -1208,6 +1221,7 @@ export function renderThemeStudioUI(container, onThemeApplied) {
 
   // ── File import ─────────────────────────────────────────────────────────────
   const fileInput = headerEl.querySelector('.ts-import-file');
+  headerEl.querySelector('.ts-import-label').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;

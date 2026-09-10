@@ -11,11 +11,11 @@ body.theme-dark {
   --surface-3: #232A3E;
   --surface-glass: rgba(21, 25, 35, 0.75);
 
-  --accent-primary: #7C5CFC;
+  --accent-primary: #9B87F5;
   --accent-primary-hover: #6848E8;
   --accent-glow: rgba(124, 92, 252, 0.35);
 
-  --btn-primary-bg: #7C5CFC;
+  --btn-primary-bg: #7250D9;
   --btn-primary-fg: #FFFFFF;
   --btn-primary-hover: #6848E8;
   --btn-primary-active: #5338D6;
@@ -31,7 +31,7 @@ body.theme-dark {
 
   --text-primary: #F5F7FA;
   --text-secondary: #9AA3B2;
-  --text-muted: #7D879A;
+  --text-muted: var(--text-secondary);
 
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-light: rgba(255, 255, 255, 0.14);
@@ -150,7 +150,7 @@ body.theme-retro {
 
   --text-primary: #F5EFE6; /* Vintage Parchment White */
   --text-secondary: #C7BEAE; /* Aged Sand Grey */
-  --text-muted: #8E8573;
+  --text-muted: var(--text-secondary);
 
   --border-subtle: rgba(255, 180, 80, 0.12);
   --border-light: rgba(255, 180, 80, 0.22);
@@ -514,7 +514,7 @@ body.theme-cyberpunk {
 
   --text-primary: #E0F7FF;
   --text-secondary: #B39DDB;
-  --text-muted: #7E57C2;
+  --text-muted: var(--text-secondary);
 
   --border-subtle: rgba(0, 240, 255, 0.16);
   --border-light: rgba(0, 240, 255, 0.3);
@@ -713,8 +713,8 @@ body.theme-botanical {
 
   --btn-primary-bg: #52B788;
   --btn-primary-fg: #08120A;
-  --btn-primary-hover: #40916C;
-  --btn-primary-active: #2D6A4F;
+  --btn-primary-hover: #68C79A;
+  --btn-primary-active: #7AD3AB;
 
   --success-teal: #74C69D;
   --success-glow: rgba(116, 198, 157, 0.35);
@@ -727,7 +727,7 @@ body.theme-botanical {
 
   --text-primary: #EEF8F1;
   --text-secondary: #B7D5C2;
-  --text-muted: #79A387;
+  --text-muted: var(--text-secondary);
 
   --border-subtle: rgba(82, 183, 136, 0.14);
   --border-light: rgba(82, 183, 136, 0.24);
@@ -925,7 +925,7 @@ body.theme-tokyo {
   --btn-primary-bg: #BB9AF7;
   --btn-primary-fg: #13141F;
   --btn-primary-hover: #A476F5;
-  --btn-primary-active: #8F55E8;
+  --btn-primary-active: #A782EF;
 
   --success-teal: #7DCFFF; /* Pastel Cyan */
   --success-glow: rgba(125, 207, 255, 0.35);
@@ -938,7 +938,7 @@ body.theme-tokyo {
 
   --text-primary: #F0F1FB;
   --text-secondary: #A9B1D6;
-  --text-muted: #787C99;
+  --text-muted: var(--text-secondary);
 
   --border-subtle: rgba(187, 154, 247, 0.14);
   --border-light: rgba(187, 154, 247, 0.24);

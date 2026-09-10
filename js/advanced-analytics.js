@@ -200,7 +200,7 @@ function prepareChartData(sessions = [], mode = 'session', metric = 'wpm', perio
     }
     const entry = dayMap.get(dKey);
     entry.wpms.push(Number(s.wpm) || 0);
-    entry.accuracies.push(Number(s.accuracy) || 100);
+    entry.accuracies.push(Number(s.accuracy ?? 100));
     entry.sessionsCount++;
     entry.totalDuration += (Number(s.durationSec) || 0);
     entry.titles.push(s.lessonTitle || `Lesson ${s.lessonId}`);
@@ -311,13 +311,13 @@ function setupCanvas(canvas) {
 function drawEmptyState(ctx, W, H, msg = 'No sessions recorded in this period') {
   ctx.clearRect(0, 0, W, H);
   ctx.save();
-  ctx.fillStyle = 'rgba(154, 163, 178, 0.6)';
+  ctx.fillStyle = chartColor('--text-secondary', '#ADB5C5');
   ctx.font = '500 13px Inter, -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(msg, W / 2, H / 2 - 10);
   ctx.font = '11px Inter, -apple-system, sans-serif';
-  ctx.fillStyle = 'rgba(154, 163, 178, 0.4)';
+  ctx.fillStyle = chartColor('--text-secondary', '#ADB5C5');
   ctx.fillText('Complete a typing session to see your live curve', W / 2, H / 2 + 12);
   ctx.restore();
 }
@@ -334,6 +334,10 @@ function drawEmptyState(ctx, W, H, msg = 'No sessions recorded in this period') 
  * @param {object} opts
  * @param {number|null} hoverIdx - Index of point currently hovered
  */
+function chartColor(token, fallback) {
+  return getComputedStyle(document.body).getPropertyValue(token).trim() || fallback;
+}
+
 function renderCanvasChart(canvas, points, opts, hoverIdx = null) {
   const { ctx, W, H } = setupCanvas(canvas);
 
@@ -397,7 +401,7 @@ function renderCanvasChart(canvas, points, opts, hoverIdx = null) {
     ctx.lineTo(PAD.left + chartW, y);
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(154, 163, 178, 0.7)';
+    ctx.fillStyle = chartColor('--text-secondary', '#ADB5C5');
     ctx.fillText(`${stepVal}${opts.ySuffix || ''}`, PAD.left - 8, y);
   }
   ctx.restore();
@@ -434,7 +438,7 @@ function renderCanvasChart(canvas, points, opts, hoverIdx = null) {
     ctx.lineTo(PAD.left + chartW, avgY);
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(154, 163, 178, 0.6)';
+    ctx.fillStyle = chartColor('--text-secondary', '#ADB5C5');
     ctx.font = '10px Inter, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`avg ${avgVal}${opts.ySuffix || ''}`, PAD.left + chartW - 6, avgY - 6);
@@ -576,7 +580,7 @@ function renderCanvasChart(canvas, points, opts, hoverIdx = null) {
 
   // 8. X-Axis Date Labels
   ctx.save();
-  ctx.fillStyle = 'rgba(154, 163, 178, 0.75)';
+  ctx.fillStyle = chartColor('--text-secondary', '#ADB5C5');
   ctx.font = '10px Inter, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -676,11 +680,11 @@ function attachChartInteractivity(canvas, tooltipEl, points, opts) {
       <div class="aa-tip-time">${nearest.timeLabel || fmtRelativeTime(nearest.date)}</div>
       <div class="aa-tip-metrics">
         <div class="aa-tip-metric">
-          <span class="aa-tip-val" style="color: #7C5CFC;">${wpmVal}</span>
+          <span class="aa-tip-val" style="color: var(--accent-primary);">${wpmVal}</span>
           <span class="aa-tip-lbl">WPM</span>
         </div>
         <div class="aa-tip-metric">
-          <span class="aa-tip-val" style="color: #00D4AA;">${accVal}%</span>
+          <span class="aa-tip-val" style="color: var(--success-teal);">${accVal}%</span>
           <span class="aa-tip-lbl">ACC</span>
         </div>
         ${nearest.durationSec ? `
@@ -730,8 +734,8 @@ export function renderWpmTrendChart(canvas, tooltipEl, sessions = [], period = '
 
   const opts = {
     metric: 'wpm',
-    lineColor: '#7C5CFC',
-    gradientTop: 'rgba(124, 92, 252, 0.45)',
+    lineColor: chartColor('--accent-primary', '#9B87F5'),
+    gradientTop: chartColor('--accent-primary', '#9B87F5') + '55',
     gradientBottom: 'rgba(124, 92, 252, 0.0)',
     ySuffix: '',
     targetVal: targetWpm,
@@ -749,8 +753,8 @@ export function renderAccuracyTrendChart(canvas, tooltipEl, sessions = [], perio
 
   const opts = {
     metric: 'accuracy',
-    lineColor: '#00D4AA',
-    gradientTop: 'rgba(0, 212, 170, 0.4)',
+    lineColor: chartColor('--success-teal', '#00D4AA'),
+    gradientTop: chartColor('--success-teal', '#00D4AA') + '55',
     gradientBottom: 'rgba(0, 212, 170, 0.0)',
     ySuffix: '%',
     targetVal: 95,
@@ -779,8 +783,8 @@ export function renderProblemKeysDiagnostic(container, keyStats = {}, uiManager 
     container.innerHTML = `
       <div class="aa-diag-clean">
         <div style="font-size: 28px; margin-bottom: 6px;">✨</div>
-        <div style="font-size: 13.5px; font-weight: 700; color: var(--text-primary);">Zero Problem Keys Detected</div>
-        <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0;">All practiced keys currently maintain >= 94% touch typing accuracy.</p>
+        <div style="font-size: 13.5px; font-weight: 700; color: var(--text-primary);">${Object.keys(keyStats).length ? 'No weak keys detected' : 'Start building your key history'}</div>
+        <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0;">Complete more practice to identify which keys need attention.</p>
       </div>
     `;
     return;
@@ -799,7 +803,7 @@ export function renderProblemKeysDiagnostic(container, keyStats = {}, uiManager 
           <div class="aa-key-meta">${k.attempts} strokes · ${k.errors} errors (${Math.round(k.errorRate * 100)}% err)</div>
         </div>
         <div class="aa-key-stat">
-          <span class="aa-key-acc" style="color: ${k.accuracy < 80 ? '#FF5C7A' : '#FFB86B'};">${k.accuracy}%</span>
+          <span class="aa-key-acc" style="color: ${k.accuracy < 80 ? 'var(--error-coral)' : 'var(--reward-amber)'};">${k.accuracy}%</span>
           <span class="aa-key-lat">${k.avgLatency}ms</span>
         </div>
       </div>
@@ -843,7 +847,7 @@ export function renderFingerHeatmapTable(container, keyStats = {}) {
     .filter(Boolean);
 
   container.innerHTML = sorted.map(({ finger, accuracy, totalAttempts, totalErrors }) => {
-    const color = accuracy < 80 ? '#FF5C7A' : accuracy < 90 ? '#FFB86B' : accuracy < 97 ? '#00D4AA' : '#7C5CFC';
+    const color = accuracy < 80 ? '#FF5C7A' : accuracy < 90 ? 'var(--reward-amber)' : accuracy < 97 ? 'var(--success-teal)' : 'var(--accent-primary)';
     const noData = totalAttempts < 5;
 
     return `
@@ -976,12 +980,12 @@ export function renderSessionHistoryTable(container, sessions = [], tableState =
     const isActive = sortKey === col.key;
     const nextDir = isActive && sortDir === 'desc' ? 'asc' : 'desc';
     const arrow = isActive ? (sortDir === 'desc' ? ' ↓' : ' ↑') : '';
-    return `<th class="aa-th aa-th-sortable ${isActive ? 'aa-th-active' : ''}" data-sort="${col.key}" data-dir="${nextDir}" title="Sort by ${col.label}">${col.label}${arrow}</th>`;
+    return `<th class="aa-th aa-th-sortable ${isActive ? 'aa-th-active' : ''}" data-sort="${col.key}" data-dir="${nextDir}" aria-sort="${isActive ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}"><button type="button" title="Sort by ${col.label}">${col.label}${arrow}</button></th>`;
   }).join('');
 
   const rowsHtml = pageItems.map((s, idx) => {
-    const accColor = s.accuracy >= 97 ? '#00D4AA' : s.accuracy >= 90 ? 'var(--text-primary)' : '#FFB86B';
-    const kindTag = s.kind === 'code'
+    const accColor = s.accuracy >= 97 ? 'var(--success-teal)' : s.accuracy >= 90 ? 'var(--text-primary)' : 'var(--reward-amber)';
+    const kindTag = (s.kind === 'sprint' || /^sprint-/.test(s.lessonId || '')) ? '<span class="aa-badge aa-badge-speed">Passage sprint</span>' : (s.kind === 'custom' || s.kind === 'practice') ? '<span class="aa-badge aa-badge-lesson">Custom</span>' : s.kind === 'code'
       ? '<span class="aa-badge aa-badge-code">Code</span>'
       : s.kind === 'speedtest'
         ? '<span class="aa-badge aa-badge-speed">Speed</span>'
@@ -1004,12 +1008,12 @@ export function renderSessionHistoryTable(container, sessions = [], tableState =
             </span>
           </div>
         </td>
-        <td class="aa-td aa-td-mono" style="color: #7C5CFC; font-weight: 700;">${s.wpm || 0}</td>
-        <td class="aa-td aa-td-mono" style="color: ${accColor}; font-weight: 700;">${s.accuracy || 100}%</td>
+        <td class="aa-td aa-td-mono" style="color: var(--accent-primary); font-weight: 700;">${s.wpm || 0}</td>
+        <td class="aa-td aa-td-mono" style="color: ${accColor}; font-weight: 700;">${s.accuracy ?? 100}%</td>
         <td class="aa-td aa-td-mono" style="color: var(--text-secondary); font-size: 12px;">${fmtDuration(s.durationSec || 0)}</td>
         <td class="aa-td" style="white-space: nowrap;">${starsHtml(s.stars || 1)}</td>
         <td class="aa-td aa-td-actions">
-          <button class="aa-del-btn" data-date="${s.date}" title="Delete session">
+          <button class="aa-del-btn" data-date="${s.date}" title="Delete session" aria-label="Delete session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </td>
@@ -1018,7 +1022,7 @@ export function renderSessionHistoryTable(container, sessions = [], tableState =
   }).join('');
 
   container.innerHTML = `
-    <div style="overflow-x: auto; width: 100%;">
+    <div class="table-scroll" role="region" aria-label="Practice session history" tabindex="0">
       <table class="aa-table">
         <thead><tr class="aa-thead-tr">${thHeaders}</tr></thead>
         <tbody>${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="7" style="text-align: center; padding: 28px; color: var(--text-muted);">No matching sessions found.</td></tr>`}</tbody>
@@ -1096,7 +1100,7 @@ export function exportSessionsCSV(sessions = []) {
       csvCell(fmtDateTime(s.date)),
       csvCell(s.lessonTitle || `Lesson ${s.lessonId}`),
       Number(s.wpm) || 0,
-      Number(s.accuracy) || 100,
+      Number(s.accuracy ?? 100),
       Number(s.durationSec) || 0,
       Number(s.stars) || 1,
       Number(s.xpEarned) || 0,
@@ -1149,7 +1153,7 @@ function computeScorecardMetrics(sessions = [], period = '7d') {
   }
 
   const wpms = currentFiltered.map(s => Number(s.wpm) || 0);
-  const accs = currentFiltered.map(s => Number(s.accuracy) || 100);
+  const accs = currentFiltered.map(s => Number(s.accuracy ?? 100));
   const totalSecs = currentFiltered.reduce((sum, s) => sum + (Number(s.durationSec) || 0), 0);
 
   const avgWpm = Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length);
@@ -1209,10 +1213,12 @@ function computeScorecardMetrics(sessions = [], period = '7d') {
 export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManager = null) {
   if (!container) return;
 
-  let activePeriod = '7d'; // '7d' | '30d' | '90d' | 'all'
-  let activeMode = 'day'; // 'session' | 'day'
+  container._aaCleanup?.();
+  const viewState = uiManager ? (uiManager.analyticsViewState ||= {}) : {};
+  let activePeriod = viewState.period || '7d';
+  let activeMode = viewState.mode || 'day';
 
-  const tableState = {
+  const tableState = viewState.table ||= {
     sortKey: 'date',
     sortDir: 'desc',
     page: 1,
@@ -1226,8 +1232,8 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
       <!-- Top Control Bar -->
       <div class="aa-header-row">
         <div>
-          <h2 class="aa-main-title">Telemetry &amp; Chart Analysis</h2>
-          <p class="aa-main-sub">Real-time velocity curves, precision stability, and biomechanical diagnostics</p>
+          <h2 class="aa-main-title">Your progress over time</h2>
+          <p class="aa-main-sub">Explore your pace, accuracy, and the keys to practice next.</p>
         </div>
 
         <div class="aa-controls-group">
@@ -1258,7 +1264,7 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
             <div class="aa-head-left">
               <span class="aa-card-icon">⚡</span>
               <div>
-                <h3 class="aa-card-title">WPM Velocity Curve</h3>
+                <h3 class="aa-card-title">Typing speed</h3>
                 <span class="aa-card-sub">Typing speed progression over selected timeframe</span>
               </div>
             </div>
@@ -1297,8 +1303,8 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
             <div class="aa-head-left">
               <span class="aa-card-icon">⚠️</span>
               <div>
-                <h3 class="aa-card-title">Problem Keys Diagnostic</h3>
-                <span class="aa-card-sub">Lowest accuracy keys costing you velocity</span>
+                <h3 class="aa-card-title">Keys to practice</h3>
+                <span class="aa-card-sub">Build accuracy with focused practice</span>
               </div>
             </div>
           </div>
@@ -1311,7 +1317,7 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
             <div class="aa-head-left">
               <span class="aa-card-icon">🖐️</span>
               <div>
-                <h3 class="aa-card-title">10-Finger Biomechanical Mastery</h3>
+                <h3 class="aa-card-title">Finger accuracy</h3>
                 <span class="aa-card-sub">Individual finger accuracy ratings &amp; stroke balance</span>
               </div>
             </div>
@@ -1333,12 +1339,12 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
 
           <!-- Table Actions: Search, Filter, Export -->
           <div class="aa-table-toolbar">
-            <input type="text" id="aa-history-search" class="aa-search-input" placeholder="Search lessons..." value="${escapeHtml(tableState.search)}">
-            <select id="aa-kind-filter" class="aa-select">
+            <input type="text" id="aa-history-search" aria-label="Search practice history" class="aa-search-input" placeholder="Search lessons..." value="${escapeHtml(tableState.search)}">
+            <select id="aa-kind-filter" aria-label="Filter history by activity" class="aa-select">
               <option value="all">All Activities</option>
               <option value="lesson">Curriculum Lessons</option>
               <option value="code">Developer Code</option>
-              <option value="speedtest">Speed Tests</option>
+              <option value="speedtest">Benchmarks &amp; passage sprints</option>
               <option value="quote">Quote Vault</option>
               <option value="zen">Zen Mode</option>
               <option value="custom">Custom Practice</option>
@@ -1371,6 +1377,8 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
   const modeToggle = container.querySelector('#aa-mode-toggle');
   const periodTabs = container.querySelector('#aa-period-tabs');
 
+  kindSelect.value = tableState.kindFilter;
+
   // Render Function
   function renderAll() {
     const currentState = store.getState();
@@ -1386,16 +1394,16 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
     scorecardSlot.innerHTML = `
       <div class="aa-stat-card">
         <div class="aa-stat-head">
-          <span class="aa-stat-label">Period Avg Speed</span>
+          <span class="aa-stat-label">Average speed</span>
           <span class="aa-stat-icon">⚡</span>
         </div>
-        <div class="aa-stat-val" style="color: #7C5CFC;">${metrics.avgWpm} <span class="aa-stat-unit">WPM</span></div>
+        <div class="aa-stat-val" style="color: var(--accent-primary);">${metrics.avgWpm} <span class="aa-stat-unit">WPM</span></div>
         <div class="aa-stat-footer">${trendMarkup || `<span style="color: var(--text-muted); font-size: 11px;">Over ${activePeriod === 'all' ? 'all time' : activePeriod}</span>`}</div>
       </div>
 
       <div class="aa-stat-card">
         <div class="aa-stat-head">
-          <span class="aa-stat-label">Peak Velocity</span>
+          <span class="aa-stat-label">Best speed</span>
           <span class="aa-stat-icon">🚀</span>
         </div>
         <div class="aa-stat-val" style="color: var(--reward-amber);">${metrics.peakWpm} <span class="aa-stat-unit">WPM</span></div>
@@ -1404,16 +1412,16 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
 
       <div class="aa-stat-card">
         <div class="aa-stat-head">
-          <span class="aa-stat-label">Precision Stability</span>
+          <span class="aa-stat-label">Average accuracy</span>
           <span class="aa-stat-icon">🎯</span>
         </div>
-        <div class="aa-stat-val" style="color: #00D4AA;">${metrics.avgAccuracy}%</div>
+        <div class="aa-stat-val" style="color: var(--success-teal);">${metrics.totalRuns ? `${metrics.avgAccuracy}%` : '—'}</div>
         <div class="aa-stat-footer"><span style="color: var(--text-muted); font-size: 11px;">Average accuracy rating</span></div>
       </div>
 
       <div class="aa-stat-card">
         <div class="aa-stat-head">
-          <span class="aa-stat-label">Practice Volume</span>
+          <span class="aa-stat-label">Practice time</span>
           <span class="aa-stat-icon">⏱️</span>
         </div>
         <div class="aa-stat-val" style="color: var(--text-primary);">${metrics.totalRuns} <span class="aa-stat-unit">runs</span></div>
@@ -1422,17 +1430,17 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
 
       <div class="aa-stat-card">
         <div class="aa-stat-head">
-          <span class="aa-stat-label">Consistency Rate</span>
+          <span class="aa-stat-label">Active days</span>
           <span class="aa-stat-icon">🔥</span>
         </div>
-        <div class="aa-stat-val" style="color: #FF8E53;">${metrics.activeDays} <span class="aa-stat-unit">/ ${metrics.totalDays}d</span></div>
+        <div class="aa-stat-val" style="color: var(--reward-amber);">${metrics.activeDays} <span class="aa-stat-unit">/ ${metrics.totalDays}d</span></div>
         <div class="aa-stat-footer"><span style="color: var(--text-muted); font-size: 11px;">${Math.round((metrics.activeDays / (metrics.totalDays || 1)) * 100)}% active days</span></div>
       </div>
     `;
 
     // 2. Meta Headers on Chart Cards
     wpmMeta.innerHTML = `<span class="aa-pill-badge">${metrics.totalRuns} data points · avg ${metrics.avgWpm} WPM</span>`;
-    accMeta.innerHTML = `<span class="aa-pill-badge">avg ${metrics.avgAccuracy}% accuracy</span>`;
+    accMeta.innerHTML = `<span class="aa-pill-badge">${metrics.totalRuns ? `avg ${metrics.avgAccuracy}% accuracy` : 'No sessions yet'}</span>`;
 
     // 3. Canvas Charts (defer to next frame so container sizes are computed)
     requestAnimationFrame(() => {
@@ -1452,7 +1460,7 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
   modeToggle.addEventListener('click', e => {
     const btn = e.target.closest('button[data-mode]');
     if (!btn) return;
-    activeMode = btn.dataset.mode;
+    activeMode = viewState.mode = btn.dataset.mode;
     modeToggle.querySelectorAll('.aa-mode-btn').forEach(b => {
       const isActive = b.dataset.mode === activeMode;
       b.classList.toggle('active', isActive);
@@ -1464,7 +1472,7 @@ export function renderAdvancedAnalyticsDashboard(container, state = {}, uiManage
   periodTabs.addEventListener('click', e => {
     const btn = e.target.closest('button[data-period]');
     if (!btn) return;
-    activePeriod = btn.dataset.period;
+    activePeriod = viewState.period = btn.dataset.period;
     periodTabs.querySelectorAll('.aa-period-btn').forEach(b => {
       const isActive = b.dataset.period === activePeriod;
       b.classList.toggle('active', isActive);

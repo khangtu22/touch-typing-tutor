@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workspace regression checks</title><body class="theme-dark">
+<details style="padding:12px"><summary id="test-summary" role="status">Running workspace checks…</summary><pre id="test-results" style="white-space:pre-wrap"></pre></details>
+<script type="module">
+import { UIManager, DESTINATIONS } from '../js/ui.js?v=4.0.3';
+import { store, DEFAULT_STATE } from '../js/state.js?v=3.8.1';
+import { themeStudio, DEFAULT_CUSTOM_THEME } from '../js/theme-studio.js?v=4.0.3';
+const saved = localStorage.getItem('typing_tutor_progress');
+store.writeToStorage = () => {};
+store.state = structuredClone(DEFAULT_STATE);
+Object.assign(store.state.settings, {soundEnabled:false,keyboardVisible:false,handGuideVisible:false});
+store.state.settings.wellness.afkDetectionEnabled = false;
+const source = new DOMParser().parseFromString(await (await fetch('../index.html',{cache:'no-store'})).text(),'text/html');
+await Promise.all([...source.querySelectorAll('link[rel="stylesheet"]')].map(original => new Promise(resolve => {
+ const link=original.cloneNode(); link.href=new URL(original.getAttribute('href'),new URL('../index.html',location.href));
+ link.onload=link.onerror=resolve; document.head.append(link);
+})));
+document.body.append(source.querySelector('.app-container'));
+await document.fonts.ready;
+const ui=new UIManager(); ui.showToast=()=>{};
+const messages=[];
+const check=(value,label)=>{if(!value)throw Error(label);messages.push('PASS '+label)};
+const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const visible=el=>el && el.getClientRects().length && !el.closest('[hidden]');
+const luminance=rgb=>rgb.slice(0,3).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((a,x,i)=>a+x*[.2126,.7152,.0722][i],0);
+const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const rgb=value=>value.match(/[\d.]+/g).map(Number);
+try {
+ for(const theme of ['dark','retro','cyberpunk','botanical','tokyo']) {
+  store.update(s=>({...s,settings:{...s.settings,theme}}));
+  for(const state of ['bg','hover','active']) {
+   const probe=document.createElement('button');probe.className='btn btn-primary';probe.textContent='Contrast probe';probe.style.background=`var(--btn-primary-${state})`;document.body.append(probe);
+   const cs=getComputedStyle(probe);check(contrast(rgb(cs.color),rgb(cs.backgroundColor))>=4.5,`${theme}: ${state} primary contrast`);probe.remove();
+  }
+  for(const destination of DESTINATIONS) {
+   ui.navigateTo(destination.id);await frame();
+   const root=ui.screens[destination.id];
+   check(visible(root.querySelector('h1')),`${theme} / ${destination.label}: visible page heading`);
+   check(document.documentElement.scrollWidth<=innerWidth+1,`${theme} / ${destination.label}: no page overflow at ${innerWidth}px`);
+   const button=[...root.querySelectorAll('.btn-primary')].find(visible);
+   if(button){const cs=getComputedStyle(button);check(contrast(rgb(cs.color),rgb(cs.backgroundColor))>=4.5,`${theme} / ${destination.label}: primary button contrast`);}
+  }
+ }
+ store.update(s=>({...s,settings:{...s.settings,theme:'dark'}}));
+ ui.activeCodeLanguage='javascript';ui.activeCodeSearch='';ui.navigateTo('code');
+ const launch=ui.screens.code.querySelector('.start-snippet-btn');const snippet=launch.dataset.snippetId;
+ launch.focus();launch.click();await frame();
+ check(ui.activeScreen==='lesson','code launch starts practice');
+ check(ui.practiceOriginContext.screen==='code','code launch captures origin');
+ ui.returnFromPractice();await frame();
+ check(ui.activeScreen==='code'&&ui.activeCodeLanguage==='javascript','return restores Code Arena filter');
+ check(document.activeElement.dataset.snippetId===snippet,'return restores launch control focus');
+ document.activeElement.click();await frame();ui.showPauseModal();await frame();
+ check(document.activeElement.id==='resume-lesson-btn','pause places keyboard focus on Resume');
+ document.querySelector('#exit-lesson-btn').click();await frame();
+ check(ui.activeScreen==='code','pause exit returns to Code Arena');
+ document.activeElement.click();await frame();
+ const summary={lessonId:snippet,lessonTitle:'Code practice',wpm:42,accuracy:96,durationSec:30,stars:3,xpEarned:50,maxCombo:10,totalKeystrokes:100,totalCorrect:96,totalErrors:4,wpmHistory:[],keyStatsDelta:{},mistypedWords:[]};
+ ui.currentSessionSummary=summary;ui.navigateTo('results');ui.renderResults(summary);
+ check(document.querySelector('#results-dashboard-btn').textContent.includes('Code Arena'),'Results identifies the original library');
+ document.querySelector('#results-retry-btn').click();await frame();check(ui.practiceOriginContext.screen==='code','retry keeps Code Arena origin');
+ ui.returnFromPractice();await frame();
+ const custom={...DEFAULT_CUSTOM_THEME,id:'fixture',accentPrimary:'#ffdd33',bgBase:'#182030'};
+ themeStudio.applyTheme(custom);ui.navigateTo('custom');
+ check(getComputedStyle(document.body).getPropertyValue('--bg-base').trim()==='#182030','custom theme overrides built-in body palette');
+ const primary=document.querySelector('#screen-custom .btn-primary');let cs=getComputedStyle(primary);
+ check(contrast(rgb(cs.color),rgb(cs.backgroundColor))>=4.5,'custom primary button has contrasting text');
+ document.body.classList.add('high-contrast');cs=getComputedStyle(primary);
+ check(contrast(rgb(cs.color),rgb(cs.backgroundColor))>=7,'high contrast takes precedence over custom theme');
+ document.body.classList.remove('high-contrast');themeStudio.resetToBuiltIn();
+
+ ui.customDraftText='A saved draft stays here.';ui.navigateTo('custom');ui.navigateTo('dashboard');ui.navigateTo('custom');
+ check(document.querySelector('#custom-paste-input').value===ui.customDraftText,'custom draft survives navigation');
+ ui.profileActiveTab='history';ui.navigateTo('profile');await frame();
+ check(visible(document.querySelector('#aa-history-search')),'Analytics History is visible');
+ const search=document.querySelector('#aa-history-search');search.value='practice';search.dispatchEvent(new Event('input',{bubbles:true}));
+ ui.navigateTo('dashboard');ui.navigateTo('profile');
+ check(document.querySelector('#aa-history-search').value==='practice','Analytics search survives navigation');
+ ui.navigateTo('settings');
+ for(const category of ['appearance','typing','sound','wellness','goals','accessibility','data']) {
+  ui.switchSettingsCategory(category);
+  const panel=document.querySelector('#settings-cat-'+category);
+  check(visible(panel.querySelector('.settings-panel-body')),`${category} Settings is reachable`);
+  for(const field of panel.querySelectorAll('input:not([type=file]),select,textarea')) {
+   if(!visible(field))continue;
+   check(field.labels?.length||field.getAttribute('aria-label'),`${field.id}: named form control`);
+  }
+ }
+ if(innerWidth<768){
+  check([...document.querySelectorAll('.settings-accordion-toggle')].every(visible),'every mobile Settings heading remains reachable');
+  ui.openNavDrawer();check(document.querySelector('.main-content').inert,'drawer makes background inert');
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  check(!ui.navDrawer.classList.contains('drawer-open')&&document.activeElement===ui.navDrawerToggleBtn,'Escape closes drawer and restores focus');
+ }
+ check(localStorage.getItem('typing_tutor_progress')===saved,'saved progress remains unchanged');
+ ui.navigateTo('dashboard');
+ document.querySelector('#test-summary').textContent=`${messages.length} workspace checks passed at ${innerWidth}px`;
+} catch(error){messages.push('FAIL '+error.stack);document.querySelector('#test-summary').textContent='FAILED: '+error.message;}
+document.querySelector('#test-results').textContent=messages.join('\n');
+</script></body></html>

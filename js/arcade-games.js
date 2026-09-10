@@ -2206,9 +2206,9 @@ export class ArcadeHubManager {
       <div class="arcade-lobby">
         <div class="arcade-lobby-header">
           <div class="arcade-badge-chip">🕹️ ${5 + ARCADE_CHALLENGES.length}-GAME ARCADE ARENA</div>
-          <h1 class="arcade-lobby-title">Master Speed, Accuracy &amp; Rhythm</h1>
+          <h1 class="arcade-lobby-title">Arcade</h1>
           <p class="arcade-lobby-subtitle">
-            Find your flow: grow a garden, build a skyline, test your memory, or chase speed and rhythm. Eight games, three difficulty levels, and a new personal best to beat.
+            Eight ways to build speed, accuracy, and rhythm. Choose a game and make your next personal best.
           </p>
         </div>
 
@@ -2221,46 +2221,6 @@ export class ArcadeHubManager {
           </div>
           <button id="btn-launch-recommended" class="btn btn-primary btn-sm">Start recommended game <span aria-hidden="true">→</span></button>
         </aside>
-
-        <!-- Arcade Hall of Fame Stats Banner -->
-        <div class="arcade-hall-of-fame">
-          <div class="hof-stat-card">
-            <div class="hof-stat-icon">🏰</div>
-            <div class="hof-stat-info">
-              <span class="hof-stat-label">TYPING QUEST</span>
-              <span class="hof-stat-value">${(stats.questHighScore || 0).toLocaleString()} PTS</span>
-              <span class="quest-record-detail">${stats.questCompletedRuns || 0} dungeons conquered</span>
-            </div>
-          </div>
-          <div class="hof-stat-card">
-            <div class="hof-stat-icon">👾</div>
-            <div class="hof-stat-info">
-              <span class="hof-stat-label">TYPE INVADERS</span>
-              <span class="hof-stat-value">${(stats.invadersHighScore || 0).toLocaleString()} PTS</span>
-            </div>
-          </div>
-          <div class="hof-stat-card">
-            <div class="hof-stat-icon">🏎️</div>
-            <div class="hof-stat-info">
-              <span class="hof-stat-label">NITRO DRAG TOP SPEED</span>
-              <span class="hof-stat-value">${stats.nitroBestWpm || 0} WPM</span>
-            </div>
-          </div>
-          <div class="hof-stat-card">
-            <div class="hof-stat-icon">💻</div>
-            <div class="hof-stat-info">
-              <span class="hof-stat-label">MATRIX TERMINAL HACK</span>
-              <span class="hof-stat-value">${(stats.matrixHighScore || 0).toLocaleString()} KB</span>
-            </div>
-          </div>
-          <div class="hof-stat-card">
-            <div class="hof-stat-icon">🎵</div>
-            <div class="hof-stat-info">
-              <span class="hof-stat-label">KEYBEATS RHYTHM</span>
-              <span class="hof-stat-value">${(stats.rhythmHighScore || 0).toLocaleString()} PTS</span>
-            </div>
-          </div>
-        </div>
 
         <!-- Game Selection Grid -->
         <div class="arcade-game-grid">
@@ -2286,6 +2246,7 @@ export class ArcadeHubManager {
                   <button class="diff-btn ${this.difficulties.quest === 'hard' ? 'active' : ''}" data-diff="hard" aria-pressed="${this.difficulties.quest === 'hard'}">Hard (6–12)</button>
                 </div>
               </div>
+              <p class="game-personal-best">Personal best <strong>${(stats.questHighScore || 0).toLocaleString()} pts</strong></p>
               <button id="btn-launch-quest" class="btn btn-primary btn-lg arcade-launch-btn">Begin Typing Quest</button>
             </div>
           </div>
@@ -2316,6 +2277,7 @@ export class ArcadeHubManager {
                 </div>
               </div>
 
+              <p class="game-personal-best">Personal best <strong>${(stats.invadersHighScore || 0).toLocaleString()} pts</strong></p>
               <button id="btn-launch-invaders" class="btn btn-primary btn-lg arcade-launch-btn">
                 Launch Orbit Defense
               </button>
@@ -2349,6 +2311,7 @@ export class ArcadeHubManager {
                 </div>
               </div>
 
+              <p class="game-personal-best">Personal best <strong>${(stats.nitroBestWpm || 0).toLocaleString()} WPM</strong></p>
               <button id="btn-launch-nitro" class="btn btn-secondary btn-lg arcade-launch-btn">
                 Start 60s Drag Race
               </button>
@@ -2382,7 +2345,8 @@ export class ArcadeHubManager {
                 </div>
               </div>
 
-              <button id="btn-launch-matrix" class="btn btn-primary btn-lg arcade-launch-btn" style="background: #00D4AA; border-color: #00D4AA;">
+              <p class="game-personal-best">Personal best <strong>${(stats.matrixHighScore || 0).toLocaleString()} KB</strong></p>
+              <button id="btn-launch-matrix" class="btn btn-primary btn-lg arcade-launch-btn">
                 Infiltrate Mainframe
               </button>
             </div>
@@ -2415,6 +2379,7 @@ export class ArcadeHubManager {
                 </div>
               </div>
 
+              <p class="game-personal-best">Personal best <strong>${(stats.rhythmHighScore || 0).toLocaleString()} pts</strong></p>
               <button id="btn-launch-rhythm" class="btn btn-secondary btn-lg arcade-launch-btn">
                 Start Rhythm Flow
               </button>

@@ -5,6 +5,8 @@
  * Focus Mode, Zen Mode, Quote Vault, Goal Rings, Theme Studio, Advanced Analytics.
  */
 
+import { captureViewState, practiceDestination, controlIdentity, findControl, prepareScreen, installTabNavigation, containDialogFocus } from './workspace.js?v=4.0.3';
+
 import { store, getLevelProgress, getLocalDateKey } from './state.js?v=3.8.1';
 import { CURRICULUM, CURRICULUM_LEVELS, generateWeakKeysLesson, generateWeakFingerLesson } from './curriculum.js?v=3.9.2';
 import { typingEngine } from './typing-engine.js?v=3.8.1';
@@ -22,10 +24,10 @@ import { LAYOUTS } from './layouts.js?v=3.8.1';
 import { getLessonMastery, getPlacementRecommendation, getReviewQueue } from './mastery.js?v=3.8.1';
 import { focusMode, zenMode } from './focus-zen.js?v=3.8.1';
 import { goalsManager, renderGoalRings, DEFAULT_GOALS, DEFAULT_WELLNESS } from './goals-wellness.js?v=3.8.1';
-import { themeStudio, renderThemeStudioUI } from './theme-studio.js?v=3.8.1';
-import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=3.9.2';
+import { themeStudio, renderThemeStudioUI } from './theme-studio.js?v=4.0.3';
+import { renderAdvancedAnalyticsDashboard } from './advanced-analytics.js?v=4.0.3';
 import { QUOTE_VAULT, MULTI_LANG_WORDS, getQuoteOfTheDay, getQuotesByFilter, getRandomQuote, generateLanguagePractice, queryQuotes, estimateTypingTimeSec } from './premium-features.js?v=3.8.1';
-import { ArcadeHubManager } from './arcade-games.js?v=3.9.0';
+import { ArcadeHubManager } from './arcade-games.js?v=4.0.3';
 import { CODE_LANGUAGES, CODE_SNIPPETS, getFilteredSnippets, getRandomCodeSnippet, chunkCodePreset } from './code-snippets.js?v=4.0.0';
 import { getWeakKeyAnalysis, generateWeaknessDrill, generateMissedWordsDrill } from './weakness-engine.js?v=3.8.1';
 import { SPEED_TEST_PRESETS, VOCABULARY_PRESETS, VOCABULARY_POOLS, getVocabularyPool, generateSpeedTestLesson, calculateConsistency, PASSAGE_SPRINT_PRESETS, generatePassageSprintLesson } from './speed-test.js?v=4.0.0';
@@ -238,6 +240,12 @@ export class UIManager {
 
   openNavDrawer() {
     if (!this.navDrawer) return;
+    if (this.navDrawer.classList.contains('drawer-open')) return;
+    this.navDrawerReturnFocus = document.activeElement;
+    this.navDrawerInertState = [...this.navDrawer.parentElement.children]
+      .filter(el => el !== this.navDrawer).map(el => [el, el.inert]);
+    this.navDrawerInertState.forEach(([el]) => { el.inert = true; });
+    document.body.classList.add('navigation-open');
     this.navDrawer.classList.add('drawer-open');
     this.navDrawer.setAttribute('aria-hidden', 'false');
     this.navDrawerToggleBtn?.setAttribute('aria-expanded', 'true');
@@ -247,6 +255,9 @@ export class UIManager {
 
   closeNavDrawer() {
     if (!this.navDrawer) return;
+    this.navDrawerInertState?.forEach(([el, inert]) => { el.inert = inert; });
+    this.navDrawerInertState = null;
+    document.body.classList.remove('navigation-open');
     this.navDrawer.classList.remove('drawer-open');
     this.navDrawer.setAttribute('aria-hidden', 'true');
     this.navDrawerToggleBtn?.setAttribute('aria-expanded', 'false');
@@ -264,41 +275,32 @@ export class UIManager {
   }
 
   captureOriginContext(options = {}) {
-    const currentScreen = this.activeScreen;
-    if (currentScreen !== 'lesson' && currentScreen !== 'results') {
-      this.practiceOriginContext = {
-        screen: currentScreen,
-        scroll: typeof window !== 'undefined' ? (window.scrollY || 0) : 0,
-        controlId: document.activeElement?.id || null,
-        viewState: { ...options }
-      };
-    } else if (!this.practiceOriginContext) {
-      this.practiceOriginContext = {
-        screen: 'dashboard',
-        scroll: 0,
-        controlId: null,
-        viewState: {}
-      };
-    }
+    if (this.activeScreen === 'lesson' || this.activeScreen === 'results') return this.practiceOriginContext;
+    if (!DESTINATIONS.some(destination => destination.id === this.activeScreen)) return null;
+    const trigger = document.activeElement;
+    this.practiceOriginContext = {
+      screen: this.activeScreen,
+      scroll: window.scrollY || 0,
+      control: controlIdentity(trigger),
+      viewState: captureViewState(this),
+      ...options
+    };
     return this.practiceOriginContext;
   }
 
   returnFromPractice() {
-    const context = this.practiceOriginContext || {
-      screen: this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard'
-    };
-    const targetScreen = context.screen || (this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard');
-    this.navigateTo(targetScreen);
-    if (typeof context.scroll === 'number' && context.scroll > 0) {
-      requestAnimationFrame(() => {
-        try { window.scrollTo({ top: context.scroll, behavior: 'instant' }); } catch (e) {}
-      });
-    }
-    if (context.controlId) {
-      requestAnimationFrame(() => {
-        try { document.getElementById(context.controlId)?.focus?.({ preventScroll: true }); } catch (e) {}
-      });
-    }
+    const context = this.practiceOriginContext || { screen: practiceDestination(this.currentLessonData || {}) };
+    Object.assign(this, context.viewState || {});
+    const target = DESTINATIONS.some(item => item.id === context.screen) ? context.screen : 'dashboard';
+    this.navigateTo(target);
+    requestAnimationFrame(() => {
+      if (this.activeScreen !== target) return;
+      const root = this.screens[target];
+      const control = findControl(root, context.control);
+      const focus = control || root?.querySelector('h1') || root;
+      if (focus) { if (!control) focus.tabIndex = -1; focus.focus({ preventScroll: true }); }
+      window.scrollTo({ top: Math.min(context.scroll || 0, Math.max(0, document.documentElement.scrollHeight - innerHeight)), behavior: 'instant' });
+    });
   }
 
   initEventListeners() {
@@ -321,6 +323,36 @@ export class UIManager {
     if (this.navQuotesBtn) this.navQuotesBtn.addEventListener('click', () => this.navigateTo('quotes'));
     if (this.navPaletteBtn) this.navPaletteBtn.addEventListener('click', () => this.openCommandPalette());
     if (this.navShortcutsBtn) this.navShortcutsBtn.addEventListener('click', () => this.showShortcutsPopup());
+
+    installTabNavigation(document);
+    document.addEventListener('click', event => {
+      const target = event.target.closest('button, [role="button"]');
+      const identity = controlIdentity(target);
+      queueMicrotask(() => {
+        const root = this.screens[this.activeScreen];
+        prepareScreen(root);
+        if (target && !target.isConnected && event.detail === 0) findControl(root, identity)?.focus({ preventScroll: true });
+      });
+    });
+    document.addEventListener('keydown', event => {
+      const drawerOpen = this.navDrawer?.classList.contains('drawer-open');
+      if (drawerOpen) {
+        if (event.key === 'Escape') { event.preventDefault(); this.closeNavDrawer(); }
+        containDialogFocus(this.navDrawer, event);
+        event.stopImmediatePropagation();
+        return;
+      }
+      const choice = event.target.closest('.theme-card-option, .lang-option-card');
+      if (choice && ['Enter', ' '].includes(event.key)) {
+        event.preventDefault(); event.stopImmediatePropagation(); choice.click();
+      }
+      const dialog = event.target.closest('[role="dialog"]');
+      if (dialog) containDialogFocus(dialog, event);
+    }, true);
+    window.addEventListener('resize', () => {
+      if (innerWidth >= 768) this.closeNavDrawer();
+      if (this.activeScreen === 'settings') this.switchSettingsCategory(this.settingsActiveCategory);
+    });
 
     // Drawer triggers and items
     if (this.navDrawerToggleBtn) this.navDrawerToggleBtn.addEventListener('click', () => this.toggleNavDrawer());
@@ -741,6 +773,9 @@ export class UIManager {
   }
 
   navigateTo(screenName) {
+    if (!this.screens[screenName]) return;
+    this.closeNavDrawer();
+    if (this.activeScreen === 'profile') this.screens.profile?.querySelectorAll('[id^=advanced-analytics]').forEach(el => el._aaCleanup?.());
     if (this.activeScreen === 'onboarding' && screenName !== 'onboarding') {
       this.onboardingHand?.destroy();
       this.onboardingHand = null;
@@ -780,11 +815,12 @@ export class UIManager {
         const isActive = name === screenName;
         el.classList.toggle('screen-active', isActive);
         el.setAttribute('aria-hidden', String(!isActive));
+        el.hidden = !isActive;
       }
     });
 
     const activeDestinationId = (screenName === 'lesson' || screenName === 'results')
-      ? (this.practiceOriginContext?.screen || (this.currentLessonData?.isSpeedTest ? 'speedtest' : 'dashboard'))
+      ? (this.practiceOriginContext?.screen || (practiceDestination(this.currentLessonData || {})))
       : screenName;
 
     const navPairs = [
@@ -828,6 +864,7 @@ export class UIManager {
       }
     }
 
+    prepareScreen(this.screens[screenName]);
     const activeScreen = this.screens[screenName];
     if (activeScreen) {
       activeScreen.setAttribute('tabindex', '-1');
@@ -1035,23 +1072,23 @@ export class UIManager {
   // ==========================================
   getAdaptiveFocusCoach2(state) {
     const keyStats = state.keyStats || {};
-    
+
     // Check per-finger accuracy
     const fingerMastery = AnalyticsEngine.getFingerMastery(keyStats);
     const practicedFingers = fingerMastery.filter(f => f.totalAttempts >= 6);
     const weakFinger = practicedFingers.sort((a, b) => a.accuracy - b.accuracy)[0];
-    
+
     if (weakFinger && weakFinger.accuracy < 85) {
       const targetKeys = Object.entries(KEY_TO_FINGER)
         .filter(([k, fId]) => fId === weakFinger.finger.id)
         .map(([k]) => k.toUpperCase())
         .slice(0, 6);
-      
+
       const explanation = `Your ${weakFinger.finger.name.toLowerCase()} accuracy dropped to ${weakFinger.accuracy}%. This drill targets ${targetKeys.join(' ')}.`;
       const drillLesson = generateWeakFingerLesson(weakFinger.finger, state.settings.layout);
       drillLesson.title = `Focus Coach 2.0: ${weakFinger.finger.name} Drill`;
       drillLesson.subtitle = explanation;
-      
+
       return {
         hasDrill: true,
         type: 'finger',
@@ -1062,7 +1099,7 @@ export class UIManager {
         lesson: drillLesson
       };
     }
-    
+
     // Check weak keys
     const weakKeys = AnalyticsEngine.getWeakKeys(keyStats, 4).filter(k => k.accuracy < 85);
     if (weakKeys.length > 0) {
@@ -1073,7 +1110,7 @@ export class UIManager {
       const drillLesson = generateWeakKeysLesson(keys);
       drillLesson.title = `Focus Coach 2.0: Weak Keys Drill (${keysDisplay})`;
       drillLesson.subtitle = explanation;
-      
+
       return {
         hasDrill: true,
         type: 'keys',
@@ -1084,7 +1121,7 @@ export class UIManager {
         lesson: drillLesson
       };
     }
-    
+
     return null;
   }
 
@@ -1324,7 +1361,7 @@ export class UIManager {
             <h2 class="hero-title">${escapeHtml(currentLessonObj.title)}</h2>
             <p class="hero-subtitle">${escapeHtml(currentLessonObj.subtitle)}</p>
             <p class="hero-focus"><span>Focus</span> ${escapeHtml(currentLessonObj.skillFocus)}</p>
-            
+
             <div class="hero-metrics-strip">
               <div class="hero-targets-preview">
                 <span class="target-pill">≥${currentLessonObj.accuracyTarget}% accuracy</span>
@@ -1608,10 +1645,10 @@ export class UIManager {
                   `).join('')}
                 </div>
                 <p class="consistency-status-caption">
-                  ${weeklyData.practicedToday 
-                    ? '✓ Today\'s practice is logged! Your streak is secured.' 
-                    : state.dailyStreak > 0 
-                      ? `🔥 Practice any lesson or mode today to maintain your ${state.dailyStreak}-day streak!` 
+                  ${weeklyData.practicedToday
+                    ? '✓ Today\'s practice is logged! Your streak is secured.'
+                    : state.dailyStreak > 0
+                      ? `🔥 Practice any lesson or mode today to maintain your ${state.dailyStreak}-day streak!`
                       : '⚡ Practice any lesson or mode today to kick off a new daily streak!'}
                 </p>
               </div>
@@ -1906,7 +1943,7 @@ export class UIManager {
     container.innerHTML = `
       <div class="custom-arena-layout">
         <div class="custom-arena-header">
-          <h2 class="custom-arena-title">Custom Practice &amp; Language Lab</h2>
+          <h1 class="custom-arena-title page-title">Custom</h1>
           <p class="custom-arena-subtitle">Paste articles, speeches, prose, or train muscle memory across international languages</p>
         </div>
 
@@ -2176,6 +2213,7 @@ export class UIManager {
   }
 
   openCustomPassageModal() {
+    const returnFocus = document.activeElement;
     let overlay = document.getElementById('custom-passage-modal-overlay');
     if (overlay) overlay.remove();
 
@@ -2248,7 +2286,9 @@ export class UIManager {
 
     const closeModal = () => {
       overlay.remove();
+      returnFocus?.focus({ preventScroll: true });
     };
+    overlay.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
 
     overlay.querySelector('#custom-passage-close-btn')?.addEventListener('click', closeModal);
     overlay.addEventListener('click', (e) => {
@@ -2339,7 +2379,7 @@ export class UIManager {
         <!-- Header -->
         <div class="quote-vault-header">
           <div>
-            <h2 class="section-title">Quote Vault &amp; Classic Passages</h2>
+            <h1 class="section-title page-title">Quotes</h1>
             <p class="section-subtitle">Practice touch typing with ${QUOTE_VAULT.length}+ timeless passages from literature, philosophy, science, and coding giants.</p>
           </div>
           <div class="quote-vault-header-actions">
@@ -2841,14 +2881,14 @@ export class UIManager {
 
     const state = store.getState();
     const currentLang = this.activeCodeLanguage || 'all';
-    const snippets = getFilteredSnippets(currentLang, this.activeCodeSearch);
+    const snippets = getFilteredSnippets(currentLang, 'all', this.activeCodeSearch);
     const practiced = state.codeSnippetsPracticed || [];
 
     container.innerHTML = `
       <div class="code-arena-container">
         <div class="code-arena-header">
           <div>
-            <h2 class="section-title">Developer Code Arena</h2>
+            <h1 class="section-title page-title">Code Arena</h1>
             <p class="section-subtitle">Real-world syntax typing across 8 programming languages with live formatting and brackets</p>
           </div>
           <div class="code-arena-actions">
@@ -2961,7 +3001,8 @@ export class UIManager {
 
     container.querySelectorAll('.code-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.start-snippet-btn')) return;
+        if (e.target.closest('button, a, input, select')) return;
+        card.querySelector('.start-snippet-btn')?.focus({ preventScroll: true });
         const snippet = CODE_SNIPPETS.find(s => s.id === card.dataset.snippetId);
         if (snippet) this.startCodePractice(snippet);
       });
@@ -2979,7 +3020,8 @@ export class UIManager {
       targetWpm: 40,
       accuracyTarget: 95,
       estimatedMinutes: 2,
-      rounds: [snippet.code],
+      rounds: snippet.isPreset ? chunkCodePreset(snippet.code) : [snippet.code],
+      ...(snippet.isPreset ? { wpmTarget: 35, accuracyTarget: 93, xpReward: 50 } : {}),
       isCodeLesson: true,
       snippetData: snippet,
       snippetId: snippet.id
@@ -2988,7 +3030,8 @@ export class UIManager {
   }
 
   startRandomCodeSnippet(lang = 'all') {
-    const snippet = getRandomCodeSnippet(lang);
+    const pool = getFilteredSnippets(lang, 'all', this.activeCodeSearch || '');
+    const snippet = pool[Math.floor(Math.random() * pool.length)];
     if (snippet) {
       this.startCodePractice(snippet);
     }
@@ -3043,8 +3086,8 @@ export class UIManager {
         <header class="speedtest-header">
           <div>
             <p class="speedtest-eyebrow">Speed test</p>
-            <h2 class="speedtest-title">${isSprintMode ? 'Passage Sprints.' : 'Find your flow.'}</h2>
-            <p class="section-subtitle">${isSprintMode ? 'High-density authentic paragraph sprints calibrated for rhythm and sustained endurance.' : 'A little focus. A steady rhythm. See what your fingers can do.'}</p>
+            <h1 class="speedtest-title">Speed Test</h1>
+            <p class="section-subtitle">${isSprintMode ? 'Practice complete sentences with a timer. Passage records stay separate from word benchmarks.' : 'A little focus. A steady rhythm. See what your fingers can do.'}</p>
           </div>
           <div class="speedtest-completion" aria-label="${isSprintMode ? 'Passage sprint challenges' : `${completedCount} of ${SPEED_TEST_PRESETS.length} personal records in ${selectedVocab.label}`}">
             <strong>${isSprintMode ? Object.keys(sprintBests).length : completedCount}<span> / ${isSprintMode ? PASSAGE_SPRINT_PRESETS.length : SPEED_TEST_PRESETS.length}</span></strong>
@@ -3062,7 +3105,7 @@ export class UIManager {
         </div>
 
         ${!isSprintMode ? `
-          <div class="speedtest-workspace">
+          <div class="speedtest-workspace" id="speed-panel-benchmark" role="tabpanel" aria-labelledby="tab-speed-benchmark">
             <section class="speedtest-launch-card" aria-labelledby="speedtest-selected-title">
               <div class="speedtest-presets-bar" role="group" aria-label="Choose a benchmark test">
                 ${['time', 'words'].map(type => `
@@ -3164,7 +3207,7 @@ export class UIManager {
             </div>
           </section>
         ` : `
-          <div class="passage-sprints-workspace">
+          <div class="passage-sprints-workspace" id="speed-panel-sprint" role="tabpanel" aria-labelledby="tab-speed-sprint">
             <div class="passage-sprints-grid">
               ${PASSAGE_SPRINT_PRESETS.map(preset => {
                 const record = store.getPassageSprintBest ? store.getPassageSprintBest(preset.seconds) : sprintBests[preset.seconds];
@@ -3177,7 +3220,7 @@ export class UIManager {
                       </div>
                       <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 8px 0 4px;">${escapeHtml(preset.title)}</h3>
                       <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">${escapeHtml(preset.desc)}</p>
-                      <p class="passage-sprint-excerpt">"${escapeHtml(preset.excerpt)}"</p>
+                      <p class="passage-sprint-excerpt">"${escapeHtml(preset.desc)}"</p>
                     </div>
                     <div>
                       ${record ? `
@@ -3342,19 +3385,20 @@ export class UIManager {
 
   openCertificateModal(initialName = null) {
     const state = store.getState();
+    const returnFocus = document.activeElement;
     let currentName = initialName || state.certificateName || 'Touch Typist';
     const modalContainer = document.getElementById('certificate-modal-container');
     if (!modalContainer) return;
 
     modalContainer.innerHTML = `
-      <div id="cert-modal-overlay" class="cert-modal-overlay">
+      <div id="cert-modal-overlay" class="cert-modal-overlay" role="dialog" aria-modal="true" aria-label="Typing certificate">
         <div class="cert-modal-card">
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
               <h2 style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin: 0 0 4px;">🏆 Verified Touch Typing Certificate</h2>
               <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Official high-resolution print-ready diploma of touch typing proficiency</p>
             </div>
-            <button id="cert-close-btn" class="btn btn-secondary btn-sm" style="font-size: 16px; padding: 6px 12px;">✕</button>
+            <button id="cert-close-btn" aria-label="Close certificate" class="btn btn-secondary btn-sm" style="font-size: 16px; padding: 6px 12px;">✕</button>
           </div>
 
           <div style="display: flex; align-items: center; gap: 12px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px;">
@@ -3407,8 +3451,11 @@ export class UIManager {
 
     const closeModal = () => {
       modalContainer.innerHTML = '';
+      returnFocus?.focus({ preventScroll: true });
     };
 
+    closeBtn.focus();
+    overlay.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
     closeBtn.addEventListener('click', closeModal);
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) closeModal();
@@ -3445,15 +3492,15 @@ export class UIManager {
   // LESSON SCREEN & RACING HUD
   // ==========================================
   startLesson(lessonData, originContext = null) {
-    document.activeElement?.blur?.();
     if (originContext) {
       this.practiceOriginContext = { ...originContext };
     } else if (this.activeScreen !== 'lesson' && this.activeScreen !== 'results') {
       this.captureOriginContext();
     }
+    document.activeElement?.blur?.();
     this.currentLessonData = lessonData;
     this.screens.lesson?.classList.toggle('speedtest-session', !!lessonData.isSpeedTest);
-    const originScreen = this.practiceOriginContext?.screen || (lessonData.isSpeedTest ? 'speedtest' : 'dashboard');
+    const originScreen = this.practiceOriginContext?.screen || practiceDestination(lessonData);
     const dest = DESTINATIONS.find(d => d.id === originScreen);
     const backLabel = document.getElementById('lesson-back-label');
     if (backLabel) backLabel.textContent = dest ? dest.label : (lessonData.isSpeedTest ? 'Speed tests' : 'Lessons');
@@ -4237,6 +4284,7 @@ export class UIManager {
     if (title) title.textContent = copy.title;
     if (description) description.textContent = copy.description;
     modal.classList.toggle('afk-pause-modal', reason === 'afk');
+    modal.querySelector('#resume-lesson-btn')?.focus({ preventScroll: true });
   }
 
   hidePauseModal() {
@@ -4371,7 +4419,7 @@ export class UIManager {
             ? 'Replay Quote (R)'
             : 'Retry Lesson (R)';
 
-      const originScreen = this.practiceOriginContext?.screen || (isSpeedTest ? 'speedtest' : isCodeLesson ? 'code' : isQuoteLesson ? 'quotes' : 'dashboard');
+      const originScreen = this.practiceOriginContext?.screen || practiceDestination(this.currentLessonData || summary);
       const originDest = DESTINATIONS.find(d => d.id === originScreen);
       const backActionLabel = originDest ? `Back to ${originDest.label}` : 'Return';
 
@@ -4435,7 +4483,7 @@ export class UIManager {
               <span class="results-status-badge">${resultBadge}</span>
               <span class="results-xp-inline">+${summary.xpEarned || 30} XP</span>
             </div>
-            <h2 class="results-title">${resultTitle}</h2>
+            <h1 class="results-title">${resultTitle}</h1>
             <p class="results-subtitle">${resultSubtitle}</p>
             ${resultStarsHtml}
             ${starGuideHtml}
@@ -4520,7 +4568,7 @@ export class UIManager {
                   ${summary.mistypedWords.map(w => `<span class="missed-word-tag">${escapeHtml(w)}</span>`).join('')}
                 </div>
               </div>
-              <button id="results-practice-missed-btn" class="btn btn-primary" style="background: #E06C75; border-color: #E06C75;">
+              <button id="results-practice-missed-btn" class="btn btn-primary">
                 <span>🔁 Practice Missed Words Only</span>
               </button>
             </div>
@@ -4662,7 +4710,7 @@ export class UIManager {
       container.innerHTML = `
         <div class="results-layout" style="text-align: center; padding: 48px 24px;">
           <div class="results-hero-card">
-            <h2 class="results-title">Practice Complete!</h2>
+            <h1 class="results-title">Practice Complete!</h1>
             <p class="results-subtitle">${escapeHtml(summary.lessonTitle || 'Lesson')} • +${summary.xpEarned || 30} XP Earned</p>
             <div class="results-metrics-grid">
               <div class="result-metric-card">
@@ -4704,6 +4752,7 @@ export class UIManager {
   // ==========================================
   renderProfile() {
     const container = this.screens.profile;
+    container?.querySelectorAll('[id^=advanced-analytics]').forEach(el => el._aaCleanup?.());
     if (!container) return;
 
     const state = store.getState();
@@ -4717,8 +4766,8 @@ export class UIManager {
           <div class="avatar-circle">⌨️</div>
           <div class="profile-info">
             <div class="profile-name-row">
-              <h2 class="profile-name">Touch Typist</h2>
-              <span class="premium-crown" style="font-size: 11px;">👑 Included</span>
+              <h1 class="profile-name page-title">Analytics</h1>
+
             </div>
             <p class="profile-level-badge">Level ${lvlInfo.currentLvl} • ${lvlInfo.title}</p>
             <div class="profile-xp-bar-track">
@@ -4731,13 +4780,13 @@ export class UIManager {
         <!-- Tab Selector Bar -->
         <div class="screen-tabs-bar profile-tabs-bar" role="tablist" aria-label="Profile Views">
           <button type="button" role="tab" class="settings-nav-btn ${activeTab === 'overview' ? 'active' : ''}" data-profile-tab="overview" aria-selected="${activeTab === 'overview'}">
-            <span>📊 Performance Overview</span>
+            <span>Overview</span>
           </button>
           <button type="button" role="tab" class="settings-nav-btn ${activeTab === 'history' ? 'active' : ''}" data-profile-tab="history" aria-selected="${activeTab === 'history'}">
-            <span>⏱️ Session History</span>
+            <span>History</span>
           </button>
           <button type="button" role="tab" class="settings-nav-btn ${activeTab === 'achievements' ? 'active' : ''}" data-profile-tab="achievements" aria-selected="${activeTab === 'achievements'}">
-            <span>🏆 Diploma &amp; Badges</span>
+            <span>Achievements</span>
           </button>
         </div>
 
@@ -4828,6 +4877,8 @@ export class UIManager {
       btn.addEventListener('click', () => {
         this.profileActiveTab = btn.dataset.profileTab;
         this.renderProfile();
+        prepareScreen(container);
+        container.querySelector(`[data-profile-tab="${this.profileActiveTab}"]`)?.focus({ preventScroll: true });
       });
     });
 
@@ -4858,7 +4909,7 @@ export class UIManager {
       renderAdvancedAnalyticsDashboard(historySlot, state, this);
       // In history pane, hide scorecards, charts, and diagnostics, keeping only historyCard
       const historyCard = historySlot.querySelector('#aa-history-table-slot')?.closest('.aa-card');
-      Array.from(historySlot.children).forEach(child => {
+      Array.from(historySlot.querySelector('.aa-dashboard-root')?.children || []).forEach(child => {
         if (child !== historyCard) child.style.display = 'none';
       });
     }
@@ -4875,23 +4926,20 @@ export class UIManager {
     this.settingsActiveCategory = category;
     const container = this.screens.settings;
     if (!container) return;
-
-    container.querySelectorAll('.settings-nav-btn').forEach(btn => {
-      const isTarget = btn.dataset.settingsCategory === category;
-      btn.classList.toggle('active', isTarget);
-      btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    container.querySelectorAll('[data-settings-category]').forEach(button => {
+      const selected = button.dataset.settingsCategory === category;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', String(selected));
     });
-
     container.querySelectorAll('.settings-category-panel').forEach(panel => {
-      const cat = panel.dataset.category;
-      const isVisible = category === 'all' || cat === category;
-      panel.classList.toggle('hidden', !isVisible);
-      panel.hidden = !isVisible;
-      const accordionBtn = panel.querySelector('.settings-accordion-toggle');
-      if (accordionBtn) {
-        accordionBtn.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
-      }
+      const selected = category === 'all' || panel.dataset.category === category;
+      panel.classList.remove('hidden');
+      panel.hidden = !mobile && !selected;
+      panel.querySelector('.settings-panel-body').hidden = mobile && !selected;
+      panel.querySelector('.settings-accordion-toggle').setAttribute('aria-expanded', String(selected));
     });
+    prepareScreen(container);
   }
 
   // ==========================================
@@ -4908,7 +4956,7 @@ export class UIManager {
     container.innerHTML = `
       <div class="settings-layout">
         <div class="settings-header">
-          <h2 class="settings-title">Application Settings</h2>
+          <h1 class="settings-title page-title">Settings</h1>
           <p class="settings-subtitle">Themes, switch sound profiles, layouts, ghost racing, goals, and data backup</p>
         </div>
 
@@ -5437,10 +5485,7 @@ export class UIManager {
                 </div>
                 <div class="backup-actions-row">
                   <button id="export-backup-btn" class="btn btn-secondary btn-sm">Download Backup JSON</button>
-                  <label class="btn btn-outline btn-sm" style="cursor: pointer;">
-                    Restore JSON
-                    <input type="file" id="import-backup-file" accept=".json" style="display: none;">
-                  </label>
+                  <button type="button" id="import-backup-btn" class="btn btn-outline btn-sm">Restore JSON</button><input type="file" id="import-backup-file" accept=".json" hidden>
                 </div>
               </div>
             </div>
@@ -5460,6 +5505,9 @@ export class UIManager {
       </div>
     `;
 
+    this.switchSettingsCategory(activeCat);
+    container.querySelector('#import-backup-btn')?.addEventListener('click', () => container.querySelector('#import-backup-file').click());
+
     // Category Tabs Switching
     container.querySelectorAll('.settings-nav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -5473,7 +5521,7 @@ export class UIManager {
       btn.addEventListener('click', () => {
         const cat = btn.dataset.category;
         const isCurrent = this.settingsActiveCategory === cat;
-        this.switchSettingsCategory(isCurrent ? 'all' : cat);
+        this.switchSettingsCategory(isCurrent ? null : cat);
       });
     });
 

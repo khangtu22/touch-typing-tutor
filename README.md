@@ -111,3 +111,7 @@ Open `tests/dashboard.html` on the local server for 12 browser regression checks
 Open DevTools Console (`F12` or `Cmd+Option+I`):
 - `window.seedTypingTutorDemo()`: Instantly populates realistic progress (Level 12, unlocked lessons, streak, achievements, weak key data).
 - `window.resetTypingTutor()`: Wipes local state and restarts onboarding.
+
+## Workspace design system
+
+See [the design system and screen audit](docs/design-system.md) for shared tokens, responsive behavior, theme rules, and practice return routing. Open `tests/components-preview.html` for the component gallery and `tests/workspace.html` for all-screen browser checks. The workspace fixture keeps practice data in memory and leaves saved progress unchanged.

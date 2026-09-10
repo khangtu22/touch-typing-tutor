@@ -1,0 +1,209 @@
+/* Shared workspace composition. Game artwork and typing geometry stay in their
+   own stylesheets; controls and page structure use these same tokens everywhere. */
+body {
+  --accent-surface: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-1));
+  --accent-border: color-mix(in srgb, var(--accent-primary) 55%, var(--surface-1));
+  --border-control: color-mix(in srgb, var(--text-primary) 42%, var(--surface-2));
+  --focus-ring-color: var(--accent-primary);
+  --color-success: var(--success-teal);
+  --color-warning: var(--reward-amber);
+  --color-error: var(--error-coral);
+  --chart-wpm: var(--accent-primary);
+  --chart-raw: var(--text-secondary);
+  --chart-errors: var(--error-coral);
+}
+[hidden] { display: none !important; }
+.navigation-open { overflow: hidden; }
+.skip-link { position: fixed; top: 8px; left: 16px; z-index: 1200; transform: translateY(-160%); padding: 12px 20px; background: var(--surface-1); color: var(--text-primary); border-radius: var(--radius-control); }
+.skip-link:focus { transform: none; }
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring-color); outline-offset: 3px;
+}
+.main-content { max-width: var(--page-shell-max); padding: var(--space-6) var(--page-gutter-desktop) var(--space-8); }
+:is(.dashboard-layout, .code-arena-container, .speedtest-container, .custom-arena-layout, .quote-vault-layout, .profile-layout, .settings-layout, .arcade-lobby) {
+  width: 100%; max-width: none; margin: 0; gap: var(--space-6); min-width: 0;
+}
+:is(.custom-arena-header, .code-arena-header, .speedtest-header, .quote-vault-header, .settings-header, .arcade-lobby-header) {
+  margin: 0; padding: 0; text-align: left; min-width: 0;
+}
+:is(.page-title, .dashboard-title, .arcade-lobby-title) {
+  font: 700 var(--font-title-desktop)/1.2 var(--font-sans); letter-spacing: -.035em;
+  color: var(--text-primary); text-shadow: none; background: none; -webkit-text-fill-color: currentColor; margin: 0;
+}
+:is(.section-subtitle, .custom-arena-subtitle, .settings-subtitle, .arcade-lobby-subtitle) {
+  color: var(--text-secondary); font-size: 14px; line-height: 1.6; max-width: 64ch; margin: 8px 0 0;
+}
+.btn { font-size: var(--font-control); min-height: var(--target-min-size); min-width: var(--target-min-size); transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast); }
+.btn-primary, .btn-primary:hover { box-shadow: none; }
+:is(.btn-primary, .btn-secondary):hover, :is(.btn-primary, .btn-secondary):active { transform: none; }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-danger { background: color-mix(in srgb, var(--error-coral) 12%, var(--surface-1)); border-color: var(--error-coral); }
+.badge-accent { background: var(--accent-surface); color: var(--accent-primary); border-color: var(--accent-border); }
+.badge-coral { background: color-mix(in srgb, var(--error-coral) 12%, var(--surface-1)); color: var(--error-coral); border: 1px solid var(--error-coral); }
+:is(.code-card, .custom-editor-card, .quote-card, .profile-section-card, .settings-group-card, .aa-card, .aa-chart-card, .passage-sprint-card, .speedtest-launch-card, .speedtest-preferences) {
+  border-radius: var(--radius-card); border: 1px solid var(--border-light); background: var(--surface-1); box-shadow: none; min-width: 0;
+}
+:is(.code-card, .quote-card, .settings-group-card, .aa-card, .aa-chart-card) { padding: var(--space-5); }
+:is(.code-card, .quote-card):hover { transform: none; box-shadow: none; border-color: var(--accent-border); }
+:is(.code-card-title, .game-card-title, .card-title, .group-title, .aa-card-title) { font-size: 18px; line-height: 1.35; }
+:is(.code-card-desc, .game-card-desc, .setting-desc, .card-subtitle, .aa-card-sub) { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+:is(.field-input, .field-select, .field-textarea, .select-input, .input-field, .custom-textarea, .quote-search-input, .quote-sort-select, .aa-select, .aa-search-input, .goal-number-input, .lesson-theme-select) {
+  min-height: 44px; border: 1px solid var(--border-control); border-radius: var(--radius-control);
+  background: var(--surface-2); color: var(--text-primary); font: 400 14px/1.5 var(--font-sans); max-width: 100%;
+}
+:is(input, textarea)::placeholder { color: var(--text-secondary); opacity: 1; }
+fieldset { min-width: 0; }
+:is(.screen-tabs-bar, .settings-nav-bar, .code-lang-tabs) { gap: 8px; margin: 0; padding: 4px; min-width: 0; }
+:is(.settings-nav-btn, .code-lang-pill, .speedtest-pill, .quote-filter-btn, .aa-mode-btn, .aa-period-btn, .diff-btn, .speedtest-record-start) {
+  min-height: 44px; border-radius: var(--radius-control); font-size: 14px; line-height: 1.4;
+}
+:is(.settings-nav-btn, .code-lang-pill, .speedtest-pill, .quote-filter-btn, .aa-mode-btn, .aa-period-btn)[aria-selected="true"],
+:is(.code-lang-pill, .speedtest-pill, .quote-filter-btn, .aa-mode-btn, .aa-period-btn)[aria-pressed="true"], .settings-nav-btn.active {
+  background: var(--accent-surface); border-color: var(--accent-border); color: var(--text-primary); box-shadow: inset 0 -2px var(--accent-primary);
+}
+.screen-tabs-bar { flex-wrap: wrap; }
+.toggle-switch { width: 48px; min-height: 44px; }
+.toggle-slider { top: 9px; bottom: 9px; border-color: var(--border-control); }
+.toggle-switch input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+.toggle-switch input:disabled + .toggle-slider { opacity: .5; cursor: not-allowed; }
+.toggle-switch input:focus-visible + .toggle-slider { outline-color: var(--focus-ring-color); }
+.code-grid, .code-presets-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-5); }
+.code-search-bar { margin: 0; }
+.code-search-input-wrap { min-width: 0; }
+.code-preview-box, .preset-code-snippet {
+  font-size: 13px; line-height: 1.7; color: var(--text-secondary); background: var(--bg-base);
+  border-color: var(--border-light); border-radius: var(--radius-control); min-width: 0;
+}
+.code-preview-box::after { background: linear-gradient(transparent, var(--bg-base)); }
+.code-card-tags { flex-wrap: wrap; }
+.code-card .start-snippet-btn { white-space: normal; }
+.profile-hero-card { padding: 0; border: 0; background: none; box-shadow: none; }
+.profile-hero-card .avatar-circle, .profile-xp-bar-track { display: none; }
+.profile-level-badge { color: var(--text-secondary); font-size: 14px; margin-top: 8px; }
+.profile-xp-sub { font-size: 12px; }
+.aa-header-row, .aa-controls-group, .aa-table-toolbar { flex-wrap: wrap; gap: 12px; }
+.aa-main-title { font-size: 20px; }
+.aa-main-sub { font-size: 14px; }
+.aa-stat-val { font-size: 28px; }
+.aa-stat-label, .aa-stat-footer, .aa-card-sub, .aa-stat-unit { font-size: 12px; }
+.aa-stat-card { box-shadow: none; border-color: var(--border-light); }
+.aa-th button { min-height: 44px; text-align: left; font: inherit; }
+.aa-del-btn { min-width: 44px; min-height: 44px; }
+.table-scroll { width: 100%; overflow-x: auto; }
+.table-scroll .aa-table { min-width: 720px; }
+.heatmap-legend { gap: 8px 16px; }
+.settings-layout { display: grid; grid-template-columns: 208px minmax(0, 1fr); align-items: start; gap: 24px; }
+.settings-header { grid-column: 1 / -1; }
+.settings-nav-bar { grid-column: 1; grid-row: 2 / span 8; flex-direction: column; align-items: stretch; border: 0; overflow: visible; position: sticky; top: 104px; }
+.settings-nav-btn { justify-content: flex-start; }
+.settings-category-panel { grid-column: 2; gap: 24px; }
+.settings-group-card { gap: 24px; }
+.setting-row { gap: 16px; }
+.setting-row > div:first-child { min-width: 0; flex: 1; }
+.setting-label { font-size: 14px; line-height: 1.5; }
+.setting-row :is(select, .range-input) { max-width: min(45%, 280px); }
+.theme-card-option { min-height: 80px; gap: 12px; }
+.theme-card-option.theme-active { box-shadow: inset 0 -2px var(--accent-primary); }
+.arcade-lobby { display: flex; flex-direction: column; }
+.arcade-lobby-header { align-items: flex-start; }
+.arcade-badge-chip { display: none; }
+.arcade-recommendation { max-width: none; margin: 0; padding: 20px 24px; border-color: var(--accent-border); background: var(--accent-surface); }
+.arcade-game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.arcade-game-card { border-radius: var(--radius-card); border-color: var(--border-light); box-shadow: none; }
+.game-card-banner { height: 120px; min-height: 120px; }
+.game-card-body { padding: 24px; }
+.game-personal-best { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-secondary); }
+.game-personal-best strong { color: var(--text-primary); font-family: var(--font-mono); }
+.game-features-pills { flex-wrap: wrap; }
+.quote-vault-header { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.quote-spotlight-card { padding: 24px; margin: 0; border-radius: var(--radius-card); box-shadow: none; }
+.quote-stats-strip { gap: 16px; }
+.quote-stat-label, .quote-stat-tag, .quote-meta-chip { font-size: 12px; }
+.speedtest-title { font-size: var(--font-title-desktop); }
+.speedtest-eyebrow { display: none; }
+.speedtest-presets-bar { gap: 12px; }
+.speedtest-preferences { padding: 24px; }
+.speedtest-theme-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.speedtest-theme-option { min-height: 44px; min-width: 56px; font-size: 12px; }
+.speedtest-preview { font-size: 22px; }
+:is(.speedtest-group-label, .speedtest-language, .speedtest-record-label, .speedtest-launch-bottom p, .speedtest-preference-note, .speedtest-focus-setting p) { font-size: 12px; color: var(--text-secondary); }
+.speedtest-language { flex-wrap: wrap; }
+.passage-sprints-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.results-layout { max-width: 1040px; }
+.results-title { font-size: 28px; }
+.results-actions { flex-wrap: wrap; }
+.results-actions .btn { font-size: var(--font-control); min-height: 44px; }
+.results-xp-card, .results-mastery-card, .results-hero-card { box-shadow: none; border-radius: var(--radius-card); }
+.keyboard-notice { margin: 16px auto 0; max-width: calc(100% - 32px); padding: 10px 14px; }
+.keyboard-notice p { font-size: 12px; }
+.keyboard-notice strong { display: inline; margin-right: 6px; }
+.nav-btn { min-height: 44px; }
+.nav-btn[aria-current="page"] { box-shadow: inset 0 -2px var(--accent-primary); }
+.nav-icon-btn { width: 44px; }
+.brand-icon { color: var(--btn-primary-fg); background: var(--btn-primary-bg); }
+.drawer-content { overscroll-behavior: contain; }
+.drawer-nav-btn.nav-btn-active { color: var(--text-primary); background: var(--accent-surface); border-color: var(--accent-border); }
+.modal-card, .cert-modal-card, .custom-quote-modal-card, .shortcuts-card, .cp-card { border-radius: var(--radius-dialog); max-height: calc(100dvh - 32px); overflow-y: auto; }
+body[data-custom-theme] .keycap { background: var(--keycap-bg); }
+body[data-custom-theme] .keycap :is(.key-legend-primary, .key-legend-special, .key-legend-shift) { color: var(--keycap-legend); }
+body[data-custom-theme] #screen-lesson .char-upcoming { color: var(--typing-upcoming-color); }
+body[data-custom-theme] #screen-lesson .char-current { color: var(--text-primary); }
+body[data-custom-theme] #screen-lesson .char-correct { color: var(--success-teal); }
+body[data-custom-theme] #screen-lesson .typing-box-card { background: var(--surface-1); }
+@media (min-width: 1280px) {
+  .header-inner { max-width: 1360px; gap: 16px; }
+  .nav-center-stats { padding-left: 12px; gap: 8px; }
+  .header-xp-container { width: 56px; }
+  .header-streak-badge { display: none; }
+  .nav-actions { gap: 0; }
+  .nav-actions .nav-btn { padding-inline: 8px; gap: 6px; font-size: 14px; }
+  .nav-utilities { padding-left: 8px; gap: 2px; }
+}
+@media (max-width: 1023px) {
+  .code-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aa-scorecard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .speedtest-workspace { grid-template-columns: minmax(0, 1fr); }
+  .speedtest-preferences { display: grid; grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 767px) {
+  .main-content { padding: 24px 16px 48px; }
+  :is(.page-title, .dashboard-title, .arcade-lobby-title, .speedtest-title) { font-size: var(--font-title-mobile); }
+  :is(.code-grid, .arcade-game-grid, .passage-sprints-grid, .quote-cards-grid) { grid-template-columns: minmax(0, 1fr); }
+  .settings-layout { display: flex; gap: 16px; }
+  .settings-nav-bar { display: none; }
+  .settings-accordion-toggle { display: flex; }
+  .settings-panel-body { padding-top: 16px; }
+  .settings-category-panel { gap: 0; }
+  .setting-row { flex-wrap: wrap; }
+  .setting-row :is(select, .range-input) { max-width: 100%; width: 100%; }
+  .setting-row .toggle-switch { margin-left: auto; }
+  :is(.code-card, .quote-card, .settings-group-card, .aa-card, .aa-chart-card, .game-card-body) { padding: 20px; }
+  .speedtest-preferences { display: flex; }
+  .speedtest-launch-main, .speedtest-launch-bottom { gap: 16px; }
+  .speedtest-presets-bar, .speedtest-preset-group { flex-wrap: wrap; }
+  .speedtest-start-btn { width: 100%; }
+  .speedtest-launch-bottom > div { width: 100%; }
+  .arcade-recommendation { flex-wrap: wrap; padding: 20px; }
+  .arcade-recommendation .btn { width: 100%; }
+  .arcade-lobby { padding: 0; }
+  .aa-scorecard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aa-charts-grid, .aa-diagnostics-grid { grid-template-columns: minmax(0, 1fr); }
+  .aa-controls-group, .aa-mode-toggle, .aa-period-tabs, .aa-table-toolbar { max-width: 100%; flex-wrap: wrap; }
+  .aa-table-toolbar > :is(input,select) { width: 100%; }
+  .screen-tabs-bar { gap: 4px; }
+  .screen-tabs-bar .settings-nav-btn { padding-inline: 12px; }
+  .nav-utilities { border: 0; padding-left: 0; }
+  .header-inner { height: 64px; }
+  .nav-drawer-toggle-btn { min-width: 44px; min-height: 44px; }
+  .lesson-session-toolbar { flex-wrap: wrap; }
+  .lesson-appearance-controls { flex-wrap: wrap; }
+  .results-actions .btn { flex: 1 1 140px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-mobile-drawer, .drawer-content, .drawer-backdrop, .btn, .arcade-game-card { transition: none; }
+}
+
+.settings-accordion-toggle { gap: 12px; }
+.settings-accordion-toggle > span:first-child { flex: 1; min-width: 0; text-align: left; }
+.settings-accordion-toggle .accordion-arrow { flex: 0 0 auto; }
+.quote-tool-btn, .quote-bookmark-btn { min-width: 44px; min-height: 44px; }
