@@ -334,6 +334,19 @@ body.focus-mode-active .hud-live-metrics {
   transition: none !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  body:not(.reduced-motion) .zen-smooth-caret {
+    transition: transform 160ms cubic-bezier(0.25, 0.1, 0.25, 1),
+                width 160ms ease,
+                height 160ms ease,
+                opacity 0.12s ease !important;
+  }
+  body:not(.reduced-motion) .zen-smooth-caret .smooth-caret-box,
+  body:not(.reduced-motion) .zen-smooth-caret .smooth-caret-line {
+    transition: background 0.15s ease, box-shadow 0.15s ease !important;
+  }
+}
+
 .zen-smooth-caret .smooth-caret-box {
   position: absolute;
   inset: 0;

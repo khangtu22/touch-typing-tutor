@@ -454,6 +454,16 @@
   .typing-text-display.typing-window-animate {
     transition: none !important;
   }
+  body:not(.reduced-motion) .typing-smooth-caret {
+    transition: transform 160ms cubic-bezier(0.25, 0.1, 0.25, 1),
+                width 160ms ease,
+                height 160ms ease,
+                opacity 0.12s ease !important;
+  }
+  body:not(.reduced-motion) .typing-smooth-caret .smooth-caret-box,
+  body:not(.reduced-motion) .typing-smooth-caret .smooth-caret-line {
+    transition: background 0.15s ease, box-shadow 0.15s ease !important;
+  }
 }
 
 /* Functional caret tracking remains available with OS reduced motion;

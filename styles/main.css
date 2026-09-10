@@ -403,7 +403,9 @@ input, select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *:not(.typing-smooth-caret):not(.typing-smooth-caret *):not(.zen-smooth-caret):not(.zen-smooth-caret *),
+  *:not(.typing-smooth-caret):not(.zen-smooth-caret)::before,
+  *:not(.typing-smooth-caret):not(.zen-smooth-caret)::after {
     animation-duration: .001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .001ms !important;

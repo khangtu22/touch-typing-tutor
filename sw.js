@@ -1,8 +1,8 @@
 /**
- * KeyFlow Service Worker (v3.9.7 - interactive lesson pace and mistype timeline)
+ * KeyFlow Service Worker (v3.9.8 - smooth caret gliding fix under reduced motion)
  */
 
-const CACHE_NAME = 'keyflow-v3.9.7-lesson-chart';
+const CACHE_NAME = 'keyflow-v3.9.8-smooth-caret-fix';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -650,6 +650,10 @@ export class UIManager {
       try { typingEngine.destroy(); } catch (e) {}
       try { ghostRacer.stopRace(); } catch (e) {}
     }
+    if (this.activeScreen === 'results' && screenName !== 'results') {
+      this.disposeLessonChart?.();
+      this.disposeLessonChart = null;
+    }
 
     if (this.speakingQuoteId && typeof window !== 'undefined' && window.speechSynthesis) {
       try { window.speechSynthesis.cancel(); } catch (e) {}
