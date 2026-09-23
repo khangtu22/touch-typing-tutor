@@ -3,6 +3,8 @@
  * Bootstraps the UI, initializes sound hooks, registers offline PWA worker, and dev tools.
  */
 
+import { isDesktop, initializeDesktop } from './desktop.js';
+
 import { store, APP_VERSION } from './state.js?v=3.8.1';
 import { sound } from './sound-engine.js?v=3.8.1';
 import { UIManager } from './ui.js?v=4.0.3';
@@ -10,7 +12,7 @@ import { goalsManager } from './goals-wellness.js?v=3.8.1';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Register PWA Service Worker for Offline Execution
-  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+  if (!isDesktop() && 'serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`)
       .then((reg) => {
         console.info('KeyFlow PWA Service Worker registered:', reg.scope);
@@ -34,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Initialize UI Manager
   const ui = new UIManager();
   ui.start();
+  initializeDesktop(ui);
 
   // 4. Initialize Wellness/Goals break timer if enabled
   goalsManager.syncBreakTimer();

@@ -1,3 +1,4 @@
+import { saveDownload } from './desktop.js';
 /**
  * UI & Screen Coordinator (Expanded Suite v3.8.1 — Premium Edition)
  * Manages view routing, Custom Arena, Ghost Racing HUD, Theme live switcher,
@@ -404,11 +405,12 @@ export class UIManager {
       this.screens.lesson?.focus({ preventScroll: true });
     });
 
-    // Window Resize Handler for Smooth Caret and Viewport Alignment
+    // Window Resize Handler for Smooth Caret, Viewport Alignment and Speed Hint Positioning
     window.addEventListener('resize', () => {
       if (this.activeScreen === 'lesson' && typingEngine.currentText) {
         this.updateTypingViewport(typingEngine.currentText, typingEngine.charIndex, true);
         this.updateSmoothCaret(typingEngine.currentText, typingEngine.charIndex, true);
+        this.updateSpeedHintPositions();
       }
     });
 
@@ -3461,9 +3463,10 @@ export class UIManager {
       if (e.target === overlay) closeModal();
     });
 
-    downloadBtn.addEventListener('click', () => {
-      downloadCertificatePng(canvas, currentName);
-      this.showToast('📥 Certificate PNG downloaded!', 'teal');
+    downloadBtn.addEventListener('click', async () => {
+      if (await downloadCertificatePng(canvas, currentName)) {
+        this.showToast('📥 Certificate PNG downloaded!', 'teal');
+      }
     });
 
     printBtn.addEventListener('click', () => {
@@ -3790,8 +3793,10 @@ export class UIManager {
 
       let charSpan = '';
       const speedHint = this.speedHints && this.speedHints.get(i);
+      const isLineStart = i === 0 || (i > 0 && text[i - 1] === '\n');
+      const startClass = isLineStart ? ' hint-line-start' : '';
       const speedHintHtml = speedHint !== undefined
-        ? `<span class="char-speed-hint" aria-hidden="true">${speedHint}<span class="speed-unit">wpm</span></span>`
+        ? `<span class="char-speed-hint${startClass}" aria-hidden="true">${speedHint}<span class="speed-unit">wpm</span></span>`
         : '';
 
       if (i < currentIndex) {
@@ -3835,6 +3840,7 @@ export class UIManager {
       }
       this.updateTypingViewport(text, currentIndex);
       this.updateSmoothCaret(text, currentIndex);
+      this.updateSpeedHintPositions();
     }
 
     if (zenMode.isActive) {
@@ -3965,6 +3971,41 @@ export class UIManager {
     display.style.setProperty('--typing-window-translate', `${-windowStart * lineHeight}px`);
     if (!isSameText || forceSnap) void display.offsetHeight;
     this.typingViewportState = { text, currentIndex, windowStart };
+  }
+
+  /**
+   * Adjusts speed hint alignment near container boundaries.
+   * When a word hint appears on the first character of a line, the default
+   * transform: translateX(-50%) shifts the badge into negative coordinates,
+   * causing it to be clipped by overflow: hidden on the viewport.
+   * Detecting line boundaries dynamically allows soft-wrapped lines to
+   * cleanly align left without cropping.
+   */
+  updateSpeedHintPositions() {
+    if (!this.typingTextDisplay) return;
+    const hints = this.typingTextDisplay.querySelectorAll('.char-speed-hint');
+    if (!hints.length) return;
+
+    const displayRect = this.typingTextDisplay.getBoundingClientRect();
+    hints.forEach(hint => {
+      const charEl = hint.closest('.char-token');
+      if (!charEl) return;
+      const charRect = charEl.getBoundingClientRect();
+      const offsetLeft = charRect.left - displayRect.left;
+      const offsetRight = displayRect.right - charRect.right;
+      const hintHalfWidth = (hint.offsetWidth || 44) / 2;
+
+      if (offsetLeft < hintHalfWidth) {
+        hint.classList.add('hint-line-start');
+        hint.classList.remove('hint-line-end');
+      } else if (offsetRight < hintHalfWidth) {
+        hint.classList.add('hint-line-end');
+        hint.classList.remove('hint-line-start');
+      } else {
+        hint.classList.remove('hint-line-start');
+        hint.classList.remove('hint-line-end');
+      }
+    });
   }
 
   handleTypingError(data) {
@@ -5934,16 +5975,11 @@ export class UIManager {
     });
 
     // Export Backup
-    document.getElementById('export-backup-btn')?.addEventListener('click', () => {
-      const json = store.exportBackupJson();
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `keyflow-backup-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      this.showToast('Backup JSON exported successfully!', 'teal');
+    document.getElementById('export-backup-btn')?.addEventListener('click', async () => {
+      const blob = new Blob([store.exportBackupJson()], { type: 'application/json' });
+      if (await saveDownload(blob, `keyflow-backup-${new Date().toISOString().split('T')[0]}.json`)) {
+        this.showToast('Backup JSON exported successfully!', 'teal');
+      }
     });
 
     // Import Backup

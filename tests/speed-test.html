@@ -142,6 +142,15 @@ try {
   const activeChar = rect('.char-current');
   const viewport = rect('.typing-text-viewport');
   assert(activeChar.top >= viewport.top && activeChar.bottom <= viewport.bottom && sameRect(animatedBox, rect('.typing-box-card')), 'crossing multiple lines scrolls inside the fixed text viewport');
+  const allHints = root.querySelectorAll('.char-speed-hint');
+  for (const h of allHints) {
+    assert(h.getBoundingClientRect().left >= viewport.left - 1, 'speed hints do not clip past the left boundary of the text viewport');
+  }
+  ui.speedHints.set(0, 95);
+  ui.renderTypingText(typingEngine.currentText, typingEngine.charIndex);
+  const startHint = root.querySelector('[data-char-index="0"] .char-speed-hint');
+  assert(startHint && startHint.classList.contains('hint-line-start'), 'speed hint on the first letter of a line receives hint-line-start');
+  assert(startHint.getBoundingClientRect().left >= viewport.left - 1, 'first character speed hint does not clip past viewport left');
   const charBeforeTheme = typingEngine.charIndex;
   const boxBeforeTheme = rect('.typing-box-card');
   ui.setTypingTheme('retro');

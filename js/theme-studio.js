@@ -1,3 +1,4 @@
+import { saveDownload } from './desktop.js';
 /**
  * Custom Theme Studio
  * Allows users to create, edit, delete, export, and import custom keycap themes.
@@ -974,13 +975,7 @@ function showToast(message, type = 'info') {
  * @param {string} filename
  */
 function downloadJson(jsonStr, filename) {
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return saveDownload(new Blob([jsonStr], { type: 'application/json' }), filename);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1197,10 +1192,10 @@ export function renderThemeStudioUI(container, onThemeApplied) {
     setTimeout(() => confirm.remove(), 3000);
   }
 
-  function handleExport(theme) {
+  async function handleExport(theme) {
     const json     = themeStudio.exportTheme(theme);
     const filename = `${(theme.name || 'theme').toLowerCase().replace(/\s+/g, '_')}_keyflow.json`;
-    downloadJson(json, filename);
+    if (!await downloadJson(json, filename)) return;
     showToast(`Exported "${theme.name}" \uD83D\uDCE6`, 'success');
   }
 

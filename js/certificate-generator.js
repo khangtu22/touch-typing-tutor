@@ -1,3 +1,4 @@
+import { saveDownload } from './desktop.js';
 /**
  * High-Resolution Diploma & Certificate Generator
  * Renders print-ready (300 DPI / 2400x1600) certificates via HTML5 Canvas.
@@ -232,9 +233,8 @@ function roundRect(ctx, x, y, width, height, radius) {
  * @param {HTMLCanvasElement} canvas
  * @param {string} userName
  */
-export function downloadCertificatePng(canvas, userName = 'Touch_Typist') {
-  const link = document.createElement('a');
-  link.download = `KeyFlow-Certificate-${userName.replace(/\s+/g, '_')}.png`;
-  link.href = canvas.toDataURL('image/png', 1.0);
-  link.click();
+export async function downloadCertificatePng(canvas, userName = 'Touch_Typist') {
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return false;
+  return saveDownload(blob, `KeyFlow-Certificate-${userName.replace(/\s+/g, '_')}.png`);
 }

@@ -2,7 +2,7 @@
  * KeyFlow Service Worker (v4.0.3 - Workspace & Design System Redesign)
  */
 
-const CACHE_NAME = 'keyflow-v4.0.3-workspace-redesign';
+const CACHE_NAME = 'keyflow-v4.0.4-desktop-bridge';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -24,6 +24,7 @@ const ASSETS_TO_CACHE = [
   './styles/typing-quest.css',
   './styles/arcade-challenges.css',
   './js/app.js',
+  './js/desktop.js',
   './js/state.js',
   './js/sound-engine.js',
   './js/finger-mapping.js',

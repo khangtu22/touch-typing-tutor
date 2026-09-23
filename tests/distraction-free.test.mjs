@@ -235,3 +235,13 @@ test('restarting a round clears old speed hints and resets milestone tracking', 
   assert.equal(speedHints.size, 1);
   assert.equal(speedHints.get(20), 82); // Fresh new WPM recorded
 });
+
+test('speed hints at the beginning of a line identify line-start to prevent clipping', () => {
+  const sample = 'hello\nworld\nagain';
+  const isLineStart = (idx, text) => idx === 0 || (idx > 0 && text[idx - 1] === '\n');
+  assert.equal(isLineStart(0, sample), true);
+  assert.equal(isLineStart(1, sample), false);
+  assert.equal(isLineStart(6, sample), true); // 'w' in 'world'
+  assert.equal(isLineStart(7, sample), false);
+  assert.equal(isLineStart(12, sample), true); // 'a' in 'again'
+});

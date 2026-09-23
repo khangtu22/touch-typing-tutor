@@ -1,3 +1,4 @@
+import { saveDownload } from './desktop.js';
 /**
  * Advanced Analytics & Performance Intelligence Dashboard
  * High-DPI Canvas Charts, Interactive Hover Crosshairs & Tooltips,
@@ -1110,20 +1111,7 @@ export function exportSessionsCSV(sessions = []) {
   ];
 
   const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const todayKey = getLocalDateKey();
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `keyflow-sessions-${todayKey}.csv`;
-  link.style.display = 'none';
-
-  document.body.appendChild(link);
-  link.click();
-
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, 200);
+  return saveDownload(blob, `keyflow-sessions-${getLocalDateKey()}.csv`);
 }
 
 // ---------------------------------------------------------------------------

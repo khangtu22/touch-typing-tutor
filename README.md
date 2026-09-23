@@ -115,3 +115,15 @@ Open DevTools Console (`F12` or `Cmd+Option+I`):
 ## Workspace design system
 
 See [the design system and screen audit](docs/design-system.md) for shared tokens, responsive behavior, theme rules, and practice return routing. Open `tests/components-preview.html` for the component gallery and `tests/workspace.html` for all-screen browser checks. The workspace fixture keeps practice data in memory and leaves saved progress unchanged.
+
+## Native desktop app (macOS first)
+
+KeyFlow now includes a Tauri 2 wrapper with offline assets, persistent local progress/themes, window restoration, and a global **⌘⇧K** shortcut to bring the app forward.
+
+```sh
+npm ci
+npm run desktop:dev
+npm run desktop:mac
+```
+
+Requires Node.js, Rust, and Xcode command line tools. See [Desktop setup and packaging](docs/desktop.md) for Apple Silicon/Intel builds, installer locations, data migration, signing, and Windows/Linux packaging.

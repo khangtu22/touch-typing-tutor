@@ -687,6 +687,24 @@ body.distraction-free-collapse #screen-lesson.distraction-free-active .hud-top-r
   display: inline-flex;
 }
 
+.char-speed-hint.hint-line-start {
+  left: 0;
+  transform: none;
+}
+
+.char-speed-hint.hint-line-end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+/* Ensure the first word of the passage or words immediately after hard line breaks never crop on the left */
+.word-token:first-child > .char-token:first-child > .char-speed-hint,
+.char-newline-token + br + .word-token > .char-token:first-child > .char-speed-hint {
+  left: 0;
+  transform: none;
+}
+
 .char-speed-hint .speed-unit {
   font-size: 7.5px;
   font-weight: 600;
